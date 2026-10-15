@@ -150,22 +150,23 @@ The same page has a second mode for **organizers** (bars, workshops, pop-ups, sm
 
 - **Organizer account:** organizers sign up and log in with their own (simulated) Google account, separate from the buyer's login. No buyer sign-in is needed, and logging out of one side never logs out the other. One account belongs to one shop; an owner can invite managers and door staff, who log in with the invited e-mail and get that role. Sample accounts: `owner@rooftop88.example`, `manager@example.com`, `door.staff@example.com`. Real organizer Google sign-in needs an account type in the Worker session and is future work.
 - **Shop onboarding:** four steps (shop, tax ID, PromptPay payout account, ID document), then a simulated 3-second verification. Unverified shops can draft events but not publish. Team roles: owner, manager, door staff.
-- **Dashboard:** today's sales, net revenue, next payout, held seats, a to-do list, a 14-day sales chart, and the event list (with duplicate).
-- **Create / edit event:** 4-step wizard with a zone editor (standing, seated, table, comp), sale windows for early-bird pricing, a resale price cap (1.00–1.25×), and a live fee preview (฿5 + 3% per ticket, `ticket ฿1,000 → ฿35`). Zones that already have buyers lock their price and cannot shrink below sold + held.
-- **Event page:** zones, buyers (search, filter, CSV export with masked e-mails), resale hops, comp tickets, promo codes, announcements to ticket holders, settings, and **cancel event** (every payer is refunded exactly what they paid, once; buyers see "คืนเงินแล้ว").
+- **Navigation:** four flat tabs, หน้าแรก · งาน · เช็กอิน · ร้าน. Team, account/logout and the link to finance live under ร้าน; door staff only see เช็กอิน and ร้าน.
+- **Dashboard (หน้าแรก):** a to-do list first, then today's sales, net revenue and the next payout, the next three events with their one next step (เผยแพร่ต่อ / เปิดเช็กอิน), and a foldable 14-day sales chart.
+- **Create / edit event:** one scrolling form (ข้อมูลงาน, โซนและราคาตั๋ว, a folded การขายต่อ section) with a sticky บันทึกร่าง / เผยแพร่งาน bar, a zone editor (standing, seated, table, comp), sale windows for early-bird pricing, a resale price cap (1.00–1.25×), and a live fee preview (฿5 + 3% per ticket, `ticket ฿1,000 → ฿35`). Zones that already have buyers lock their price and cannot shrink below sold + held.
+- **Event page:** a header with the next action (เผยแพร่ต่อ, แก้ไขงาน, เช็กอิน, พักการขาย, ทำซ้ำ) and three tabs: สรุป (zones as compact rows; "แก้" edits price and quantity in place), ผู้ซื้อ (cards on a phone, a table on desktop) and จัดการ (folding sections). Covers zones, buyers (search, filter, CSV export with masked e-mails), resale hops, comp tickets, promo codes, announcements to ticket holders, settings, and **cancel event** (every payer is refunded exactly what they paid, once; buyers see "คืนเงินแล้ว").
 - **Door:** simulated scan with 8 cases (valid, used, old QR, future QR, other event, cancelled, old owner, listed) and manual check-in by name, e-mail, ticket number or last 4 phone digits.
 - **Finance:** pending / paid / fees / refunded, per-event payout date (event end + 24 h), per-ticket split for resold tickets, and a printable summary (not a tax invoice).
 
 Published organizer events appear on the buyer home page and are bought through a **simulated** PromptPay flow (events from `/api/events` still use Stripe). Buying, checking in and cancelling update both sides, so the whole loop can be shown in two minutes.
 
 **2-minute demo**
-1. Profile → organizer mode → "สมัครผู้จัดงานด้วย Google" (or "เข้าสู่ระบบ" with a sample account, e.g. the Rooftop 88 owner).
-2. Dashboard → สร้างงานใหม่ → fill the basics, start from the "บาร์" zone template, publish.
+1. Profile → organizer mode → "สมัครผู้จัดงานด้วย Google" (or "ลองด้วยบัญชีตัวอย่าง", e.g. the Rooftop 88 owner).
+2. หน้าแรก → สร้างงานใหม่ → fill the basics, start from the "บาร์ / ร้านอาหาร" zone template, เผยแพร่งาน.
 3. Switch to buyer mode, buy 2 tickets for the new event.
 4. Back in organizer mode: the dashboard sales went up; open the event → ผู้ซื้อ.
-5. หน้างาน → จำลองการสแกน: case 1 passes, case 2 ("ใช้ไปแล้ว") and case 3 ("QR เก่า") are refused with their reasons.
-6. Event → ตั้งค่า → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
-7. การเงิน: the refunded amount and the payout schedule of the other events.
+5. เช็กอิน → จำลองการสแกน: case 1 passes, case 2 ("ใช้ไปแล้ว") and case 3 ("QR เก่า") are refused with their reasons.
+6. Event → จัดการ → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
+7. ร้าน → การเงิน: the refunded amount and the payout schedule of the other events.
 
 The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer/*.test.js`.
 
