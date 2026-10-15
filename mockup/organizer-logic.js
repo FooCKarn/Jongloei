@@ -161,8 +161,50 @@ const REASONS = {
 };
 const reasonText = r => REASONS[r] || 'ตรวจสอบไม่ผ่าน';
 
+/* ---------- buyer bridge ---------- */
+
+const TZ = 'Asia/Bangkok';
+const fDate = new Intl.DateTimeFormat('th-TH', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const fTime = new Intl.DateTimeFormat('th-TH', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+const thaiDate = ms => fDate.format(ms);
+const thaiTime = ms => fTime.format(ms);
+
+const paidZones = ev => (ev.zones || []).filter(z => z.kind !== 'comp');
+const left = z => z.capacity - (z.sold || 0) - (z.held || 0);
+
+// Organizer event (satang) -> the shape of EVENTS in mockup/index.html (baht).
+function toBuyerEvent(ev) {
+  const zones = paidZones(ev);
+  const cap = zones.reduce((s, z) => s + z.capacity, 0);
+  const taken = zones.reduce((s, z) => s + (z.sold || 0) + (z.held || 0), 0);
+  const short = ev.short || String(ev.name || '').trim().split(/\s+/).slice(0, 2).join('\n').toUpperCase();
+  return {
+    id: ev.id, source: 'local', name: ev.name, short, tag: ev.category, venue: ev.venue, bg: ev.bg,
+    date: ev.startAt ? thaiDate(ev.startAt) : '', time: ev.startAt ? thaiTime(ev.startAt) : '',
+    sold: cap ? Math.floor(taken * 100 / cap) : 0, paused: ev.status === 'paused', _startAt: ev.startAt,
+    zones: zones.map(z => ({ z: z.name, p: z.price / 100, left: left(z), c: z.color, zoneId: z.id })),
+  };
+}
+
+function recordPrimarySale(ev, zoneId, qty, buyerId, ownedCount, now) {
+  if (ev.status !== 'on_sale') return { ok: false, reason: 'not_on_sale' };
+  if (!Number.isInteger(qty) || qty < 1 || qty > 4) return { ok: false, reason: 'invalid_qty' };
+  if (ownedCount + qty > (ev.params?.perUserLimit ?? 4)) return { ok: false, reason: 'over_limit' };
+  const zone = (ev.zones || []).find(z => z.id === zoneId && z.kind !== 'comp');
+  if (!zone || qty > left(zone)) return { ok: false, reason: 'sold_out' };
+  const tickets = Array.from({ length: qty }, (_, k) => ({
+    ticketId: `${ev.id}-${zone.id}-${zone.sold + k + 1}`, eventId: ev.id, zoneId: zone.id, holderId: buyerId,
+    status: 'valid', hops: [{ idx: 0, payerId: buyerId, paid: zone.price, at: now }],
+  }));
+  const zones = ev.zones.map(z => z === zone ? { ...z, sold: z.sold + qty } : z);
+  const next = { ...ev, zones };
+  if (paidZones(next).every(z => left(z) <= 0)) next.status = 'sold_out';
+  return { ok: true, event: next, tickets };
+}
+
 const OrgLogic = { toSatang, fmtBaht, serviceFee, commission, resaleCap, settleTicket, settleEvent,
-  validateZone, validateEvent, canEditZone, planCancellation, checkinResult, reasonText };
+  validateZone, validateEvent, canEditZone, planCancellation, checkinResult, reasonText,
+  thaiDate, thaiTime, toBuyerEvent, recordPrimarySale };
 globalThis.OrgLogic = OrgLogic;
 if (typeof module !== 'undefined') module.exports = OrgLogic;
 })();

@@ -204,6 +204,66 @@ test('checkinResult lets a listed ticket in', () => {
   assert.equal(L.checkinResult({ ...s, ticket: { ...s.ticket, status: 'listed' } }).valid, true);
 });
 
+/* ---------- buyer bridge ---------- */
+
+test('thaiDate and thaiTime match the buyer EVENTS format', () => {
+  const t = Date.UTC(2026, 10, 21, 12); // 19:00 in Bangkok
+  assert.equal(L.thaiDate(t), 'ส. 21 พ.ย. 2569');
+  assert.equal(L.thaiTime(t), '19:00');
+});
+
+const saleEvent = over => event({ status: 'on_sale', zones: [
+  zone({ sold: 40, held: 5, color: '#E8485A' }),
+  zone({ id: 'z9', name: 'Guest', kind: 'comp', price: 0, capacity: 10, sold: 3 }),
+], ...over });
+
+test('toBuyerEvent converts to the buyer shape without comp zones', () => {
+  const b = L.toBuyerEvent(saleEvent({ bg: 'linear-gradient(#000,#111)', venue: 'Rooftop 88', category: 'ปาร์ตี้' }));
+  assert.equal(b.id, 'org-1');
+  assert.equal(b.source, 'local');
+  assert.equal(b.zones.length, 1);
+  assert.deepEqual(b.zones[0], { z: 'Standing', p: 1000, left: 55, c: '#E8485A', zoneId: 'z1' });
+  assert.equal(b.sold, 45);
+  assert.equal(b.tag, 'ปาร์ตี้');
+  assert.equal(b.venue, 'Rooftop 88');
+  assert.equal(b.date, L.thaiDate(b._startAt));
+});
+
+test('toBuyerEvent derives a two-line poster title when short is empty', () => {
+  assert.equal(L.toBuyerEvent(saleEvent()).short, 'FRIDAY\nROOFTOP');
+  assert.equal(L.toBuyerEvent(saleEvent({ short: 'ROOF\nTOP' })).short, 'ROOF\nTOP');
+});
+
+test('recordPrimarySale adds sold seats and tickets without mutating the input', () => {
+  const ev = saleEvent();
+  const r = L.recordPrimarySale(ev, 'z1', 2, 'me', 0, NOW);
+  assert.equal(r.ok, true);
+  assert.equal(r.event.zones[0].sold, 42);
+  assert.equal(ev.zones[0].sold, 40);
+  assert.equal(r.tickets.length, 2);
+  assert.notEqual(r.tickets[0].ticketId, r.tickets[1].ticketId);
+  assert.deepEqual(r.tickets[0].hops, [{ idx: 0, payerId: 'me', paid: 100000, at: NOW }]);
+  assert.equal(r.tickets[0].holderId, 'me');
+  assert.equal(r.tickets[0].status, 'valid');
+});
+
+test('recordPrimarySale refuses to oversell or exceed the per-user limit', () => {
+  const last = saleEvent({ zones: [zone({ capacity: 10, sold: 8, held: 1 })] });
+  assert.deepEqual(L.recordPrimarySale(last, 'z1', 2, 'me', 0, NOW), { ok: false, reason: 'sold_out' });
+  assert.deepEqual(L.recordPrimarySale(saleEvent(), 'z1', 2, 'me', 3, NOW), { ok: false, reason: 'over_limit' });
+  assert.deepEqual(L.recordPrimarySale(saleEvent(), 'z1', 5, 'me', 0, NOW), { ok: false, reason: 'invalid_qty' });
+  assert.deepEqual(L.recordPrimarySale(saleEvent(), 'z1', 0, 'me', 0, NOW), { ok: false, reason: 'invalid_qty' });
+  assert.deepEqual(L.recordPrimarySale(saleEvent(), 'z1', 1.5, 'me', 0, NOW), { ok: false, reason: 'invalid_qty' });
+  assert.deepEqual(L.recordPrimarySale(saleEvent({ status: 'draft' }), 'z1', 1, 'me', 0, NOW), { ok: false, reason: 'not_on_sale' });
+  assert.deepEqual(L.recordPrimarySale(saleEvent(), 'nope', 1, 'me', 0, NOW), { ok: false, reason: 'sold_out' });
+});
+
+test('recordPrimarySale marks the event sold out when the last paid seat goes', () => {
+  const last = saleEvent({ zones: [zone({ capacity: 10, sold: 9 }), zone({ id: 'z9', kind: 'comp', price: 0, capacity: 5 })] });
+  const r = L.recordPrimarySale(last, 'z1', 1, 'me', 0, NOW);
+  assert.equal(r.event.status, 'sold_out');
+});
+
 test('reasonText has Thai text for every reason', () => {
   for (const r of ['unknown_ticket', 'wrong_event', 'cancelled', 'event_ended', 'used', 'refunded', 'not_owner', 'expired_qr', 'future_qr']) {
     assert.match(L.reasonText(r), /[ก-๙]/);
