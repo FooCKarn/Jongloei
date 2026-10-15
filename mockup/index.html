@@ -316,6 +316,8 @@ body{padding:0}
 .org-tip{position:absolute;top:0;background:var(--ink);color:var(--surface);border-radius:10px;padding:6px 10px;font-size:13px;pointer-events:none;white-space:nowrap}
 .org-table{width:100%;border-collapse:collapse;margin-top:8px}.org-table th,.org-table td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}.org-table td{text-align:right}
 .org-evcard .top{display:grid;grid-template-columns:64px 1fr;gap:12px}
+.org-swatch{width:44px;height:44px;border-radius:12px;border:2px solid transparent;cursor:pointer}.org-swatch.on{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
+.org-wiz .field input:disabled,.org-wiz .field select:disabled{opacity:.6}
 .org-progress{display:flex;gap:6px}.org-progress i{flex:1;height:6px;border-radius:9px;background:var(--line)}.org-progress i.on{background:var(--red)}
 </style>
 
@@ -516,7 +518,9 @@ function go(screen,reset){
   else S.stack.push(screen);
   render();
 }
-function back(){stopTimers();if(S.stack.length>1)S.stack.pop();render()}
+function back(){
+  if(S.mode==='org'&&S.stack[S.stack.length-1]==='orgWizard'&&S.org.wizDirty&&!$('#sheet')){wizLeaveSheet();return}
+  stopTimers();if(S.stack.length>1)S.stack.pop();render()}
 $('#tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;closeSheet();go(b.dataset.tab,true);});
 function stopTimers(){clearInterval(S.qrTimer);clearInterval(S.payTimer);S.qrTimer=S.payTimer=null}
 
@@ -860,6 +864,7 @@ function orgEvCard(e){
       <div class="row between small muted" style="margin-top:4px"><span class="num">ขาย ${s.sold}/${s.capacity} ที่</span><span class="num">${OL.fmtBaht(s.net)}</span></div></div>
     <div class="row" style="flex-wrap:wrap">
       <button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="openEvent" data-id="${e.id}">เปิด</button>
+      ${['draft','on_sale','paused','sold_out'].includes(e.status)?`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="editEvent" data-id="${e.id}">แก้ไข</button>`:''}
       <button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="evDuplicate" data-id="${e.id}">ทำซ้ำ</button>
       ${['on_sale','sold_out'].includes(e.status)?`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="gate" data-id="${e.id}">หน้างาน</button>`:''}</div></div>`;
 }
@@ -982,6 +987,220 @@ function orgOnboardStep(ob){
     <span class="pill warn" style="align-self:flex-start">จำลอง: ไฟล์ไม่ถูกอัปโหลด ระบบอนุมัติให้ใน 3 วินาที</span>`;
 }
 
+/* ---------- organizer: create / edit event wizard ---------- */
+const WIZ_STEPS=['ข้อมูลงาน','โซนตั๋ว','กติกาตั๋ว','ตรวจและเผยแพร่'];
+const ZONE_KINDS=[['standing','ยืน (Standing)'],['seated','ที่นั่ง'],['table','โต๊ะ'],['comp','บัตรเชิญ (ฟรี)']];
+const ZONE_COLORS=[['#E8485A','แดงอ่อน'],['#A00018','แดงเข้ม'],['#4A0010','น้ำตาลแดง'],['#B86B12','ส้มทอง'],['#2B4C7E','น้ำเงิน']];
+const EV_CATS=['ปาร์ตี้','คอนเสิร์ต','เทศกาล','แฟนมีตติ้ง','สแตนด์อัป','workshop'];
+const WIZ_TEMPLATES={
+  bar:[['Standing','standing',500,100],['โต๊ะ 4 ที่','table',3000,10,4]],
+  workshop:[['ที่นั่ง workshop','seated',1500,12]],
+  concert:[['Standing','standing',1500,200],['Seat','seated',2500,100],['VIP','seated',4500,20]],
+};
+const toLocalInput=ms=>ms?new Date(ms+7*HOUR).toISOString().slice(0,16):'';
+const fromLocalInput=s=>s?Date.parse(s+':00Z')-7*HOUR:null;
+const newZoneId=()=>'z'+Math.random().toString(36).slice(2,7);
+function mkZone(name,kind,baht,cap,seats,i){
+  return {id:newZoneId(),name,kind,price:Math.round(baht*100),capacity:cap,sold:0,held:0,seatsPerUnit:seats||null,saleStartAt:null,saleEndAt:null,color:ZONE_COLORS[(i||0)%ZONE_COLORS.length][0]};
+}
+// the published copy of the event being edited (null for new events and drafts)
+function wizOrig(){const d=S.org.draft;const e=d&&orgEv(d.id);return e&&e.status!=='draft'?e:null}
+const origZone=z=>{const o=wizOrig();return o&&o.zones.find(x=>x.id===z.id)};
+const zoneLocked=z=>{const oz=origZone(z);return !!oz&&(oz.sold||0)+(oz.held||0)>0};
+const lockReason=z=>OL.canEditZone(origZone(z),{price:origZone(z).price+1}).reason;
+
+// reads the inputs of the current step into S.org.draft
+function wizCollect(){
+  const o=S.org,d=o.draft;if(!d||!document.getElementById('w-name')&&o.wizStep===1)return;
+  const g=id=>document.getElementById(id);
+  if(o.wizStep===1){
+    d.name=val('w-name');d.short=val('w-short').replace(/\\n/g,'\n');d.category=val('w-cat')||d.category;d.description=g('w-desc').value;d.venue=val('w-venue');d.mapUrl=val('w-map');
+    d.startAt=fromLocalInput(val('w-start'));d.endAt=fromLocalInput(val('w-end'));d.doorsAt=fromLocalInput(val('w-doors'));
+  }else if(o.wizStep===2){
+    d.zones.forEach((z,i)=>{
+      if(!g('z'+i+'-name'))return;
+      z.name=val('z'+i+'-name');
+      if(!g('z'+i+'-price').disabled){
+        z.kind=val('z'+i+'-kind');z._priceText=g('z'+i+'-price').value.trim();
+        const p=OL.toSatang(z._priceText);z.price=z.kind==='comp'?0:Number.isNaN(p)?0:p;
+      }
+      const cap=g('z'+i+'-cap').value.trim();z.capacity=cap===''?0:Number(cap);if(Number.isNaN(z.capacity))z.capacity=0;
+      const seats=g('z'+i+'-seats');z.seatsPerUnit=z.kind==='table'&&seats?Number(seats.value)||0:null;
+      z.saleStartAt=fromLocalInput(val('z'+i+'-open'));z.saleEndAt=fromLocalInput(val('z'+i+'-close'));z.color=val('z'+i+'-color')||z.color;
+    });
+  }else if(o.wizStep===3){
+    d.params.resaleEnabled=g('w-resale').checked;d.params.capMultiplier=Math.round(Number(g('w-capm').value))/100;
+  }
+}
+function wizErrors(){
+  const d=S.org.draft,out={...OL.validateEvent(d,Date.now()).errors};
+  if(wizOrig())delete out.startAt;                    // already-running events keep their start date
+  d.zones.forEach((z,i)=>{const oz=origZone(z);if(!oz)return;
+    const c=OL.canEditZone(oz,{capacity:z.capacity});if(!c.ok)out[`zones.${i}.capacity`]=c.reason});
+  return out;
+}
+const ERR_FIELD={name:'w-name',startAt:'w-start',endAt:'w-end',capMultiplier:'w-capm',zones:'zones'};
+const ZERR_FIELD={name:'name',price:'price',capacity:'cap',seatsPerUnit:'seats',saleStartAt:'open',saleEndAt:'close'};
+function errField(key){const m=/^zones\.(\d+)\.(\w+)$/.exec(key);return m?`z${m[1]}-${ZERR_FIELD[m[2]]}`:ERR_FIELD[key]}
+const errStep=key=>key.startsWith('zones')?2:key==='capMultiplier'?3:1;
+function wizPaint(){
+  const errs=S.org.wizShow?wizErrors():{},by={};
+  for(const [k,m] of Object.entries(errs))by[errField(k)]=m;
+  document.querySelectorAll('.org-wiz .hint.err').forEach(el=>{const id=el.id.replace(/-err$/,'');el.textContent=by[id]||'';
+    const inp=document.getElementById(id);if(inp){if(by[id])inp.setAttribute('aria-invalid','true');else inp.removeAttribute('aria-invalid')}});
+}
+function zoneTotals(d){
+  let cap=0,rev=0,fees=0;
+  for(const z of d.zones){const c=Number.isInteger(z.capacity)?z.capacity:0,p=Number.isInteger(z.price)?z.price:0;
+    cap+=c;if(z.kind!=='comp'){rev+=p*c;fees+=OL.serviceFee(p)*(p>0?c:0)}}
+  return {cap,rev,fees,net:rev-fees};
+}
+function wizSummaryHtml(d){
+  const t=zoneTotals(d),B=OL.fmtBaht;
+  return `<dl class="kv card num" style="margin:0"><dt>ความจุรวม</dt><dd>${t.cap} ที่</dd><dt>รายได้สูงสุดที่เป็นไปได้</dt><dd>${B(t.rev)}</dd>
+    <dt>ค่าบริการ (฿5 + 3% ต่อใบ)</dt><dd>${B(t.fees)}</dd><dt style="font-weight:600;color:var(--ink)">รายรับสุทธิสูงสุด</dt><dd style="font-weight:700;color:var(--red)">${B(t.net)}</dd></dl>`;
+}
+function capExample(d){
+  const z=d.zones.find(x=>x.kind!=='comp'&&x.price>0),face=z?z.price:100000,cap=OL.resaleCap(face,d.params.capMultiplier);
+  return `ตั๋ว ${OL.fmtBaht(face)} ขายต่อได้สูงสุด ${OL.fmtBaht(cap)} · ผู้ขายถูกหัก 6% = ${OL.fmtBaht(OL.commission(cap))}`;
+}
+function wizLive(){
+  const o=S.org;wizCollect();o.wizDirty=true;
+  const s=document.getElementById('wiz-summary');if(s)s.innerHTML=wizSummaryHtml(o.draft);
+  const x=document.getElementById('w-cap-example');if(x)x.textContent=capExample(o.draft);
+  const p=document.getElementById('wiz-preview');if(p)p.innerHTML=wizPreviewInner(o.draft);
+  const lab=document.getElementById('w-capm-val');if(lab)lab.textContent=o.draft.params.capMultiplier.toFixed(2)+' เท่า';
+  const c=document.getElementById('w-desc-count');if(c)c.textContent=document.getElementById('w-desc').value.length+'/1000';
+  wizPaint();
+}
+$('#device').addEventListener('input',e=>{if(e.target.closest('.org-wiz'))wizLive()});
+window.addEventListener('beforeunload',e=>{if(S.org&&S.org.wizDirty&&S.stack[S.stack.length-1]==='orgWizard'){e.preventDefault();e.returnValue=''}});
+
+function wizStep1(d,errs){
+  return `${fld('w-name','ชื่องาน',{value:d.name,err:errs.name,attrs:'maxlength="80"'})}
+  ${fld('w-short','ชื่อย่อบนโปสเตอร์ (ไม่บังคับ)',{value:(d.short||'').replace(/\n/g,'\\n'),hint:'พิมพ์ \\n เพื่อขึ้นบรรทัดใหม่ เช่น ROOFTOP\\nFRIDAY'})}
+  ${fld('w-cat','หมวด',{value:d.category,options:EV_CATS.map(c=>[c,c])})}
+  <div class="field"><label for="w-desc">รายละเอียด <span class="muted small" id="w-desc-count">${d.description.length}/1000</span></label><textarea id="w-desc" rows="4" maxlength="1000" aria-describedby="w-desc-err">${esc(d.description)}</textarea><span class="hint err" id="w-desc-err"></span></div>
+  ${fld('w-venue','สถานที่',{value:d.venue})}
+  ${fld('w-map','ลิงก์แผนที่ (ไม่บังคับ)',{value:d.mapUrl,type:'url',hint:'ลิงก์ Google Maps'})}
+  ${fld('w-start','วันเวลาเริ่มงาน',{value:toLocalInput(d.startAt),type:'datetime-local',err:errs.startAt})}
+  ${fld('w-end','วันเวลาจบงาน',{value:toLocalInput(d.endAt),type:'datetime-local',err:errs.endAt})}
+  ${fld('w-doors','ประตูเปิด (ไม่บังคับ)',{value:toLocalInput(d.doorsAt),type:'datetime-local'})}
+  <div class="field"><span class="eyebrow" id="w-poster-l">โปสเตอร์</span><div class="row" role="group" aria-labelledby="w-poster-l" style="flex-wrap:wrap">
+    ${POSTERS.map((bg,i)=>`<button type="button" class="org-swatch ${d.bg===bg?'on':''}" style="background:${bg}" data-o="wizPoster" data-i="${i}" aria-label="โปสเตอร์แบบที่ ${i+1}" aria-pressed="${d.bg===bg}"></button>`).join('')}</div></div>`;
+}
+function wizZoneCard(z,i,errs,n){
+  const locked=zoneLocked(z),e=k=>errs[`zones.${i}.${k}`];
+  const priceText=z._priceText!==undefined?z._priceText:(z.price?String(z.price/100):'');
+  return `<div class="card org-zone" data-i="${i}" style="display:flex;flex-direction:column;gap:10px">
+    <div class="row between"><b style="display:flex;gap:8px;align-items:center"><span style="width:12px;height:12px;border-radius:4px;background:${z.color}"></span>โซน ${i+1}</b>
+      <span class="row" style="gap:4px"><button class="iconbtn" data-o="wizZoneUp" data-i="${i}" aria-label="เลื่อนโซน ${i+1} ขึ้น" ${i===0?'disabled':''}>↑</button>
+      <button class="iconbtn" data-o="wizZoneDown" data-i="${i}" aria-label="เลื่อนโซน ${i+1} ลง" ${i===n-1?'disabled':''}>↓</button>
+      <button class="iconbtn" data-o="wizZoneDel" data-i="${i}" aria-label="ลบโซน ${i+1}" ${locked?'disabled':''}><svg><use href="#i-x"/></svg></button></span></div>
+    ${fld(`z${i}-name`,'ชื่อโซน',{value:z.name,err:e('name'),attrs:'maxlength="40"'})}
+    ${fld(`z${i}-kind`,'ประเภท',{value:z.kind,options:ZONE_KINDS,attrs:locked?'disabled':''})}
+    ${fld(`z${i}-price`,'ราคา (บาท)',{value:priceText,err:e('price'),attrs:`inputmode="decimal" ${locked||z.kind==='comp'?'disabled':''}`,hint:locked?lockReason(z):z.kind==='comp'?'บัตรเชิญไม่มีราคา':''})}
+    ${fld(`z${i}-cap`,z.kind==='table'?'จำนวนโต๊ะ':'จำนวนที่ขาย',{value:String(z.capacity||''),err:e('capacity'),attrs:'inputmode="numeric"'})}
+    ${z.kind==='table'?fld(`z${i}-seats`,'ที่นั่งต่อโต๊ะ',{value:String(z.seatsPerUnit||''),err:e('seatsPerUnit'),hint:'ผู้ซื้อ 1 คนจ่ายยอดเดียวต่อโต๊ะ',attrs:'inputmode="numeric"'}):''}
+    ${fld(`z${i}-open`,'เปิดขาย (ไม่บังคับ)',{value:toLocalInput(z.saleStartAt),type:'datetime-local',err:e('saleStartAt')})}
+    ${fld(`z${i}-close`,'ปิดขาย (ไม่บังคับ)',{value:toLocalInput(z.saleEndAt),type:'datetime-local',err:e('saleEndAt'),hint:'ทำ Early Bird ได้ด้วยการสร้างสองโซนที่ปิดขายคนละเวลา'})}
+    ${fld(`z${i}-color`,'สีโซน',{value:z.color,options:ZONE_COLORS})}
+  </div>`;
+}
+function wizStep2(d,errs){
+  return `${wizOrig()?'':`<div class="chips" role="group" aria-label="แม่แบบโซน"><span class="small muted" style="align-self:center">เริ่มจากแม่แบบ:</span>
+    <button class="chip" data-o="wizTemplate" data-t="bar">บาร์ / ร้านอาหาร</button><button class="chip" data-o="wizTemplate" data-t="workshop">Workshop</button><button class="chip" data-o="wizTemplate" data-t="concert">คอนเสิร์ต</button></div>`}
+  <span class="hint err" id="zones-err" role="alert">${esc(errs.zones||'')}</span>
+  ${d.zones.map((z,i)=>wizZoneCard(z,i,errs,d.zones.length)).join('')}
+  <button class="btn plain" data-o="wizAddZone"><svg width="18" height="18"><use href="#i-plus"/></svg>เพิ่มโซน</button>
+  <div id="wiz-summary" aria-live="polite">${wizSummaryHtml(d)}</div>`;
+}
+function wizStep3(d,errs){
+  const p=d.params;
+  return `<label class="card row between" for="w-resale" style="cursor:pointer"><span><b>เปิดให้ขายต่อในระบบ</b><br><span class="small muted">ผู้ซื้อลงขายต่อได้เฉพาะบนแพลตฟอร์ม ผู้จัดไม่เสียเงินเพิ่มและไม่ได้ส่วนแบ่ง</span></span>
+    <input type="checkbox" id="w-resale" ${p.resaleEnabled?'checked':''} style="width:22px;height:22px"></label>
+  <div class="field"><label for="w-capm">เพดานราคาขายต่อ <b id="w-capm-val">${p.capMultiplier.toFixed(2)} เท่า</b></label>
+    <input id="w-capm" type="range" min="100" max="125" step="5" value="${Math.round(p.capMultiplier*100)}" aria-describedby="w-capm-err w-cap-example">
+    <span class="hint" id="w-cap-example">${capExample(d)}</span><span class="hint err" id="w-capm-err" role="alert">${esc(errs.capMultiplier||'')}</span></div>
+  <div class="card small" id="wiz-locked" style="display:flex;flex-direction:column;gap:6px"><b>กติกาที่ระบบกำหนด (เดโมแก้ไม่ได้)</b>
+    <span>• หน่วงขายต่อ 6 ชม. หลังได้ตั๋ว — กันคนกดซื้อแล้วพลิกขายทันที</span>
+    <span>• ปิดการโอน 1 ชม. ก่อนงานเริ่ม — ให้หน้างานตรวจเจ้าของตั๋วได้แน่นอน</span>
+    <span>• ซื้อได้ไม่เกิน 4 ใบต่อคน — ลดการกวาดตั๋ว</span>
+    <span>• ร้านได้รับเงิน 24 ชม. หลังงานจบ — เผื่อยกเลิกหรือมีข้อพิพาท</span></div>
+  <div class="card small"><b>นโยบายที่ผู้ซื้อเห็นก่อนจ่าย</b><br><span class="muted">ยกเลิกงาน: คืนเงินอัตโนมัติเต็มจำนวน · ไม่มาร่วมงาน: ไม่คืนเงิน</span></div>`;
+}
+function wizStep4(d,errs){
+  const sh=S.org.shop,keys=Object.keys(errs),t=zoneTotals(d);
+  const unverified=sh.verification!=='verified';
+  return `<dl class="kv card" style="margin:0"><dt>ชื่องาน</dt><dd>${esc(d.name||'—')}</dd><dt>วันเวลา</dt><dd>${d.startAt?OL.thaiDate(d.startAt)+' · '+OL.thaiTime(d.startAt)+' น.':'—'}</dd>
+    <dt>สถานที่</dt><dd>${esc(d.venue||'—')}</dd><dt>โซน</dt><dd>${d.zones.length} โซน · ${t.cap} ที่</dd>
+    <dt>ขายต่อ</dt><dd>${d.params.resaleEnabled?'เปิด · ไม่เกิน '+d.params.capMultiplier.toFixed(2)+' เท่า':'ปิด'}</dd></dl>
+  ${wizSummaryHtml(d)}
+  ${keys.length?`<div class="card" role="alert"><b>ต้องแก้ ${keys.length} เรื่องก่อนเผยแพร่</b><ul style="margin:6px 0 0;padding-left:18px">${keys.map(k=>`<li>${esc(errs[k])} <button class="linkbtn" data-o="wizJump" data-step="${errStep(k)}" data-id="${errField(k)}">ไปแก้</button></li>`).join('')}</ul></div>`:''}
+  ${unverified?'<div class="card small" role="status"><b>เผยแพร่ได้หลังยืนยันร้าน</b><br><span class="muted">บันทึกเป็นร่างไว้ก่อนได้ ระบบจะแจ้งเมื่อยืนยันเสร็จ</span></div>':''}
+  <button class="btn" data-o="wizPublish" ${unverified?'disabled':''}>${wizOrig()?'บันทึกการแก้ไข':'เผยแพร่งาน'}</button>`;
+}
+function wizPreviewInner(d){
+  const ev={bg:d.bg,tag:d.category,short:d.short||(d.name||'ชื่องาน').split(/\s+/).slice(0,2).join('\n').toUpperCase()};
+  return `<span class="eyebrow">ผู้ซื้อจะเห็นแบบนี้</span>${poster(ev,'lg')}
+    <div><b style="font-size:17px">${esc(d.name||'ชื่องาน')}</b><div class="small muted">${d.startAt?OL.thaiDate(d.startAt)+' · '+OL.thaiTime(d.startAt)+' น.':'ยังไม่กำหนดวัน'}</div><div class="small muted">${esc(d.venue||'ยังไม่ระบุสถานที่')}</div></div>
+    ${d.zones.filter(z=>z.kind!=='comp').map(z=>`<div class="row between small"><span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${z.color};margin-right:6px"></span>${esc(z.name||'โซน')}</span><b class="num">${z.price?OL.fmtBaht(z.price):'—'}</b></div>`).join('')}`;
+}
+const wizPreview=d=>`<div id="wiz-preview" style="display:flex;flex-direction:column;gap:10px">${wizPreviewInner(d)}</div>`;
+function wizDone(){
+  const d=S.org.draft,base=location.origin&&location.origin!=='null'?location.origin:'https://jongloei.example';
+  return `<div class="narrow"><div class="hero-ok"><div class="big"><svg><use href="#i-check"/></svg></div><h1 style="font-size:21px">${wizOrig()&&S.org.wizEdited?'บันทึกการแก้ไขแล้ว':'เผยแพร่งานแล้ว'}</h1>
+    <p class="small muted" style="margin:0">${esc(d.name)} ขึ้นหน้าแรกของผู้ซื้อแล้ว</p></div>
+    <div class="wallet-addr"><span class="mono">${base}/e/${esc(d.id)}</span><button class="iconbtn" data-o="copyLink" data-id="${esc(d.id)}" aria-label="คัดลอกลิงก์งาน"><svg><use href="#i-copy"/></svg></button></div>
+    <span class="pill warn" style="align-self:center">ลิงก์จำลอง</span>
+    <button class="btn" data-o="wizBuyerView">ดูหน้างานแบบผู้ซื้อ</button>
+    <button class="btn plain" data-o="openEvent" data-id="${esc(d.id)}">จัดการงานนี้</button>
+    <button class="btn plain" data-o="wizToDash">กลับภาพรวม</button></div>`;
+}
+function wizUpsert(){
+  const o=S.org,d=JSON.parse(JSON.stringify(o.draft)),cur=orgEv(d.id);
+  d.zones.forEach(z=>{const c=cur&&cur.zones.find(x=>x.id===z.id);if(c){z.sold=c.sold;z.held=c.held}});
+  if(cur&&cur.status!=='draft')d.status=cur.status;
+  const i=o.events.findIndex(e=>e.id===d.id);if(i<0)o.events.push(d);else o.events[i]=d;
+  refreshEvents();return d;
+}
+function wizLeaveSheet(){
+  sheet(`<h2 style="font-size:19px">ยังไม่ได้บันทึก</h2><p class="small muted" style="margin:0">ต้องการเก็บสิ่งที่กรอกไว้เป็นร่างไหม</p>
+    <button class="btn" data-o="wizLeaveSave">บันทึกร่าง</button><button class="btn plain" data-o="wizLeaveDiscard">ทิ้งการแก้ไข</button><button class="btn plain" data-act="close">กรอกต่อ</button>`);
+}
+
+const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
+Object.assign(ORG_ACTIONS,{
+  wizNext(){
+    wizCollect();const o=S.org,errs=wizErrors(),mine=Object.keys(errs).filter(k=>errStep(k)===o.wizStep);
+    if(mine.length){o.wizShow=true;S.focus=errField(mine[0]);render();return}
+    wizGo(o.wizStep+1);
+  },
+  wizBack(){wizCollect();if(S.org.wizStep>1)wizGo(S.org.wizStep-1);else back()},
+  wizGoto(el){wizGo(+el.dataset.step)},
+  wizJump(el){wizCollect();S.org.wizStep=+el.dataset.step;S.org.wizShow=true;S.focus=el.dataset.id;render()},
+  wizPoster(el){wizCollect();S.org.draft.bg=POSTERS[+el.dataset.i];S.org.wizDirty=true;render()},
+  wizTemplate(el){wizCollect();S.org.draft.zones=WIZ_TEMPLATES[el.dataset.t].map((t,i)=>mkZone(t[0],t[1],t[2],t[3],t[4],i));S.org.wizDirty=true;render()},
+  wizAddZone(){wizCollect();const d=S.org.draft;d.zones.push(mkZone('','standing',0,0,null,d.zones.length));d.zones[d.zones.length-1].price=0;S.org.wizDirty=true;render()},
+  wizZoneDel(el){wizCollect();S.org.draft.zones.splice(+el.dataset.i,1);S.org.wizDirty=true;render()},
+  wizZoneUp(el){wizCollect();const z=S.org.draft.zones,i=+el.dataset.i;if(i>0){[z[i-1],z[i]]=[z[i],z[i-1]];S.org.wizDirty=true;render()}},
+  wizZoneDown(el){wizCollect();const z=S.org.draft.zones,i=+el.dataset.i;if(i<z.length-1){[z[i+1],z[i]]=[z[i],z[i+1]];S.org.wizDirty=true;render()}},
+  wizSaveDraft(){wizCollect();wizUpsert();S.org.wizDirty=false;save();toast('บันทึกร่างแล้ว')},
+  wizPublish(){
+    wizCollect();const o=S.org,errs=wizErrors(),keys=Object.keys(errs);
+    if(o.shop.verification!=='verified'){toast('เผยแพร่ได้หลังยืนยันร้าน');return}
+    if(keys.length){o.wizShow=true;toast('ยังมี '+keys.length+' เรื่องที่ต้องแก้ก่อนเผยแพร่');render();return}
+    const edited=!!wizOrig();const d=o.draft;if(!edited)d.status='on_sale';
+    const saved=wizUpsert();d.status=saved.status;o.wizEdited=edited;o.wizDirty=false;o.wizStep=5;render();
+  },
+  wizBuyerView(){const id=S.org.draft.id;setMode('buyer');S.ev=id;S.zone=Math.max(0,evById(id).zones.findIndex(z=>z.left>0));S.qty=1;go('event')},
+  wizToDash(){S.org.wizStep=1;S.stack=['orgDash'];S.tab='orgDash';render()},
+  copyLink(el){const link=(location.origin&&location.origin!=='null'?location.origin:'https://jongloei.example')+'/e/'+el.dataset.id;
+    try{navigator.clipboard.writeText(link).then(()=>toast('คัดลอกลิงก์แล้ว'),()=>toast(link))}catch(_){toast(link)}},
+  wizLeaveSave(){wizCollect();wizUpsert();S.org.wizDirty=false;save();closeSheet();back()},
+  wizLeaveDiscard(){S.org.wizDirty=false;closeSheet();back()},
+});
+
 const ORG_VIEWS={
 orgWelcome(){
   appbar('สำหรับผู้จัดงาน');
@@ -1080,7 +1299,22 @@ orgEvents(){
   <div class="chips" role="group" aria-label="กรองตามสถานะ">${filters.map(([k,v])=>`<button class="chip ${f===k?'on':''}" data-o="evFilter" data-v="${k}" aria-pressed="${f===k}">${v}</button>`).join('')}</div>
   ${list.length?`<div class="lgrid">${list.map(e=>orgEvCard(e)).join('')}</div>`:'<div class="empty">ไม่มีงานในหมวดนี้</div>'}`;
 },
-orgWizard(){appbar('สร้างงาน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgWizard(){
+  const o=S.org,d=o.draft;
+  if(!d){S.stack=['orgDash'];S.tab='orgDash';return VIEWS.orgDash()}
+  appbar(wizOrig()?'แก้ไขงาน':'สร้างงาน');
+  if(o.wizStep===5)return wizDone();
+  const errs=o.wizShow||o.wizStep===4?wizErrors():{};
+  const body=[null,wizStep1,wizStep2,wizStep3,wizStep4][o.wizStep](d,errs);
+  return `<div class="org-wiz cols"><div class="col">
+    <div class="chips" role="group" aria-label="ขั้นตอน">${WIZ_STEPS.map((l,i)=>`<button class="chip ${o.wizStep===i+1?'on':''}" data-o="wizGoto" data-step="${i+1}" ${o.wizStep===i+1?'aria-current="step"':''}>${i+1}. ${l}</button>`).join('')}</div>
+    <div class="org-progress" aria-hidden="true">${WIZ_STEPS.map((l,i)=>`<i class="${i<o.wizStep?'on':''}"></i>`).join('')}</div>
+    <div class="row between"><span class="small muted">ขั้นที่ ${o.wizStep} จาก 4 · ${WIZ_STEPS[o.wizStep-1]}</span><button class="linkbtn" data-o="wizSaveDraft">บันทึกร่าง</button></div>
+    ${body}
+    <div class="row"><button class="btn plain" data-o="wizBack">${o.wizStep===1?'ยกเลิก':'ย้อนกลับ'}</button>
+      ${o.wizStep<4?`<button class="btn" data-o="wizNext">ถัดไป</button>`:''}</div>
+  </div><div class="col side">${wizPreview(d)}</div></div>`;
+},
 orgEvent(){appbar('จัดการงาน');return `<div class="empty">กำลังพัฒนา</div>`},
 orgGate(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
 orgGatePick(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
