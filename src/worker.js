@@ -22,10 +22,12 @@ const SESSION_DAYS = 30;
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 const WALLET_CHAIN_ID = 43113; // Avalanche Fuji testnet, matches wallets.chain_id default
 const THIRDWEB_API = 'https://api.thirdweb.com';
-// JongloeiTicket on Avalanche Fuji (contracts/deployments/fuji.json). The relayer is a thirdweb
-// server wallet holding MINTER_ROLE and OPERATOR_ROLE; it signs and pays for every ticket write.
+// JongloeiTicket on Avalanche Fuji (contracts/deployments/fuji.json). Ticket writes are sent from
+// the ERC-4337 smart account of the thirdweb server wallet jongloei-relayer (signer 0xDb5C...B260):
+// Fuji has no EIP-7702, so sending from the signer address fails with "Chain does not support
+// EIP-7702". The smart account holds MINTER_ROLE and OPERATOR_ROLE; thirdweb sponsors its gas.
 const TICKET_CONTRACT = '0xef36fcbdED316dEd4367636a6c85d73bFD5e2735';
-const RELAYER_ADDRESS = '0xDb5C1E726f8777694DF438c96dcCB57055f6B260';
+const RELAYER_ADDRESS = '0x8f79c4dE47287b129E2B7279Ae34c779D1eFA952';
 const FUJI_EXPLORER = 'https://testnet.snowtrace.io';
 
 export default {

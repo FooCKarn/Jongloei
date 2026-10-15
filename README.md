@@ -186,7 +186,7 @@ The Stripe button works only when the app is opened from the deployed Worker URL
    `await (await fetch('/api/dev/test-mint', { method: 'POST', body: JSON.stringify({ eventId: 1 }) })).json()`
 3. The response has the transaction status and Snowtrace links for the transaction and your wallet.
 
-If it fails with a gas error, the relayer needs a little test AVAX or gas sponsorship enabled in the thirdweb project.
+Writes go from the relayer's ERC-4337 smart account (thirdweb sponsors gas). If thirdweb reports `Chain does not support EIP-7702`, the request was sent from the signer address instead of the smart account.
 
 ## Database
 
