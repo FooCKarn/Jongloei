@@ -425,7 +425,11 @@ const short=a=>a.slice(0,6)+'…'+a.slice(-4);
 
 /* ---------- saved state (this browser only) ---------- */
 const KEY='jongloei-demo-v1';
-function save(){try{localStorage.setItem(KEY,JSON.stringify({signedIn:S.signedIn,tickets:S.tickets,listings:S.listings,nextTid:S.nextTid,left:BASE_EVENTS.map(e=>e.zones.map(z=>z.left)),mode:S.mode,org:S.org}))}catch(_){}}
+function save(){
+  // S.org.shop is the live copy of the signed-in organizer's shop; keep the shops list in step before writing
+  if(S.org&&S.org.shop&&S.org.shops)S.org.shops=S.org.shops.map(s=>s.id===S.org.shop.id?S.org.shop:s);
+  try{localStorage.setItem(KEY,JSON.stringify({signedIn:S.signedIn,tickets:S.tickets,listings:S.listings,nextTid:S.nextTid,left:BASE_EVENTS.map(e=>e.zones.map(z=>z.left)),mode:S.mode,org:S.org}))}catch(_){}
+}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(!d)return;
   Object.assign(S,{signedIn:!!d.signedIn,tickets:d.tickets||[],listings:d.listings||S.listings,nextTid:d.nextTid||S.nextTid,mode:d.mode==='org'?'org':'buyer',org:d.org||null});
 }catch(_){}}
@@ -458,7 +462,10 @@ const BUYER_NAMES=['ปิยะพงษ์ ศรีสุข','ณัฐธ�
 const ORG_PARAMS={resaleEnabled:true,capMultiplier:1.25,resaleDelayH:6,transferCutoffH:1,disputeWindowH:24,perUserLimit:4};
 const DEMO_SHOP={id:'shop-demo',name:'Rooftop 88',kind:'bar',legal:'company',taxId:'0105559012345',contactLine:'@rooftop88',
   phone:'0812345678',payoutPromptPay:'0105559012345',verification:'verified',docName:'หนังสือรับรองบริษัท.pdf',
-  team:[{email:'me',role:'owner'},{email:'door.staff@example.com',role:'gate'},{email:'manager@example.com',role:'manager'}]};
+  team:[{email:'owner@rooftop88.example',role:'owner'},{email:'door.staff@example.com',role:'gate'},{email:'manager@example.com',role:'manager'}]};
+// organizer accounts are separate from the buyer's Google login; the sample shop's three team members already have one
+const DEMO_ACCOUNTS={'owner@rooftop88.example':{name:'คุณมินต์ (เจ้าของ Rooftop 88)',shopId:'shop-demo'},
+  'manager@example.com':{name:'คุณเมย์ (ผู้จัดการ)',shopId:'shop-demo'},'door.staff@example.com':{name:'พี่โด่ง (พนักงานหน้างาน)',shopId:'shop-demo'}};
 const SEED_LISTING={lid:9001,ev:'org-fri',zone:'Standing',face:1000,price:1150,seller:'0x7C1e…44Ab',transfers:0,tid:5002,orgTicketId:'org-fri-std-2'};
 
 function orgSeed(now){
@@ -466,7 +473,7 @@ function orgSeed(now){
   const buyers={};
   BUYER_NAMES.forEach((n,i)=>{buyers['b'+(i+1)]={name:n,email:'buyer'+(i+1)+'@example.com',phone:'08'+String(12345678+i*271828).slice(-8)}});
   const z=(id,name,kind,baht,capacity,sold,color,extra)=>({id,name,kind,price:baht*100,capacity,sold,held:0,color,saleStartAt:null,saleEndAt:null,seatsPerUnit:null,...extra});
-  const ev=(o)=>({short:'',description:'',mapUrl:'',cancelReason:'',params:{...ORG_PARAMS},...o});
+  const ev=(o)=>({shopId:'shop-demo',short:'',description:'',mapUrl:'',cancelReason:'',params:{...ORG_PARAMS},...o});
   const events=[
     ev({id:'org-fri',name:'Friday Rooftop Session',short:'ROOFTOP\nFRIDAY',category:'ปาร์ตี้',venue:'Rooftop 88 ทองหล่อ',bg:POSTERS[2],status:'on_sale',
       description:'ดีเจเซ็ตยาวบนดาดฟ้า วิวเมืองทั้งคืน แต่งตัวสบาย ๆ อายุ 20 ปีขึ้นไป',doorsAt:hr-HOUR/2,startAt:hr+HOUR,endAt:hr+5*HOUR,
@@ -504,11 +511,11 @@ function orgSeed(now){
   for(const t of tickets)for(const h of t.hops)if(h.paid>0)ledger.push({id:'in:'+t.ticketId+':'+h.idx,eventId:t.eventId,ticketId:t.ticketId,type:'PAYMENT_IN',amount:h.paid,party:h.payerId,status:'DONE',idempotencyKey:'in:'+t.ticketId+':'+h.idx});
   const ac=events.find(e=>e.id==='org-acoustic');
   for(const r of OL.planCancellation(ac,tickets,new Set()).refunds)ledger.push({id:r.key,eventId:ac.id,ticketId:r.ticketId,type:'REFUND_OUT',amount:r.amount,party:r.payerId,status:'DONE',idempotencyKey:r.key});
-  return {shop:null,demoShop:DEMO_SHOP,role:'owner',events,tickets,buyers,ledger,checkinLog,promos:[],announcements:[],
+  return {account:null,accounts:JSON.parse(JSON.stringify(DEMO_ACCOUNTS)),shops:[JSON.parse(JSON.stringify(DEMO_SHOP))],shop:null,role:null,authMode:'login',events,tickets,buyers,ledger,checkinLog,promos:[],announcements:[],
     oev:null,etab:'overview',evFilter:'all',draft:null,wizStep:1,wizErr:{},onboard:{step:1,data:{}},bq:'',bzone:'all',bstatus:'all',showEmails:false};
 }
 function ensureOrg(){
-  if(!S.org||!Array.isArray(S.org.events)){S.org=orgSeed(Date.now());if(!S.listings.some(l=>l.orgTicketId))S.listings.push({...SEED_LISTING})}
+  if(!S.org||!Array.isArray(S.org.events)||!S.org.accounts){S.org=orgSeed(Date.now());if(!S.listings.some(l=>l.orgTicketId))S.listings.push({...SEED_LISTING})}
   refreshEvents();
 }
 function refreshEvents(){
@@ -523,7 +530,10 @@ function setMode(mode){
   stopTimers();closeSheet();
   S.mode=mode;S.tab=mode==='org'?'orgDash':'home';S.stack=[S.tab];render();
 }
-function enterOrg(){if(!S.signedIn){openSignup('orgmode');return}setMode('org')}
+// the organizer area has its own account, so it never asks for the buyer's Google sign-in
+function enterOrg(){setMode('org')}
+const myEvents=()=>S.org.events.filter(e=>(e.shopId||'shop-demo')===S.org.shop.id);
+const myEventIds=()=>new Set(myEvents().map(e=>e.id));
 function resumeAfter(n){if(n==='orgmode')setMode('org');else go(n)}
 
 /* ---------- nav ---------- */
@@ -571,8 +581,10 @@ function guardMode(){
   const cur=S.stack[S.stack.length-1],isOrg=cur.startsWith('org');
   const reset=(s,tab)=>{S.stack=[s];S.tab=tab||s};
   if(S.mode!=='org'){if(isOrg)reset('home');return}
-  if(!isOrg)return reset('orgDash');
-  if(!S.org.shop){if(!['orgWelcome','orgOnboard'].includes(cur))reset('orgWelcome','orgDash');return}
+  // organizer sign-in is its own state: no account -> log-in screen, account without a shop -> onboarding
+  if(!S.org.account){if(cur!=='orgWelcome')reset('orgWelcome','orgDash');return}
+  if(!S.org.shop){if(cur!=='orgOnboard')reset('orgOnboard','orgDash');return}
+  if(!isOrg||cur==='orgWelcome'||cur==='orgOnboard')return reset(S.org.role==='gate'?'orgGatePick':'orgDash');
   if(S.org.role==='gate'&&!['orgGatePick','orgGate'].includes(cur))return reset('orgGatePick');
   if(S.org.role!=='owner'&&['orgFinance','orgTeam'].includes(cur))return reset('orgDash');
 }
@@ -583,7 +595,7 @@ function render(){
   const tabs=S.mode==='org'?orgTabsFor(S.org.role):BUYER_TABS;
   $('#tabbar').style.gridTemplateColumns=`repeat(${tabs.length},1fr)`;
   $('#tabbar').innerHTML=tabs.map(([k,icon,label])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}"><svg><use href="#${icon}"/></svg>${label}</button>`).join('');
-  const fullFlow=['checkout','pay','minting','orgWizard','orgOnboard'].includes(cur);
+  const fullFlow=['checkout','pay','minting','orgWizard','orgOnboard','orgWelcome'].includes(cur);
   $('#tabbar').hidden=fullFlow;
   let html=(VIEWS[cur]||VIEWS.home)();
   if(S.desk&&S.stack.length>1)html=`<div class="backrow"><button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h2 style="font-size:20px">${S.title}</h2></div>`+html;
@@ -943,22 +955,72 @@ function obCollect(){const ob=S.org.onboard,st=OB_STEPS[ob.step];Object.assign(o
 function submitShop(){
   const d=S.org.onboard.data;
   const id='shop-'+Date.now();
-  S.org.shop={id,name:d.name,kind:d.kind,legal:d.legal,taxId:d.taxId,contactLine:d.line,phone:d.phone,payoutPromptPay:d.pp,
-    docName:d.docName,verification:'pending',team:[{email:'me',role:'owner'}]};
+  const email=S.org.account.email;
+  const shop={id,name:d.name,kind:d.kind,legal:d.legal,taxId:d.taxId,contactLine:d.line,phone:d.phone,payoutPromptPay:d.pp,
+    docName:d.docName,verification:'pending',team:[{email,role:'owner'}]};
+  S.org.shops.push(shop);S.org.accounts[email].shopId=id;S.org.shop=shop;
   S.org.role='owner';S.org.onboard={step:1,data:{},err:{}};
   S.stack=['orgDash'];S.tab='orgDash';render();
-  setTimeout(()=>{const sh=S.org.shop;if(!sh||sh.id!==id||sh.verification!=='pending')return;sh.verification='verified';save();
-    if(S.mode==='org'&&['orgDash','orgEvents'].includes(S.stack[S.stack.length-1]))render();if(S.mode==='org')toast('ยืนยันร้านเรียบร้อย เผยแพร่งานได้แล้ว')},3000);
+  setTimeout(()=>{const sh=S.org.shops.find(x=>x.id===id);if(!sh||sh.verification!=='pending')return;sh.verification='verified';save();
+    if(S.mode==='org'&&S.org.shop&&S.org.shop.id===id){if(['orgDash','orgEvents'].includes(S.stack[S.stack.length-1]))render();toast('ยืนยันร้านเรียบร้อย เผยแพร่งานได้แล้ว')}},3000);
 }
-const useShop=role=>{S.org.shop=JSON.parse(JSON.stringify(S.org.demoShop));S.org.role=role;S.stack=[role==='gate'?'orgGatePick':'orgDash'];S.tab=S.stack[0];render()};
+
+/* organizer accounts: a separate (simulated) Google identity per organizer, independent of the buyer's login.
+   An account belongs to at most one shop; team members invited by an owner can log in with the invited e-mail. */
+const teamShopOf=email=>S.org.shops.find(s=>s.team.some(m=>m.email===email));
+const orgKnown=email=>!!(S.org.accounts[email]||teamShopOf(email));
+function orgLoginAs(email){
+  const o=S.org,tshop=teamShopOf(email);
+  if(!o.accounts[email])o.accounts[email]={name:email.split('@')[0],shopId:tshop?tshop.id:null};
+  const acc=o.accounts[email];
+  o.account={email,name:acc.name};
+  o.shop=(acc.shopId&&o.shops.find(s=>s.id===acc.shopId))||null;
+  const m=o.shop&&o.shop.team.find(x=>x.email===email);o.role=o.shop?(m?m.role:'owner'):null;
+  if(!o.shop)o.onboard={step:1,data:{kind:'bar',legal:'individual'},err:{}};
+  closeSheet();S.stack=[!o.shop?'orgOnboard':o.role==='gate'?'orgGatePick':'orgDash'];S.tab=S.stack[0];render();
+}
+function orgLogout(){
+  const o=S.org;o.account=null;o.shop=null;o.role=null;o.oev=null;o.draft=null;o.wizDirty=false;o.printEv=null;
+  S.stack=['orgWelcome'];S.tab='orgDash';closeSheet();render();
+}
+function orgChooser(mode){
+  S.org.authMode=mode;
+  const sample=Object.entries(S.org.accounts).filter(([e])=>DEMO_ACCOUNTS[e]);
+  sheet(`<div class="row" style="gap:12px"><svg width="40" height="40"><use href="#logo"/></svg><div><h2 style="font-size:19px">${mode==='signup'?'สมัครผู้จัดงาน':'เข้าสู่ระบบผู้จัดงาน'}</h2>
+      <div class="small muted">ด้วยบัญชี Google ของผู้จัดงาน แยกจากบัญชีผู้ซื้อ</div></div></div>
+    <span class="pill warn" style="align-self:flex-start">จำลอง: ยังไม่ได้เชื่อม Google จริงสำหรับผู้จัดงาน</span>
+    ${fld('og-email','อีเมล Google',{value:'',type:'email',attrs:'autocomplete="off"'})}
+    ${mode==='signup'?fld('og-name','ชื่อของคุณ',{value:'',attrs:'autocomplete="off"'}):''}
+    <button class="btn" data-o="orgGoogle">${mode==='signup'?'สมัครและดำเนินการต่อ':'เข้าสู่ระบบ'}</button>
+    ${mode==='login'&&sample.length?`<div class="adv"><b class="small">บัญชีตัวอย่าง</b>${sample.map(([e,a])=>`<button class="btn plain" style="font-size:14px;padding:10px" data-o="orgPick" data-email="${esc(e)}">${esc(a.name)}<br><span class="small muted">${esc(e)}</span></button>`).join('')}</div>`:''}
+    <button class="btn plain" data-act="close">ปิด</button>`);
+}
+const useShop=email=>orgLoginAs(email);
+const orgAccountCard=()=>`<div class="card row between" id="org-account"><div style="min-width:0"><b>${esc(S.org.account.name)}</b><div class="small muted">${esc(S.org.account.email)} · ${ROLE_LABEL[S.org.role]}</div></div><button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="orgLogout">ออกจากระบบผู้จัดงาน</button></div>`;
 
 const ORG_ACTIONS={
   buyermode(){setMode('buyer')},
-  useDemoShop(){useShop('owner')},
-  demoGate(){useShop('gate')},
-  startOnboard(){S.org.onboard={step:1,data:{kind:'bar',legal:'individual'},err:{}};go('orgOnboard')},
+  useDemoShop(){useShop('owner@rooftop88.example')},
+  demoManager(){useShop('manager@example.com')},
+  demoGate(){useShop('door.staff@example.com')},
+  orgSignup(){orgChooser('signup')},
+  orgLogin(){orgChooser('login')},
+  orgPick(el){orgLoginAs(el.dataset.email)},
+  orgLogout(){orgLogout()},
+  orgGoogle(){
+    const o=S.org,mode=o.authMode,email=val('og-email').toLowerCase(),name=mode==='signup'?val('og-name'):'';
+    const set=(id,m)=>{const el=document.getElementById(id);if(el)el.textContent=m};
+    set('og-email-err','');set('og-name-err','');
+    if(!EMAIL_RE.test(email)){set('og-email-err','อีเมลไม่ถูกต้อง');return}
+    if(mode==='signup'){
+      if(orgKnown(email)){set('og-email-err','อีเมลนี้มีบัญชีผู้จัดงานแล้ว กดเข้าสู่ระบบแทน');return}
+      if(!name){set('og-name-err','ใส่ชื่อของคุณ');return}
+      o.accounts[email]={name,shopId:null};
+    }else if(!orgKnown(email)){set('og-email-err','ยังไม่มีบัญชีผู้จัดงานนี้ กดสมัครผู้จัดงานก่อน');return}
+    orgLoginAs(email);
+  },
   obNext(){if(obCollect())S.org.onboard.step=Math.min(4,S.org.onboard.step+1);render()},
-  obBack(){const ob=S.org.onboard;Object.assign(ob.data,OB_STEPS[ob.step].read());ob.err={};if(ob.step>1){ob.step--;render()}else back()},
+  obBack(){const ob=S.org.onboard;Object.assign(ob.data,OB_STEPS[ob.step].read());ob.err={};if(ob.step>1){ob.step--;render()}else orgLogout()},
   obSubmit(){if(obCollect())submitShop();else render()},
   team(){go('orgTeam')},
   teamInvite(){
@@ -970,7 +1032,7 @@ const ORG_ACTIONS={
   teamRemove(el){const sh=S.org.shop;sh.team=sh.team.filter(m=>m.email!==el.dataset.email||m.role==='owner');render()},
   newEvent(){
     const hr=Math.ceil(Date.now()/HOUR)*HOUR;
-    S.org.draft={id:'org-'+Date.now().toString(36),name:'',short:'',category:'ปาร์ตี้',description:'',venue:'',mapUrl:'',bg:POSTERS[0],status:'draft',cancelReason:'',
+    S.org.draft={id:'org-'+Date.now().toString(36),shopId:S.org.shop.id,name:'',short:'',category:'ปาร์ตี้',description:'',venue:'',mapUrl:'',bg:POSTERS[0],status:'draft',cancelReason:'',
       startAt:null,endAt:null,doorsAt:null,params:{...ORG_PARAMS},zones:[]};S.org.wizStep=1;S.org.wizErr={};go('orgWizard')},
   editEvent(el){const e=orgEv(el.dataset.id);S.org.draft=JSON.parse(JSON.stringify(e));S.org.wizStep=1;S.org.wizErr={};go('orgWizard')},
   evFilter(el){S.org.evFilter=el.dataset.v;render()},
@@ -1317,7 +1379,7 @@ function cancelProgressSheet(e,plan){
 
 /* ---------- organizer: gate (scan & check-in) ---------- */
 function gateStats(e){const t=evTickets(e.id);return {used:t.filter(x=>x.status==='used').length,total:t.filter(x=>['valid','listed','used'].includes(x.status)).length}}
-const gateWho=()=>S.org.role==='gate'?'door.staff@example.com':S.user.email;
+const gateWho=()=>S.org.account?S.org.account.email:'—';
 const SIM_CASES=[[1,'ตั๋วถูกต้อง'],[2,'ตั๋วที่ใช้ไปแล้ว'],[3,'QR เก่า (เกิน 60 วินาที)'],[4,'QR จากอนาคต (เกิน 15 วินาที)'],
   [5,'ตั๋วของงานอื่น'],[6,'งานที่ถูกยกเลิก'],[7,'ผู้ถือคนเก่าที่ขายต่อไปแล้ว'],[8,'ตั๋วที่กำลังลงขาย (ยังเข้าได้)']];
 function gateScan(){
@@ -1667,9 +1729,13 @@ orgWelcome(){
     <div class="card" style="display:flex;flex-direction:column;gap:6px"><b>ค่าบริการ</b>
       <span style="font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--red)">5 บาท + 3% ต่อใบ</span>
       <span class="small muted">ตั๋วราคา ฿1,000 เสียค่าบริการ ฿35 · ไม่มีค่ารายเดือน · ไม่ขายก็ไม่เสีย</span></div>
-    <button class="btn" data-o="startOnboard">สมัครเป็นผู้จัดงาน</button>
-    <button class="btn plain" data-o="useDemoShop">ใช้ร้านตัวอย่าง Rooftop 88</button>
-    <button class="linkbtn" data-o="demoGate" style="align-self:center">ดูในฐานะพนักงานหน้างาน (เดโม)</button>
+    <button class="btn" data-o="orgSignup">สมัครผู้จัดงานด้วย Google</button>
+    <button class="btn ghost" data-o="orgLogin">เข้าสู่ระบบผู้จัดงาน</button>
+    <p class="small muted" style="margin:0;text-align:center">บัญชีผู้จัดงานแยกจากบัญชีผู้ซื้อ ไม่ต้องเข้าสู่ระบบผู้ซื้อก่อน</p>
+    <div class="adv"><b class="small">ลองด้วยบัญชีตัวอย่าง (เดโม)</b>
+      <button class="btn plain" data-o="useDemoShop">เจ้าของร้าน Rooftop 88</button>
+      <button class="btn plain" data-o="demoManager">ผู้จัดการ</button>
+      <button class="btn plain" data-o="demoGate">พนักงานหน้างาน</button></div>
   </div></div>`;
 },
 orgOnboard(){
@@ -1690,7 +1756,7 @@ orgTeam(){
   return `<div class="cols">
   <div class="col">
     <div class="card" style="display:flex;flex-direction:column;gap:10px">${sh.team.map(m=>`
-      <div class="row between"><div style="min-width:0"><b>${esc(m.email==='me'?S.user.email+' (คุณ)':m.email)}</b><div class="small muted">${ROLE_LABEL[m.role]}</div></div>
+      <div class="row between"><div style="min-width:0"><b>${esc(m.email)}${S.org.account&&m.email===S.org.account.email?' (คุณ)':''}</b><div class="small muted">${ROLE_LABEL[m.role]}</div></div>
         ${m.role==='owner'?'<span class="pill grey">เจ้าของ</span>':`<button class="btn plain" style="width:auto;padding:8px 12px;font-size:13px" data-o="teamRemove" data-email="${esc(m.email)}" aria-label="ลบ ${esc(m.email)}">ลบ</button>`}</div>`).join('<hr class="sep">')}</div>
     <h2 style="font-size:16px">สิทธิ์ของแต่ละบทบาท</h2>
     <dl class="kv card small" style="margin:0"><dt>เจ้าของ</dt><dd>ทุกอย่าง รวมการเงินและทีมงาน</dd><dt>ผู้จัดการ</dt><dd>สร้าง/แก้งาน ดูยอดขาย เช็กอิน (ไม่เห็นการเงิน)</dd><dt>พนักงานหน้างาน</dt><dd>สแกนและเช็กอินเท่านั้น</dd></dl>
@@ -1707,7 +1773,7 @@ orgTeam(){
 orgDash(){
   appbar('ภาพรวม');
   const sh=S.org.shop,now=Date.now(),B=OL.fmtBaht;
-  const evs=S.org.events,counted=evs.filter(e=>['on_sale','sold_out','paused','ended'].includes(e.status));
+  const evs=myEvents(),counted=evs.filter(e=>['on_sale','sold_out','paused','ended'].includes(e.status));
   const sums=counted.map(e=>evSum(e));
   const net=sums.reduce((a,s)=>a+s.net,0),held=evs.reduce((a,e)=>a+evSum(e).held,0);
   const days=OL.salesByDay(S.org.tickets.filter(t=>counted.some(e=>e.id===t.eventId)),now,14),today=days[days.length-1];
@@ -1735,13 +1801,14 @@ orgDash(){
     ${todo.length?`<ul id="org-todo" class="org-todo card">${todo.join('')}</ul>`:'<div id="org-todo" class="card small muted">ไม่มีอะไรค้าง</div>'}</section>
   <section aria-labelledby="chart-h"><h2 id="chart-h" style="font-size:17px">ตั๋วที่ขายได้ 14 วันล่าสุด</h2>
     <div class="small muted" style="margin-bottom:6px">จำนวนตั๋ว (ใบ) ต่อวัน · นับเฉพาะการขายครั้งแรก</div>
-    ${orgChart(days)}</section>`;
+    ${orgChart(days)}</section>
+  ${orgAccountCard()}`;
 },
 orgEvents(){
   appbar('งานของฉัน');
   const f=S.org.evFilter||'all';
   const filters=[['all','ทั้งหมด'],['on_sale','เปิดขาย'],['draft','ร่าง'],['ended','จบแล้ว'],['cancelled','ยกเลิก']];
-  const list=S.org.events.filter(e=>f==='all'||e.status===f||(f==='on_sale'&&['sold_out','paused'].includes(e.status)));
+  const list=myEvents().filter(e=>f==='all'||e.status===f||(f==='on_sale'&&['sold_out','paused'].includes(e.status)));
   return `<div class="row between"><h1 class="d-only" style="font-size:24px">งานของฉัน</h1>
     <button class="btn" style="width:auto;padding:10px 16px;font-size:15px" data-o="newEvent">สร้างงานใหม่</button></div>
   <div class="chips" role="group" aria-label="กรองตามสถานะ">${filters.map(([k,v])=>`<button class="chip ${f===k?'on':''}" data-o="evFilter" data-v="${k}" aria-pressed="${f===k}">${v}</button>`).join('')}</div>
@@ -1787,21 +1854,22 @@ orgGate(){
 },
 orgGatePick(){
   appbar('หน้างาน');
-  const live=S.org.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status));
+  const live=myEvents().filter(e=>['on_sale','sold_out','paused'].includes(e.status));
   return `<h1 class="d-only" style="font-size:24px">หน้างาน</h1>
   <p class="small muted" style="margin:0">เลือกงานที่จะเช็กอินผู้เข้าร่วม</p>
   ${live.length?`<div class="lgrid">${live.map(e=>{const g=gateStats(e);return `<button class="listing" data-o="gate" data-id="${e.id}" style="text-align:left;width:100%">
     <div class="top">${poster({bg:e.bg,tag:e.category,short:e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase()})}<div><b>${esc(e.name)}</b>
       <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</div><div class="small num" style="margin-top:4px">เข้างานแล้ว ${g.used} / ${g.total}</div></div></div></button>`}).join('')}</div>`
-  :'<div class="empty">ไม่มีงานที่เปิดขายอยู่</div>'}`;
+  :'<div class="empty">ไม่มีงานที่เปิดขายอยู่</div>'}
+  ${orgAccountCard()}`;
 },
 orgFinance(){
   appbar('การเงิน');
   const o=S.org,now=Date.now(),B=OL.fmtBaht,sh=o.shop;
-  const rows=o.events.filter(e=>e.status!=='draft').map(e=>finRow(e,now)).sort((a,b)=>(b.e.startAt||0)-(a.e.startAt||0));
+  const rows=myEvents().filter(e=>e.status!=='draft').map(e=>finRow(e,now)).sort((a,b)=>(b.e.startAt||0)-(a.e.startAt||0));
   if(o.printEv){const r=rows.find(x=>x.e.id===o.printEv);if(r)return finPrintDoc(r)}
   const sum=f=>rows.filter(f).reduce((a,r)=>a+r.net,0);
-  const refunded=o.ledger.filter(l=>l.type==='REFUND_OUT').reduce((a,l)=>a+l.amount,0);
+  const mine=myEventIds(),refunded=o.ledger.filter(l=>l.type==='REFUND_OUT'&&mine.has(l.eventId)).reduce((a,l)=>a+l.amount,0);
   const stat=(k,label,v,sub)=>`<div class="card org-stat"><span class="small muted">${label}</span><b class="num" data-fin="${k}">${v}</b>${sub?`<span class="small muted">${sub}</span>`:''}</div>`;
   return `<div class="row between"><h1 style="font-size:22px">การเงิน</h1><span class="pill grey">ข้อมูลตัวอย่าง</span></div>
   <div class="org-stats">
