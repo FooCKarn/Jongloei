@@ -84,7 +84,7 @@ async function createCheckoutSession(request, env) {
     'line_items[0][price_data][currency]': 'thb',
     'line_items[0][price_data][product_data][name]': `${event.name} · ${body.zone}`,
     'line_items[0][price_data][product_data][description]': event.venue,
-    'line_items[0][price_data][unit_amount]': String(Math.round(zone * 1.03)),
+    'line_items[0][price_data][unit_amount]': String(Math.round(zone * 1.03 * 100)),
     'line_items[0][quantity]': String(quantity),
     'success_url': `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     'cancel_url': `${origin}/?checkout=cancelled`,
@@ -107,7 +107,7 @@ async function createCheckoutSession(request, env) {
       await env.DB.prepare(
         `INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, amount, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-      ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03)).run();
+      ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03 * 100)).run();
     } catch (err) {
       console.error('payment order insert failed', err && err.stack || err);
       return json({ error: 'payment_storage_unavailable' }, 503);
