@@ -23,18 +23,20 @@ Conventions: ids are app-generated `TEXT` (UUID / ULID), timestamps are unix epo
    - Not found: insert `users`, `auth_identities` and a primary `inapp` row in `wallets` in one batch, and log `signup` in `account_events`.
 3. Backend creates a `sessions` row and sets the session cookie.
 
+Google sign-in is live today without thirdweb: `src/worker.js` verifies Google's ID token itself and runs steps 2 and 3 (the `google` identity's `provider_subject` is Google's `sub`). The in-app wallet row is added once thirdweb is wired in.
+
 PDPA: only wallet addresses go on-chain. Everything personal stays here, and the sensitive fields are encrypted by the app with a key kept in a Worker secret.
 
 ## Where it lives
 
-The production database `jongloei-db` (region APAC) already exists and `0001_accounts.sql` has been applied. Database commands use `db/wrangler.jsonc`, which points at it. The root `wrangler.jsonc` does not bind it yet: the Worker is still a static mock-up, so the binding is added together with the first Worker script that uses `env.DB`.
+The production database `jongloei-db` (region APAC) already exists and `0001_accounts.sql` has been applied. The root `wrangler.jsonc` binds it to the Worker as `env.DB`; `src/worker.js` uses it for Google sign-in (see the main README).
 
 ## Apply new migrations
 
 Add the next numbered file in `db/migrations/`, then:
 
 ```sh
-npx wrangler d1 migrations apply jongloei-db --remote -c db/wrangler.jsonc
+npx wrangler d1 migrations apply jongloei-db --remote
 ```
 
 Use `--local` instead of `--remote` to try it against a local database first.
