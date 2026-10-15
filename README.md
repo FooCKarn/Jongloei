@@ -91,6 +91,9 @@ User เข้า web3 ของเราที่เป็นผู้จัด
 **Deployment & Version Control**
 - **GitHub** - Source code management
 - **Cloudfare workers** - (แนะนำ) สำหรับ Deploy หน้าเว็บ Frontend ให้กรรมการทดสอบได้ทันที
+  
+** Payment & Fiat Gateway **
+- ** [Stripe](https://stripe.com/) ** - สำหรับประมวลผลการชำระเงินด้วยบัตรเครดิต/เดบิต และระบบ PromptPay Integration เพื่อรับชำระเงิน Fiat Fiat-to-Crypto On-ramp
 
 **Known limit:** code can't stop a fake event on its own, so shops are verified at sign-up.
 
