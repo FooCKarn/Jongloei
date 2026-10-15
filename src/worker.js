@@ -8,6 +8,8 @@
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET.
 // Without them /api/me reports googleEnabled=false and the mock-up keeps its demo login.
+// PUBLIC_ORIGIN (a plain var in wrangler.jsonc) pins the redirect URI to one address,
+// so preview URLs and other hostnames sign in through the same registered callback.
 
 const SESSION_COOKIE = 'jl_session';
 const STATE_COOKIE = 'jl_oauth';
@@ -46,12 +48,15 @@ async function me(request, env) {
 async function start(request, env) {
   if (!googleEnabled(env)) return redirect('/?login=unconfigured');
   const url = new URL(request.url);
+  const origin = publicOrigin(env, url);
+  // Start on the registered address so the state cookie and the callback share a host.
+  if (origin !== url.origin) return redirect(`${origin}/auth/google/start`);
   const state = randomToken(24);
   const nonce = randomToken(24);
   const auth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   auth.search = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
-    redirect_uri: `${url.origin}/auth/google/callback`,
+    redirect_uri: `${origin}/auth/google/callback`,
     response_type: 'code',
     scope: 'openid email profile',
     prompt: 'select_account', // always show the account chooser
@@ -82,7 +87,7 @@ async function callback(request, env) {
       code,
       client_id: env.GOOGLE_CLIENT_ID,
       client_secret: env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: `${url.origin}/auth/google/callback`,
+      redirect_uri: `${publicOrigin(env, url)}/auth/google/callback`,
       grant_type: 'authorization_code',
     }),
   });
@@ -232,6 +237,12 @@ async function currentUser(request, env) {
 }
 
 /* ---------- helpers ---------- */
+
+function publicOrigin(env, url) {
+  // `wrangler dev` keeps its own localhost origin so local testing still works.
+  if (!env.PUBLIC_ORIGIN || url.hostname === 'localhost' || url.hostname === '127.0.0.1') return url.origin;
+  return new URL(env.PUBLIC_ORIGIN).origin;
+}
 
 function json(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers } });

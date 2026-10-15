@@ -17,6 +17,10 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/auth/*", "/api/*"]
   },
+  // Google redirects back to PUBLIC_ORIGIN + /auth/google/callback; register exactly that URI.
+  "vars": {
+    "PUBLIC_ORIGIN": "https://jongloei.foo30749.workers.dev"
+  },
   "d1_databases": [
     {
       "binding": "DB",
