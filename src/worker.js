@@ -31,6 +31,7 @@ export default {
         return json({ ok: true, service: 'jongloei-worker' }, 200, { 'cache-control': 'no-store' });
       }
       if (url.pathname === '/api/checkout-session' && request.method === 'POST') return createCheckoutSession(request, env);
+      if (url.pathname === '/api/checkout-status' && request.method === 'GET') return checkoutStatus(request, env);
       if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') return stripeWebhook(request, env);
       if (url.pathname === '/auth/google/start' && request.method === 'GET') return start(request, env);
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
@@ -113,6 +114,24 @@ async function createCheckoutSession(request, env) {
     }
   }
   return json({ url: session.url }, 200, { 'cache-control': 'no-store' });
+}
+
+async function checkoutStatus(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'authentication_required' }, 401);
+  const sessionId = new URL(request.url).searchParams.get('session_id');
+  if (!sessionId || !sessionId.startsWith('cs_')) return json({ error: 'invalid_session_id' }, 400);
+  const order = await env.DB.prepare(
+    `SELECT stripe_session_id, event_id, zone, quantity, status
+     FROM payment_orders WHERE stripe_session_id = ? AND user_id = ?`,
+  ).bind(sessionId, user.id).first();
+  if (!order) return json({ error: 'order_not_found' }, 404);
+  return json({
+    status: order.status,
+    eventId: order.event_id,
+    zone: order.zone,
+    quantity: order.quantity,
+  }, 200, { 'cache-control': 'no-store' });
 }
 
 async function stripeWebhook(request, env) {

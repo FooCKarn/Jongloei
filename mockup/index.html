@@ -579,6 +579,22 @@ success(){
   <div class="a-btns"><button class="btn" data-act="viewticket">ดูตั๋วและ QR เข้างาน</button>
   <button class="btn plain" data-act="home">กลับหน้าแรก</button></div></div>`;
 },
+paymentSuccess(){
+  appbar('ชำระเงินสำเร็จ');
+  return `<div class="narrow">
+    <div class="hero-ok" style="padding-top:24px">
+      <div class="big"><svg><use href="#i-check"/></svg></div>
+      <h1 style="font-size:22px">ทำรายการสำเร็จ</h1>
+      <p class="small muted" style="margin:0;text-align:center">Stripe ยืนยันการชำระเงินของคุณแล้ว</p>
+    </div>
+    <div class="card">
+      <div class="row between"><span>สถานะการชำระเงิน</span><span class="pill ok">ชำระเงินแล้ว</span></div>
+      <p class="small muted" style="margin:10px 0 0">ระบบกำลังเตรียมตั๋วของคุณ ตั๋วจะปรากฏในกระเป๋าหลังการออกตั๋วเสร็จสมบูรณ์</p>
+    </div>
+    <button class="btn" data-act="tickets">ดูตั๋วของฉัน</button>
+    <button class="btn plain" data-act="home">กลับหน้าแรก</button>
+  </div>`;
+},
 tickets(){
   appbar('ตั๋วของฉัน');
   if(!S.signedIn)return `<div class="empty">เข้าสู่ระบบเพื่อดูตั๋วของคุณ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>`;
@@ -812,6 +828,7 @@ $('#device').addEventListener('click',e=>{
     case 'back':back();break;
     case 'home':go('home',true);break;
     case 'viewticket':S.ticketView='qr';go('ticket');break;
+    case 'tickets':go('tickets',true);break;
     case 'signup':openSignup();break;
     case 'google':if(S.auth.google){googleLogin();return}walletCreating();break;
     case 'otp':if(S.auth.google){toast('เข้าสู่ระบบด้วยอีเมลจะเปิดให้ใช้เร็วๆ นี้ ใช้ Google ไปก่อนได้เลย');return}walletCreating();break;
@@ -916,9 +933,29 @@ async function checkAuth(){
   if(back&&me.user){if(back.ev&&evById(back.ev)){S.ev=back.ev;S.zone=back.zone||0;S.qty=back.qty||1}
     S.buyingListing=back.lid?S.listings.find(l=>l.lid==back.lid)||null:null;S.afterSignup=back.after||null}
   render();
+  handleCheckoutReturn();
   if(result==='new'&&me.user)walletCreating();
   else if(result==='ok'&&me.user){toast('เข้าสู่ระบบแล้ว');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n)}}
   else if(result==='error')toast('เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง');
+}
+
+async function handleCheckoutReturn(){
+  const q=new URLSearchParams(location.search);
+  const sessionId=q.get('session_id');
+  if(q.get('checkout')!=='success'||!sessionId||!S.signedIn)return;
+  q.delete('checkout');q.delete('session_id');
+  history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  S.stack=['paymentSuccess'];S.tab='tickets';render();
+  for(let attempt=0;attempt<10;attempt++){
+    try{
+      const response=await fetch('/api/checkout-status?session_id='+encodeURIComponent(sessionId),{credentials:'same-origin'});
+      const data=await readJsonResponse(response,'/api/checkout-status');
+      if(data.status==='paid'){render();return}
+      if(data.status==='failed'){toast('การชำระเงินไม่สำเร็จ');return}
+    }catch(err){console.error('Checkout status failed',err);return}
+    await new Promise(resolve=>setTimeout(resolve,1500));
+  }
+  toast('กำลังรอ Stripe ยืนยันการชำระเงิน กรุณาตรวจสอบตั๋วของฉันอีกครั้ง');
 }
 
 /* boot: signed-out home, matching step 1 of the flow */
