@@ -2,7 +2,7 @@
 -- Account system for FairTicket (Cloudflare D1 / SQLite).
 --
 -- Sign-in itself is handled by thirdweb In-App Wallets (Google, email OTP,
--- phone OTP, LINE, or an existing wallet). This schema maps every thirdweb
+-- phone OTP, or an existing wallet). This schema maps every thirdweb
 -- login to one FairTicket account and keeps the off-chain profile.
 --
 -- PDPA: only wallet addresses go on-chain. Real names and ID numbers for shop
@@ -35,15 +35,15 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX users_email_uq ON users (email) WHERE email IS NOT NULL AND deleted_at IS NULL;
 CREATE UNIQUE INDEX users_phone_uq ON users (phone) WHERE phone IS NOT NULL AND deleted_at IS NULL;
 
--- Login methods. One user can have several (Google + LINE + email ...).
+-- Login methods. One user can have several (Google + email + phone ...).
 -- provider_subject is the stable id from that provider as reported by thirdweb
--- (Google "sub", LINE userId, the email address, the phone number, or a
+-- (Google "sub", the email address, the phone number, or a
 -- lowercase 0x address for provider = 'wallet').
 CREATE TABLE auth_identities (
   id                TEXT PRIMARY KEY,
   user_id           TEXT    NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   provider          TEXT    NOT NULL
-                    CHECK (provider IN ('google', 'email', 'phone', 'line', 'wallet')),
+                    CHECK (provider IN ('google', 'email', 'phone', 'wallet')),
   provider_subject  TEXT    NOT NULL,
   created_at        INTEGER NOT NULL DEFAULT (unixepoch('subsec') * 1000),
   last_used_at      INTEGER,
