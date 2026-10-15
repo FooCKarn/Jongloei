@@ -165,7 +165,6 @@ After every Google login the Worker checks that the user has a ticket wallet. If
 The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
 
 > **Current implementation vs. context v3.3:** this server wallet is what the code does today. Context v3.3 targets a thirdweb **embedded (in-app) wallet** instead, so the ticket owner's own key can sign the entry QR every 60 seconds. With a platform-held server wallet the user cannot sign the QR themselves, so this part still has to move to an embedded wallet.
-=======
 ### Stripe Checkout
 
 The ticket checkout uses a Stripe-hosted Checkout Session. The Worker validates the event, zone, and quantity against its server-side catalog, then redirects the buyer to Stripe. Payment status is recorded only from a signature-verified webhook; the success URL is not used as proof of payment.
