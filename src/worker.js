@@ -199,16 +199,66 @@ async function stripeWebhook(request, env) {
   if (session?.id && env.DB) {
     if ((event.type === 'checkout.session.completed' && session.payment_status !== 'unpaid')
       || event.type === 'checkout.session.async_payment_succeeded') {
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status = 'paid', stripe_payment_intent = ?, paid_at = ?
-         WHERE stripe_session_id = ? AND status != 'paid'`,
-      ).bind(session.payment_intent || null, Date.now(), session.id).run();
+      const result = await confirmPaymentAndDecrementInventory(env.DB, session);
+      if (result === 'inventory_unavailable') {
+        console.error('ticket inventory unavailable', session.id);
+        return json({ error: 'inventory_unavailable' }, 409);
+      }
     } else if (event.type === 'checkout.session.async_payment_failed') {
       await env.DB.prepare(`UPDATE payment_orders SET status = 'failed' WHERE stripe_session_id = ? AND status = 'pending'`)
         .bind(session.id).run();
     }
   }
   return json({ received: true });
+}
+
+async function confirmPaymentAndDecrementInventory(db, session) {
+  const paidAt = Date.now();
+  const inventoryToken = crypto.randomUUID();
+  const result = await db.batch([
+    db.prepare(
+      `UPDATE payment_orders
+       SET status = 'paid', stripe_payment_intent = ?, paid_at = ?, inventory_update_token = ?
+       WHERE stripe_session_id = ? AND status = 'pending'
+         AND EXISTS (
+           SELECT 1 FROM event_zones z
+           WHERE z.event_id = payment_orders.event_id
+             AND z.zone_name = payment_orders.zone
+             AND z.remaining >= payment_orders.quantity
+         )`,
+    ).bind(session.payment_intent || null, paidAt, inventoryToken, session.id),
+    db.prepare(
+      `UPDATE event_zones
+       SET remaining = remaining - (
+         SELECT quantity FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       WHERE event_id = (
+         SELECT event_id FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       AND zone_name = (
+         SELECT zone FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       AND remaining >= (
+         SELECT quantity FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )`,
+    ).bind(session.id, inventoryToken, session.id, inventoryToken,
+      session.id, inventoryToken, session.id, inventoryToken),
+    db.prepare(
+      `UPDATE payment_orders SET inventory_update_token = NULL
+       WHERE stripe_session_id = ? AND inventory_update_token = ?`,
+    ).bind(session.id, inventoryToken),
+  ]);
+  if (!result[0]?.meta?.changes) {
+    const existing = await db.prepare(
+      'SELECT status FROM payment_orders WHERE stripe_session_id = ?',
+    ).bind(session.id).first();
+    return existing?.status === 'paid' ? 'already_paid' : 'inventory_unavailable';
+  }
+  return 'paid';
 }
 
 async function stripeRequest(secret, path, body) {

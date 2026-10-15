@@ -179,7 +179,7 @@ The Stripe button works only when the app is opened from the deployed Worker URL
 
 ### Event catalog
 
-The home page loads on-sale events from D1 through `GET /api/events`; event names, dates, venues, poster styles, zones, prices, and remaining inventory are no longer required to be edited in the frontend. Apply `db/migrations/0003_events.sql` to seed the current events. Future admin tooling can edit the `events` and `event_zones` rows without adding frontend buttons.
+The home page loads on-sale events from D1 through `GET /api/events`; event names, dates, venues, poster styles, zones, prices, and remaining inventory are no longer required to be edited in the frontend. Apply `db/migrations/0003_events.sql` to seed the current events. After `db/migrations/0004_payment_inventory.sql`, a verified Stripe payment atomically decrements the purchased zone's `remaining` count; repeated webhook deliveries do not decrement it twice. Future admin tooling can edit the `events` and `event_zones` rows without adding frontend buttons.
 
 ```sh
 npx wrangler d1 migrations apply jongloei-db --remote
