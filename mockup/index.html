@@ -325,6 +325,10 @@ body{padding:0}
     <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
     <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
     <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1zM4 7l11-3v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="16" cy="13.5" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17v.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
   </defs>
 </svg>
@@ -343,13 +347,16 @@ body{padding:0}
   </div></div>
 </div>
 
+<script src="organizer-logic.js"></script>
 <script>
 (function(){
 const $=s=>document.querySelector(s);
 const fmt=n=>'฿'+n.toLocaleString('th-TH');
 const CONTRACT='0x7a3F9e21B4c0D58aE6f1b2C9d04E7f3A15b8c91E';
+const OL=window.OrgLogic;
 
-let EVENTS=[
+/* events from /api/events (or this fallback); organizer events are added by refreshEvents() */
+let BASE_EVENTS=[
   {id:'neon',name:'BKK Neon Nights 2026',short:'NEON\nNIGHTS',tag:'คอนเสิร์ต',date:'ส. 21 พ.ย. 2569',time:'19:00',venue:'อิมแพ็ค อารีนา เมืองทองธานี',bg:'linear-gradient(140deg,#A00018,#4A0010 70%,#1E0508)',
    zones:[{z:'Standing A',p:2500,left:182,c:'#E8485A'},{z:'Seat B',p:3800,left:64,c:'#A00018'},{z:'VIP Front',p:5500,left:9,c:'#4A0010'}],sold:86},
   {id:'jazz',name:'Siam River Jazz Festival',short:'RIVER\nJAZZ',tag:'เทศกาล',date:'ส. 5 ธ.ค. 2569',time:'16:00',venue:'ลานริมน้ำ เจริญกรุง',bg:'linear-gradient(160deg,#C2412D,#7E0013 60%,#2B0A0E)',
@@ -359,7 +366,9 @@ let EVENTS=[
   {id:'standup',name:'Late Night Stand-up Special',short:'LATE\nNIGHT',tag:'สแตนด์อัป',date:'ศ. 9 ม.ค. 2570',time:'20:00',venue:'สามย่านมิตรทาวน์ ฮอลล์',bg:'linear-gradient(130deg,#8A1020,#2A0A0D)',
    zones:[{z:'Regular',p:1500,left:240,c:'#E8485A'},{z:'Front Row',p:2600,left:22,c:'#A00018'}],sold:41},
 ];
+let EVENTS=BASE_EVENTS;
 const evById=id=>EVENTS.find(e=>e.id===id);
+const isLocal=id=>String(id||'').startsWith('org-');
 
 /* ---------- state ---------- */
 const S={
@@ -373,14 +382,15 @@ const S={
     {lid:3,ev:'fan',zone:'Zone C',face:2900,price:2900,seller:'0x5bE0…7712',transfers:0,tid:2045},
   ],
   sel:null,qrTimer:null,payTimer:null,nextTid:1311,buyingListing:null,ticketView:'qr',mtab:'active',
+  mode:'buyer',org:null,
 };
 const short=a=>a.slice(0,6)+'…'+a.slice(-4);
 
 /* ---------- saved state (this browser only) ---------- */
 const KEY='jongloei-demo-v1';
-function save(){try{localStorage.setItem(KEY,JSON.stringify({signedIn:S.signedIn,tickets:S.tickets,listings:S.listings,nextTid:S.nextTid,left:EVENTS.map(e=>e.zones.map(z=>z.left))}))}catch(_){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({signedIn:S.signedIn,tickets:S.tickets,listings:S.listings,nextTid:S.nextTid,left:BASE_EVENTS.map(e=>e.zones.map(z=>z.left)),mode:S.mode,org:S.org}))}catch(_){}}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(!d)return;
-  Object.assign(S,{signedIn:!!d.signedIn,tickets:d.tickets||[],listings:d.listings||S.listings,nextTid:d.nextTid||S.nextTid});
+  Object.assign(S,{signedIn:!!d.signedIn,tickets:d.tickets||[],listings:d.listings||S.listings,nextTid:d.nextTid||S.nextTid,mode:d.mode==='org'?'org':'buyer',org:d.org||null});
 }catch(_){}}
 async function loadEvents(){
   if(!/^https?:$/.test(location.protocol))return;
@@ -388,7 +398,7 @@ async function loadEvents(){
     const response=await fetch('/api/events',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/events');
     if(!Array.isArray(data)||!data.length)throw new Error('empty_event_list');
-    EVENTS=data;
+    BASE_EVENTS=data;refreshEvents();
   }catch(err){
     console.error('Event API failed',err);
     toast('โหลดรายการงานจากระบบไม่สำเร็จ กำลังใช้ข้อมูลสำรอง');
@@ -397,8 +407,94 @@ async function loadEvents(){
 const initial=()=>[...String(S.user.name||S.user.email||'?').trim()][0]||'?';
 const esc=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+/* ---------- organizer: state & seed ----------
+   S.org holds the organizer side of the demo (money in satang, see organizer-logic.js).
+   Published organizer events are merged into EVENTS so buyers can see and buy them. */
+const HOUR=3600000,DAY=24*HOUR;
+const POSTERS=['linear-gradient(140deg,#A00018,#4A0010 70%,#1E0508)','linear-gradient(160deg,#C2412D,#7E0013 60%,#2B0A0E)',
+  'linear-gradient(150deg,#D6455A,#A00018 45%,#3D0710)','linear-gradient(130deg,#8A1020,#2A0A0D)',
+  'linear-gradient(150deg,#2B4C7E,#1B2A4A 60%,#0D1424)','linear-gradient(140deg,#B86B12,#7A3D08 60%,#2A1404)'];
+const BUYER_NAMES=['ปิยะพงษ์ ศรีสุข','ณัฐธิดา วงศ์ใหญ่','ธนกร แก้วมณี','ศิริพร ทองดี','กิตติพัฒน์ บุญมา','พิมพ์ชนก ใจดี',
+  'วรเมธ สุวรรณรัตน์','อรอุมา เพชรงาม','ภูริ ชัยมงคล','กมลชนก รุ่งเรือง','ณัฐพล อินทร์แก้ว','ชนิดา พรหมมา',
+  'อภิสิทธิ์ ศักดิ์ดี','สุภัสสรา นาคสวัสดิ์','ธีรเดช มีสุข','ปาริชาติ ทองคำ','จิรายุ วงศ์สวัสดิ์','เบญจมาศ แสงทอง',
+  'ศุภกร สมบูรณ์','ณิชา ปัญญาดี','พงศกร ศรีวงศ์','กัญญาณัฐ บุญรอด','วีรภัทร จันทร์หอม','มนัสนันท์ ศรีอ่อน'];
+const ORG_PARAMS={resaleEnabled:true,capMultiplier:1.25,resaleDelayH:6,transferCutoffH:1,disputeWindowH:24,perUserLimit:4};
+const DEMO_SHOP={id:'shop-demo',name:'Rooftop 88',kind:'bar',legal:'company',taxId:'0105559012345',contactLine:'@rooftop88',
+  phone:'0812345678',payoutPromptPay:'0105559012345',verification:'verified',docName:'หนังสือรับรองบริษัท.pdf',
+  team:[{email:'me',role:'owner'},{email:'door.staff@example.com',role:'gate'},{email:'manager@example.com',role:'manager'}]};
+const SEED_LISTING={lid:9001,ev:'org-fri',zone:'Standing',face:1000,price:1150,seller:'0x7C1e…44Ab',transfers:0,tid:5002,orgTicketId:'org-fri-std-2'};
+
+function orgSeed(now){
+  const hr=Math.floor(now/HOUR)*HOUR;
+  const buyers={};
+  BUYER_NAMES.forEach((n,i)=>{buyers['b'+(i+1)]={name:n,email:'buyer'+(i+1)+'@example.com',phone:'08'+String(12345678+i*271828).slice(-8)}});
+  const z=(id,name,kind,baht,capacity,sold,color,extra)=>({id,name,kind,price:baht*100,capacity,sold,held:0,color,saleStartAt:null,saleEndAt:null,seatsPerUnit:null,...extra});
+  const ev=(o)=>({short:'',description:'',mapUrl:'',cancelReason:'',params:{...ORG_PARAMS},...o});
+  const events=[
+    ev({id:'org-fri',name:'Friday Rooftop Session',short:'ROOFTOP\nFRIDAY',category:'ปาร์ตี้',venue:'Rooftop 88 ทองหล่อ',bg:POSTERS[2],status:'on_sale',
+      description:'ดีเจเซ็ตยาวบนดาดฟ้า วิวเมืองทั้งคืน แต่งตัวสบาย ๆ อายุ 20 ปีขึ้นไป',doorsAt:hr-HOUR/2,startAt:hr+HOUR,endAt:hr+5*HOUR,
+      zones:[z('std','Standing','standing',1000,120,64,'#E8485A',{held:3}),z('tbl','โต๊ะ 4 ที่','table',4000,10,6,'#A00018',{seatsPerUnit:4}),
+             z('vip','VIP Lounge','seated',2500,20,12,'#4A0010'),z('cmp','บัตรเชิญ','comp',0,10,4,'#9A5B00')]}),
+    ev({id:'org-latte',name:'Latte Art Workshop รอบเย็น',short:'LATTE\nART',category:'workshop',venue:'Rooftop 88 ชั้น 3',bg:POSTERS[5],status:'on_sale',
+      description:'เรียนเทนมลาเต้อาร์ตกับบาริสต้าแชมป์ประเทศ ได้ลงมือจริงคนละเครื่อง',doorsAt:hr+12*DAY-HOUR/2,startAt:hr+12*DAY,endAt:hr+12*DAY+3*HOUR,
+      zones:[z('seat','ที่นั่ง workshop','seated',1500,12,9,'#E8485A')]}),
+    ev({id:'org-halloween',name:'Halloween Rooftop Party',short:'HALLO\nWEEN',category:'ปาร์ตี้',venue:'Rooftop 88 ทองหล่อ',bg:POSTERS[3],status:'draft',
+      doorsAt:hr+16*DAY-HOUR,startAt:hr+16*DAY,endAt:hr+16*DAY+6*HOUR,
+      zones:[z('early','Early Bird','standing',600,50,0,'#E8485A',{saleEndAt:hr+9*DAY}),z('std','Standing','standing',800,150,0,'#A00018')]}),
+    ev({id:'org-jazz',name:'Jazz Night Vol.3',short:'JAZZ\nNIGHT',category:'คอนเสิร์ต',venue:'Rooftop 88 ทองหล่อ',bg:POSTERS[4],status:'ended',
+      doorsAt:hr-3*DAY-HOUR,startAt:hr-3*DAY,endAt:hr-3*DAY+4*HOUR,zones:[z('seat','Seat','seated',1200,60,52,'#E8485A')]}),
+    ev({id:'org-acoustic',name:'Acoustic Sunday',short:'ACOUSTIC\nSUNDAY',category:'คอนเสิร์ต',venue:'ลานหญ้า Rooftop 88',bg:POSTERS[1],status:'cancelled',cancelReason:'สภาพอากาศ',
+      doorsAt:hr+2*DAY-HOUR,startAt:hr+2*DAY,endAt:hr+2*DAY+3*HOUR,zones:[z('std','Standing','standing',900,40,18,'#E8485A')]}),
+  ];
+  const tickets=[],ledger=[],checkinLog=[];
+  let b=0;
+  const nextBuyer=()=>'b'+((b++%BUYER_NAMES.length)+1);
+  for(const e of events)for(const zz of e.zones)for(let k=1;k<=zz.sold;k++){
+    const holder=nextBuyer();
+    const at=Math.min(e.startAt-HOUR,now)-((k*37)%14)*DAY-((k*5)%12)*HOUR;
+    const t={ticketId:`${e.id}-${zz.id}-${k}`,eventId:e.id,zoneId:zz.id,holderId:holder,status:'valid',usedAt:null,checkinMethod:null,
+      hops:[{idx:0,payerId:holder,paid:zz.price,at}]};
+    if(e.status==='ended')t.status=k<=46?'used':'unavailable';
+    if(e.status==='cancelled')t.status='refunded';
+    tickets.push(t);
+  }
+  const tk=id=>tickets.find(t=>t.ticketId===id);
+  // one ticket resold twice (context.md 5.6 example), one listed, eight already at the door
+  const hop=tk('org-fri-std-1');hop.hops=[{idx:0,payerId:'b1',paid:100000,at:now-9*DAY},{idx:1,payerId:'b2',paid:110000,at:now-6*DAY},{idx:2,payerId:'b3',paid:120000,at:now-2*DAY}];hop.holderId='b3';
+  const listed=tk('org-fri-std-2');listed.status='listed';listed.holderId='b5';listed.hops[0].payerId='b5';
+  for(let k=3;k<=10;k++){const t=tk('org-fri-std-'+k);t.status='used';t.usedAt=now-(40-k*3)*60000;t.checkinMethod='scan';
+    checkinLog.unshift({at:t.usedAt,ticketId:t.ticketId,eventId:'org-fri',valid:true,reason:null,method:'scan',by:'door.staff@example.com'})}
+  for(const t of tickets)for(const h of t.hops)if(h.paid>0)ledger.push({id:'in:'+t.ticketId+':'+h.idx,eventId:t.eventId,ticketId:t.ticketId,type:'PAYMENT_IN',amount:h.paid,party:h.payerId,status:'DONE',idempotencyKey:'in:'+t.ticketId+':'+h.idx});
+  const ac=events.find(e=>e.id==='org-acoustic');
+  for(const r of OL.planCancellation(ac,tickets,new Set()).refunds)ledger.push({id:r.key,eventId:ac.id,ticketId:r.ticketId,type:'REFUND_OUT',amount:r.amount,party:r.payerId,status:'DONE',idempotencyKey:r.key});
+  return {shop:null,demoShop:DEMO_SHOP,role:'owner',events,tickets,buyers,ledger,checkinLog,promos:[],announcements:[],
+    oev:null,etab:'overview',evFilter:'all',draft:null,wizStep:1,wizErr:{},onboard:{step:1,data:{}},bq:'',bzone:'all',bstatus:'all',showEmails:false};
+}
+function ensureOrg(){
+  if(!S.org||!Array.isArray(S.org.events)){S.org=orgSeed(Date.now());if(!S.listings.some(l=>l.orgTicketId))S.listings.push({...SEED_LISTING})}
+  refreshEvents();
+}
+function refreshEvents(){
+  const pub=S.org?S.org.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status)).map(OL.toBuyerEvent):[];
+  EVENTS=BASE_EVENTS.concat(pub);
+}
+const orgEv=id=>S.org.events.find(e=>e.id===id);
+function replaceOrgEvent(ev){S.org.events=S.org.events.map(e=>e.id===ev.id?ev:e);refreshEvents()}
+function orgPerson(id){if(id==='me')return {name:S.user.name,email:S.user.email,phone:''};return S.org.buyers[id]||{name:id,email:'',phone:''}}
+function ledgerAdd(x){if(S.org.ledger.some(l=>l.idempotencyKey===x.idempotencyKey))return false;S.org.ledger.push({id:x.idempotencyKey,status:'DONE',...x});return true}
+function setMode(mode){
+  stopTimers();closeSheet();
+  S.mode=mode;S.tab=mode==='org'?'orgDash':'home';S.stack=[S.tab];render();
+}
+function enterOrg(){if(!S.signedIn){openSignup('orgmode');return}setMode('org')}
+function resumeAfter(n){if(n==='orgmode')setMode('org');else go(n)}
+
 /* ---------- nav ---------- */
-const TABS=['home','market','tickets','profile'];
+const BUYER_TABS=[['home','i-home','หน้าแรก'],['market','i-swap','ตลาดรีเซล'],['tickets','i-ticket','ตั๋วของฉัน'],['profile','i-user','บัญชี']];
+const ORG_TABS=[['orgDash','i-chart','ภาพรวม'],['orgEvents','i-ticket','งานของฉัน'],['orgGatePick','i-qr','หน้างาน'],['orgFinance','i-wallet','การเงิน']];
+const TABS=BUYER_TABS.concat(ORG_TABS).map(t=>t[0]);
+// which organizer tabs each team role may open (context: gate staff only scan)
+function orgTabsFor(role){return ORG_TABS.filter(([k])=>role==='gate'?k==='orgGatePick':role==='manager'?k!=='orgFinance':true)}
 function go(screen,reset){
   stopTimers();
   if(TABS.includes(screen)&&reset){S.tab=screen;S.stack=[screen]}
@@ -411,10 +507,12 @@ function stopTimers(){clearInterval(S.qrTimer);clearInterval(S.payTimer);S.qrTim
 
 function appbar(title){
   S.title=title;
+  if(S.mode==='org'){orgAppbar(title);return}
   if(S.desk){
     $('#appbar').innerHTML=`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="wordmark" style="font-size:19px">JONGLOEI</span>
     <nav class="dnav d-only">${[['home','หน้าแรก'],['market','ตลาดรีเซล'],['tickets','ตั๋วของฉัน']].map(([k,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${v}</button>`).join('')}</nav>
-    <div class="search dsearch"><svg><use href="#i-search"/></svg><input id="dq" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหางาน ศิลปิน สถานที่"></div>`
+    <div class="search dsearch"><svg><use href="#i-search"/></svg><input id="dq" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหางาน ศิลปิน สถานที่"></div>
+    <button class="linkbtn" data-act="orgmode" style="white-space:nowrap">สำหรับผู้จัดงาน</button>`
     +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button><button class="avatar" data-tab="profile" aria-label="บัญชี">${esc(initial())}</button>`
                 :`<button class="btn" style="width:auto;padding:9px 18px;font-size:14px" data-act="signup">เข้าสู่ระบบ</button>`);
     return;
@@ -427,12 +525,26 @@ function appbar(title){
 }
 $('#appbar').addEventListener('click',e=>{const tb=e.target.closest('[data-tab]');if(tb){closeSheet();go(tb.dataset.tab,true);return}
   const a=e.target.closest('[data-act]');if(!a)return;
-  if(a.dataset.act==='back')back();if(a.dataset.act==='profile')go('profile',true);if(a.dataset.act==='signup')openSignup()});
+  if(a.dataset.act==='back')back();if(a.dataset.act==='profile')go('profile',true);if(a.dataset.act==='signup')openSignup();if(a.dataset.act==='orgmode')enterOrg()});
+
+// keeps the screen stack inside the current mode and the organizer role's allowed screens
+function guardMode(){
+  const cur=S.stack[S.stack.length-1],isOrg=cur.startsWith('org');
+  const reset=(s,tab)=>{S.stack=[s];S.tab=tab||s};
+  if(S.mode!=='org'){if(isOrg)reset('home');return}
+  if(!isOrg)return reset('orgDash');
+  if(!S.org.shop){if(!['orgWelcome','orgOnboard'].includes(cur))reset('orgWelcome','orgDash');return}
+  if(S.org.role==='gate'&&!['orgGatePick','orgGate'].includes(cur))return reset('orgGatePick');
+  if(S.org.role!=='owner'&&['orgFinance','orgTeam'].includes(cur))return reset('orgDash');
+}
 
 function render(){
+  guardMode();
   const cur=S.stack[S.stack.length-1];
-  document.querySelectorAll('#tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
-  const fullFlow=['checkout','pay','minting'].includes(cur);
+  const tabs=S.mode==='org'?orgTabsFor(S.org.role):BUYER_TABS;
+  $('#tabbar').style.gridTemplateColumns=`repeat(${tabs.length},1fr)`;
+  $('#tabbar').innerHTML=tabs.map(([k,icon,label])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}"><svg><use href="#${icon}"/></svg>${label}</button>`).join('');
+  const fullFlow=['checkout','pay','minting','orgWizard','orgOnboard'].includes(cur);
   $('#tabbar').hidden=fullFlow;
   let html=(VIEWS[cur]||VIEWS.home)();
   if(S.desk&&S.stack.length>1)html=`<div class="backrow"><button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h2 style="font-size:20px">${S.title}</h2></div>`+html;
@@ -475,7 +587,8 @@ home(){
     <button class="ev" data-ev="${e.id}">${poster(e)}
       <div><h3>${e.name}</h3><div class="meta">${e.date} · ${e.time} น.</div><div class="meta">${e.venue}</div>
       <div class="row between" style="margin-top:auto"><span class="price num">เริ่ม ${fmt(minPrice(e))}</span>${e.sold>=95?'<span class="pill warn">ใกล้เต็ม</span>':'<span class="pill grey">ตั๋ว NFT</span>'}</div></div>
-    </button>`).join('')}</div>`;
+    </button>`).join('')}</div>
+  <div class="card row between m-only" style="gap:12px"><div class="small"><b>จัดงานเองใช่ไหม?</b><br><span class="muted">เปิดขายตั๋วโดยไม่ต้องตรวจสลิป</span></div><button class="btn ghost" style="width:auto;padding:10px 14px;font-size:14px" data-act="orgmode">สำหรับผู้จัดงาน</button></div>`;
 },
 event(){
   const e=evById(S.ev);appbar(e.name);
@@ -516,7 +629,7 @@ event(){
     </div>
     <div class="sticky-cta">
       <div class="tot"><span class="small muted">รวม</span><b class="num">${fmt(z.p*S.qty)}</b></div>
-      <button class="btn" data-act="buy" ${cap===0||z.left===0?'disabled':''}>${cap===0?'ครบ 4 ใบต่อบัญชีแล้ว':z.left===0?'โซนนี้ขายหมด':'ซื้อตั๋ว'}</button>
+      <button class="btn" data-act="buy" ${cap===0||z.left<=0||e.paused?'disabled':''}>${e.paused?'ปิดรับชั่วคราว':cap===0?'ครบ 4 ใบต่อบัญชีแล้ว':z.left<=0?'โซนนี้ขายหมด':'ซื้อตั๋ว'}</button>
     </div>
   </div></div>`;
 },
@@ -525,11 +638,13 @@ checkout(){
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:e.zones[S.zone].p;const qty=L?1:S.qty;
   const sub=unit*qty,fee=Math.round(sub*0.03);
+  const local=isLocal(e.id);
   return `<div class="cols">
   <div class="col">
     <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
     <div class="zones">
-      <button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">รองรับวิธีชำระเงินที่เหมาะกับคุณ</span></span><span class="radio"></span></button>
+      ${local?`<button class="pay on" data-pay="promptpay"><span class="logo">QR</span><span><b>PromptPay</b> <span class="pill warn">จำลอง</span><br><span class="small muted">งานจากผู้จัดในเดโม ไม่มีการตัดเงินจริง</span></span><span class="radio"></span></button>`
+      :`<button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">รองรับวิธีชำระเงินที่เหมาะกับคุณ</span></span><span class="radio"></span></button>`}
     </div>
     <p class="small muted" style="margin:0">ตั๋วจะถูกส่งเข้ากระเป๋าตั๋วของ ${S.user.name} (<span class="mono">${short(S.user.wallet)}</span>) หลังยืนยันการชำระเงิน</p>
   </div>
@@ -544,7 +659,7 @@ checkout(){
       <dt>ค่าแก๊ส (ค่าธรรมเนียมบล็อกเชน)</dt><dd><span class="pill ok">ฟรี ระบบออกให้</span></dd>
       <dt style="font-weight:600;color:var(--ink)">ยอดชำระ</dt><dd style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--red)">${fmt(sub+fee)}</dd>
     </dl>
-    <div class="sticky-cta"><button class="btn" data-act="topay">ชำระ ${fmt(sub+fee)} ด้วย Stripe</button></div>
+    <div class="sticky-cta"><button class="btn" data-act="topay">ชำระ ${fmt(sub+fee)} ด้วย ${local?'PromptPay (จำลอง)':'Stripe'}</button></div>
   </div></div>`;
 },
 pay(){
@@ -565,18 +680,19 @@ pay(){
     <ol class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
       <li>เปิดแอปธนาคาร แล้วเลือกสแกนจ่าย</li><li>สแกน QR นี้ ยอดเงินจะขึ้นให้อัตโนมัติ</li><li>ไม่ต้องส่งสลิป ระบบตรวจยอดกับธนาคารให้เอง</li>
     </ol>
-    <button class="btn" data-act="paid">ไปชำระเงินด้วย Stripe</button>
+    ${isLocal(e.id)?`<button class="btn" data-act="paid">จำลองการจ่ายเงิน (เดโม)</button><span class="pill warn" style="align-self:center">จำลอง: ไม่มีการตัดเงินจริง</span>`:`<button class="btn" data-act="paid">ไปชำระเงินด้วย Stripe</button>`}
     <button class="btn plain" data-act="back">ยกเลิก</button>
   </div></div>`;
 },
 minting(){
   appbar('กำลังออกตั๋ว');
+  const pp=isLocal(S.buyingListing?S.buyingListing.ev:S.ev);
   return `<div class="narrow">
-  <div class="hero-ok" style="padding-top:10px"><span class="pill ok">Stripe ยืนยันการชำระเงินแล้ว</span>
+  <div class="hero-ok" style="padding-top:10px"><span class="pill ok">${pp?'ชำระเงินแล้ว (จำลอง)':'Stripe ยืนยันการชำระเงินแล้ว'}</span>
     <h1 style="font-size:20px">กำลังสร้างตั๋ว NFT ของคุณ</h1><p class="small muted" style="margin:0">ห้ามปิดหน้านี้ ใช้เวลาไม่เกิน 1 นาที</p></div>
   <ol class="steps" id="mintsteps">
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ได้รับเงินผ่าน Stripe</b><small>ระบบได้รับ event จาก Stripe webhook</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Stripe webhook ยืนยันยอด</b><small>ตรวจ event ที่เซ็นรับรองแล้วและไม่ซ้ำ</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${pp?'ได้รับเงินผ่าน PromptPay':'ได้รับเงินผ่าน Stripe'}</b><small>${pp?'ผู้ให้บริการชำระเงินส่งแจ้งเตือนมา (จำลอง)':'ระบบได้รับ event จาก Stripe webhook'}</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${pp?'ตรวจยอดเงิน 5 ข้อ':'Stripe webhook ยืนยันยอด'}</b><small>${pp?'ลายเซ็น ยอด reference อายุ order และไม่ซ้ำ':'ตรวจ event ที่เซ็นรับรองแล้วและไม่ซ้ำ'}</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Mint ตั๋วบนบล็อกเชน</b><small>สร้าง NFT ERC-721 และล็อกที่นั่งให้คุณ</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ส่งเข้ากระเป๋าตั๋วของคุณ</b><small class="mono">${short(S.user.wallet)}</small></span></li>
   </ol></div>`;
@@ -670,9 +786,13 @@ market(){
 },
 profile(){
   appbar('บัญชี');
-  if(!S.signedIn)return `<div class="empty">ยังไม่ได้เข้าสู่ระบบ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>`;
+  const orgCard=`<div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><b>สำหรับผู้จัดงาน</b><span class="pill">ใหม่</span></div>
+    <span class="small muted">สร้างงาน แบ่งโซนตั๋ว เช็กอินหน้างาน และดูยอดเงิน โดยไม่ต้องตรวจสลิป</span>
+    <button class="btn ghost" data-act="orgmode">เข้าโหมดผู้จัดงาน</button></div>`;
+  if(!S.signedIn)return `<div class="empty">ยังไม่ได้เข้าสู่ระบบ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>${orgCard}`;
   return `<div class="cols even">
   <div class="col">
+    ${orgCard}
     <div class="row"><div style="width:56px;height:56px;border-radius:18px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-size:22px;font-weight:600">${esc(initial())}</div>
       <div><h2 style="font-size:19px">${esc(S.user.name)}</h2><div class="small muted">${esc(S.user.email)} · เข้าสู่ระบบด้วย Google</div></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
@@ -692,6 +812,40 @@ profile(){
   </div></div>`;
 },
 };
+
+/* ---------- organizer: chrome & actions ---------- */
+function orgAppbar(title){
+  const shop=S.org.shop,top=S.stack.length<=1;
+  const back=`<button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button>`;
+  const badge=`<span class="pill">ผู้จัดงาน</span>`;
+  if(S.desk){
+    $('#appbar').innerHTML=`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="wordmark" style="font-size:19px">JONGLOEI</span>${badge}
+    <nav class="dnav d-only">${orgTabsFor(S.org.role).map(([k,,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${v}</button>`).join('')}</nav>
+    <span style="margin-left:auto" class="small muted">${shop?esc(shop.name)+(shop.verification==='verified'?' · ยืนยันแล้ว':' · รอยืนยัน'):''}</span>
+    <button class="btn plain" style="width:auto;padding:8px 14px;font-size:14px" data-o="buyermode">โหมดผู้ซื้อ</button>`;
+    return;
+  }
+  $('#appbar').innerHTML=(top?`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg>`:back)
+    +`<div class="ttl">${title}</div>${top?badge:''}<button class="walletchip" data-o="buyermode">โหมดผู้ซื้อ</button>`;
+}
+// keeps the buyer-side copy of a ticket and the organizer ticket in step
+function orgTicketStatus(buyerTicket,status){
+  const ot=buyerTicket&&buyerTicket.orgTicketId&&S.org.tickets.find(x=>x.ticketId===buyerTicket.orgTicketId);
+  if(!ot)return;ot.status=status;if(status==='used'){ot.usedAt=Date.now();ot.checkinMethod='scan'}
+}
+const ORG_ACTIONS={
+  buyermode(){setMode('buyer')},
+};
+function orgAct(name,el,ev){const f=ORG_ACTIONS[name];if(f)f(el,ev)}
+
+const ORG_VIEWS={
+orgWelcome(){appbar('สำหรับผู้จัดงาน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgDash(){appbar('ภาพรวม');return `<h1 style="font-size:22px">${esc(S.org.shop?S.org.shop.name:'')}</h1>`},
+orgEvents(){appbar('งานของฉัน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgGatePick(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgFinance(){appbar('การเงิน');return `<div class="empty">กำลังพัฒนา</div>`},
+};
+Object.assign(VIEWS,ORG_VIEWS);
 
 function nftCard(t,full){
   const e=evById(t.ev);
@@ -740,11 +894,21 @@ function finishMint(){
   let t;
   if(S.buyingListing){
     const L=S.buyingListing;S.listings=S.listings.filter(x=>x.lid!==L.lid);
-    t={tid:L.tid,ev:L.ev,zone:L.zone,price:L.face,status:'active',transfers:L.transfers+1,tx:'0x'+rand(4)+'…'+rand(4)};
+    t={tid:L.tid,ev:L.ev,zone:L.zone,price:L.face,status:'active',transfers:L.transfers+1,tx:'0x'+rand(4)+'…'+rand(4),orgTicketId:L.orgTicketId};
+    const ot=L.orgTicketId&&S.org.tickets.find(x=>x.ticketId===L.orgTicketId);
+    if(ot){const paid=L.price*100;ot.hops.push({idx:ot.hops.length,payerId:'me',paid,at:Date.now()});ot.holderId='me';ot.status='valid';
+      ledgerAdd({type:'PAYMENT_IN',eventId:ot.eventId,ticketId:ot.ticketId,amount:paid,party:'me',idempotencyKey:'in:'+ot.ticketId+':'+(ot.hops.length-1)})}
     S.tickets.unshift(t);S.buyingListing=null;
   }else{
-    const e=evById(S.ev);const z=e.zones[S.zone];z.left=Math.max(0,z.left-S.qty);
-    for(let k=0;k<S.qty;k++){t={tid:S.nextTid++,ev:e.id,zone:z.z,price:z.p,status:'active',transfers:0,tx:'0x'+rand(4)+'…'+rand(4)};S.tickets.unshift(t)}
+    const e=evById(S.ev);const z=e.zones[S.zone];
+    let sold=null;
+    if(isLocal(e.id)){
+      const r=OL.recordPrimarySale(orgEv(e.id),z.zoneId,S.qty,'me',S.tickets.filter(x=>x.ev===e.id).length,Date.now());
+      if(!r.ok){toast({sold_out:'ที่นั่งโซนนี้ไม่พอแล้ว',over_limit:'ซื้อได้ไม่เกิน 4 ใบต่อบัญชี',not_on_sale:'งานนี้ปิดรับชั่วคราว',invalid_qty:'จำนวนตั๋วไม่ถูกต้อง'}[r.reason]);S.stack=['home','event'];S.tab='home';render();return}
+      replaceOrgEvent(r.event);S.org.tickets.push(...r.tickets);sold=r.tickets;
+      for(const ot of r.tickets)ledgerAdd({type:'PAYMENT_IN',eventId:e.id,ticketId:ot.ticketId,amount:ot.hops[0].paid,party:'me',idempotencyKey:'in:'+ot.ticketId+':0'});
+    }else z.left=Math.max(0,z.left-S.qty);
+    for(let k=0;k<S.qty;k++){t={tid:S.nextTid++,ev:e.id,zone:z.z,price:z.p,status:'active',transfers:0,tx:'0x'+rand(4)+'…'+rand(4),orgTicketId:sold?sold[k].ticketId:undefined};S.tickets.unshift(t)}
     t=S.tickets[S.qty-1];
   }
   S.sel=t;S.stack=['tickets'];S.tab='tickets';S.mtab='active';go('success');
@@ -821,6 +985,7 @@ function toast(msg){const old=$('.toast');if(old)old.remove();const d=document.c
 /* ---------- actions ---------- */
 $('#device').addEventListener('click',e=>{
   const t=e.target;let b;
+  if(b=t.closest('[data-o]')){orgAct(b.dataset.o,b,e);return}
   if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.zone=Math.max(0,evById(S.ev).zones.findIndex(z=>z.left>0));S.qty=1;go('event');return}
   if(b=t.closest('[data-cat]')){S.cat=b.dataset.cat;render();return}
   if(b=t.closest('[data-mcat]')){S.mcat=b.dataset.mcat;render();return}
@@ -835,8 +1000,9 @@ $('#device').addEventListener('click',e=>{
   const a=b.dataset.act;
   switch(a){
     case 'buy':S.buyingListing=null;if(!S.signedIn){openSignup('checkout');return}go('checkout');break;
-    case 'topay':startStripeCheckout();break;
-    case 'paid':startStripeCheckout();break;
+    case 'topay':if(isLocal(S.buyingListing?S.buyingListing.ev:S.ev))go('pay');else startStripeCheckout();break;
+    case 'paid':if(isLocal(S.buyingListing?S.buyingListing.ev:S.ev))go('minting');else startStripeCheckout();break;
+    case 'orgmode':enterOrg();break;
     case 'back':back();break;
     case 'home':go('home',true);break;
     case 'viewticket':S.ticketView='qr';go('ticket');break;
@@ -844,17 +1010,17 @@ $('#device').addEventListener('click',e=>{
     case 'signup':openSignup();break;
     case 'google':if(S.auth.google){googleLogin();return}walletCreating();break;
     case 'otp':if(S.auth.google){toast('เข้าสู่ระบบด้วยอีเมลจะเปิดให้ใช้เร็วๆ นี้ ใช้ Google ไปก่อนได้เลย');return}walletCreating();break;
-    case 'signedin':closeSheet();toast('สร้างกระเป๋าตั๋วเรียบร้อย');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n);}else render();break;
+    case 'signedin':closeSheet();toast('สร้างกระเป๋าตั๋วเรียบร้อย');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;resumeAfter(n);}else render();break;
     case 'resell':openResell();break;
     case 'transfer':openTransfer();break;
     case 'close':closeSheet();break;
-    case 'list':{const v=+$('#rprice').value;const tk=S.sel;tk.status='listed';tk.listPrice=v;
-      S.listings.unshift({lid:Date.now(),ev:tk.ev,zone:tk.zone,face:tk.price,price:v,seller:short(S.user.wallet),transfers:tk.transfers,tid:tk.tid});
+    case 'list':{const v=+$('#rprice').value;const tk=S.sel;tk.status='listed';tk.listPrice=v;orgTicketStatus(tk,'listed');
+      S.listings.unshift({lid:Date.now(),ev:tk.ev,zone:tk.zone,face:tk.price,price:v,seller:short(S.user.wallet),transfers:tk.transfers,tid:tk.tid,orgTicketId:tk.orgTicketId});
       closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');render();break}
-    case 'unlist':{const tk=S.sel;tk.status='active';S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
+    case 'unlist':{const tk=S.sel;tk.status='active';orgTicketStatus(tk,'valid');S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
     case 'dotransfer':{const to=$('#tto').value.trim();if(!to){$('#tto').focus();return}
       S.tickets=S.tickets.filter(x=>x!==S.sel);closeSheet();toast('โอน Token #'+S.sel.tid+' ให้ '+to+' แล้ว');go('tickets',true);break}
-    case 'scan':{S.sel.status='used';stopTimers();toast('สแกนผ่าน เข้างานได้ ตั๋วถูกล็อกแล้ว');render();break}
+    case 'scan':{S.sel.status='used';orgTicketStatus(S.sel,'used');stopTimers();toast('สแกนผ่าน เข้างานได้ ตั๋วถูกล็อกแล้ว');render();break}
     case 'copy':{const w=S.user.wallet;try{navigator.clipboard.writeText(w).then(()=>toast('คัดลอกที่อยู่ wallet แล้ว'),()=>toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน'))}catch(_){toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน')}break}
     case 'toast':toast(b.dataset.msg);break;
     case 'gomarket':S.mcat=S.ev;go('market',true);break;
@@ -948,7 +1114,7 @@ async function checkAuth(){
   render();
   handleCheckoutReturn();
   if(result==='new'&&me.user)walletCreating();
-  else if(result==='ok'&&me.user){toast('เข้าสู่ระบบแล้ว');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n)}}
+  else if(result==='ok'&&me.user){toast('เข้าสู่ระบบแล้ว');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;resumeAfter(n)}}
   else if(result==='error')toast('เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง');
 }
 
@@ -972,7 +1138,8 @@ async function handleCheckoutReturn(){
 }
 
 /* boot: signed-out home, matching step 1 of the flow */
-load();applyMode();render();(async()=>{await loadEvents();render();checkAuth()})();
+load();ensureOrg();if(S.mode==='org'){S.tab='orgDash';S.stack=['orgDash']}
+applyMode();render();(async()=>{await loadEvents();render();checkAuth()})();
 })();
 </script>
 
