@@ -8,6 +8,7 @@
 //   GET  /auth/google/callback   -> verify ID token, upsert user in D1, make sure the user
 //                                   has a ticket wallet, set session cookie
 //   POST /auth/logout            -> revoke the session
+//   POST /api/dev/test-mint      -> admin only: mint one test ticket to the caller's wallet
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 // THIRDWEB_SECRET_KEY, STRIPE_SECRET_KEY (prefer an rk_ restricted key), and
@@ -21,6 +22,11 @@ const SESSION_DAYS = 30;
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 const WALLET_CHAIN_ID = 43113; // Avalanche Fuji testnet, matches wallets.chain_id default
 const THIRDWEB_API = 'https://api.thirdweb.com';
+// JongloeiTicket on Avalanche Fuji (contracts/deployments/fuji.json). The relayer is a thirdweb
+// server wallet holding MINTER_ROLE and OPERATOR_ROLE; it signs and pays for every ticket write.
+const TICKET_CONTRACT = '0xef36fcbdED316dEd4367636a6c85d73bFD5e2735';
+const RELAYER_ADDRESS = '0xDb5C1E726f8777694DF438c96dcCB57055f6B260';
+const FUJI_EXPLORER = 'https://testnet.snowtrace.io';
 
 export default {
   async fetch(request, env) {
@@ -36,6 +42,7 @@ export default {
       if (url.pathname === '/auth/google/start' && request.method === 'GET') return start(request, env);
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
       if (url.pathname === '/auth/logout' && request.method === 'POST') return logout(request, env);
+      if (url.pathname === '/api/dev/test-mint' && request.method === 'POST') return testMint(request, env);
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
         return json({ error: 'not_found' }, 404);
       }
@@ -396,6 +403,66 @@ async function createThirdwebWallet(secretKey, identifier) {
   const address = String(body?.result?.address || '').toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(address)) throw new Error('thirdweb returned no wallet address');
   return address;
+}
+
+/* ---------- ticket contract (via the thirdweb relayer) ---------- */
+
+// Proves the mint path end to end before the paid flow exists: an admin mints one ticket into
+// their own wallet. The real mint will run only after a payment is verified (context 6.1).
+async function testMint(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not_signed_in' }, 401);
+  if (user.role !== 'admin') return json({ error: 'forbidden' }, 403);
+  if (!env.THIRDWEB_SECRET_KEY) return json({ error: 'thirdweb_not_configured' }, 503);
+  if (!user.wallet) return json({ error: 'no_wallet' }, 409);
+
+  const body = await request.json().catch(() => ({}));
+  const eventId = Number.isSafeInteger(body.eventId) && body.eventId >= 0 ? body.eventId : 0;
+  const transactionId = await writeTicketContract(env.THIRDWEB_SECRET_KEY,
+    'function mint(address to, uint256 eventId) returns (uint256)', [user.wallet, String(eventId)]);
+  const tx = await waitForTransaction(env.THIRDWEB_SECRET_KEY, transactionId);
+  await logEvent(env.DB, user.id, 'test_mint', { transactionId, status: tx.status, hash: tx.hash, eventId }, request.headers.get('cf-connecting-ip')).run();
+  return json({
+    transactionId, status: tx.status, transactionHash: tx.hash, error: tx.error,
+    to: user.wallet, eventId,
+    explorer: tx.hash ? `${FUJI_EXPLORER}/tx/${tx.hash}` : null,
+    wallet: `${FUJI_EXPLORER}/address/${user.wallet}`,
+  }, tx.status === 'FAILED' ? 502 : 200);
+}
+
+// Queues one write from the relayer; thirdweb signs, pays gas and returns a transaction id.
+async function writeTicketContract(secretKey, method, params) {
+  const res = await fetch(`${THIRDWEB_API}/v1/contracts/write`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-secret-key': secretKey },
+    body: JSON.stringify({
+      chainId: WALLET_CHAIN_ID,
+      from: RELAYER_ADDRESS,
+      calls: [{ contractAddress: TICKET_CONTRACT, method, params }],
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`thirdweb write ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const id = (await res.json())?.result?.transactionIds?.[0];
+  if (!id) throw new Error('thirdweb returned no transaction id');
+  return id;
+}
+
+// Polls the queued transaction for up to ~20 s; returns whatever state it reached.
+async function waitForTransaction(secretKey, transactionId) {
+  let last = { status: 'QUEUED', hash: null, error: null };
+  for (let i = 0; i < 10; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const res = await fetch(`${THIRDWEB_API}/v1/transactions/${encodeURIComponent(transactionId)}`, {
+      headers: { 'x-secret-key': secretKey },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) continue;
+    const tx = (await res.json())?.result || {};
+    last = { status: tx.status || last.status, hash: tx.transactionHash || null, error: tx.errorMessage || null };
+    if (last.status === 'CONFIRMED' || last.status === 'FAILED') break;
+  }
+  return last;
 }
 
 async function createSession(db, userId, identityId, { userAgent, ip }) {

@@ -177,6 +177,17 @@ The ticket checkout uses a Stripe-hosted Checkout Session. The Worker validates 
 
 The Stripe button works only when the app is opened from the deployed Worker URL (or `npx wrangler dev`), not by opening `mockup/index.html` with `file://`. The buyer must also use the real Google sign-in flow so the Worker has an authenticated session; the local demo login cannot create a server-side payment order.
 
+### Test mint (admin only)
+
+`POST /api/dev/test-mint` mints one ticket from the Fuji ticket contract (`contracts/deployments/fuji.json`) into the signed-in user's own wallet, through the relayer server wallet via thirdweb (`/v1/contracts/write`). It proves the mint path before the paid flow exists. Only users with `role = 'admin'` can call it.
+
+1. Make your account an admin: `UPDATE users SET role = 'admin' WHERE email = '<you>';` in D1.
+2. Sign in on the site, open the browser console and run:
+   `await (await fetch('/api/dev/test-mint', { method: 'POST', body: JSON.stringify({ eventId: 1 }) })).json()`
+3. The response has the transaction status and Snowtrace links for the transaction and your wallet.
+
+If it fails with a gas error, the relayer needs a little test AVAX or gas sponsorship enabled in the thirdweb project.
+
 ## Database
 
 Account system schema (Cloudflare D1) and setup steps: [`db/README.md`](db/README.md).

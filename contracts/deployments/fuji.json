@@ -1,0 +1,13 @@
+{
+  "chainId": 43113,
+  "network": "Avalanche Fuji",
+  "contract": "JongloeiTicket",
+  "address": "0xef36fcbdED316dEd4367636a6c85d73bFD5e2735",
+  "relayer": "0xDb5C1E726f8777694DF438c96dcCB57055f6B260",
+  "relayerNote": "thirdweb server wallet jongloei-relayer; holds MINTER_ROLE and OPERATOR_ROLE",
+  "admin": "team MetaMask wallet 0x27493...17585 (DEFAULT_ADMIN_ROLE)",
+  "baseURI": "",
+  "deployedWith": "Remix, solc 0.8.26, optimizer 200, evm cancun",
+  "deployedAt": "2026-10-15",
+  "explorer": "https://testnet.snowtrace.io/address/0xef36fcbdED316dEd4367636a6c85d73bFD5e2735"
+}
