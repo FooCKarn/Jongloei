@@ -38,6 +38,7 @@ export default {
       if (url.pathname === '/api/health' && request.method === 'GET') {
         return json({ ok: true, service: 'jongloei-worker' }, 200, { 'cache-control': 'no-store' });
       }
+      if (url.pathname === '/api/events' && request.method === 'GET') return events(request, env);
       if (url.pathname === '/api/checkout-session' && request.method === 'POST') return createCheckoutSession(request, env);
       if (url.pathname === '/api/checkout-status' && request.method === 'GET') return checkoutStatus(request, env);
       if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') return stripeWebhook(request, env);
@@ -66,12 +67,31 @@ async function me(request, env) {
   return json({ googleEnabled: googleEnabled(env), user }, 200, { 'cache-control': 'no-store' });
 }
 
-const TICKET_CATALOG = {
-  neon: { name: 'BKK Neon Nights 2026', venue: 'อิมแพ็ค อารีนา เมืองทองธานี', zones: { 'Standing A': 2500, 'Seat B': 3800, 'VIP Front': 5500 } },
-  jazz: { name: 'Siam River Jazz Festival', venue: 'ลานริมน้ำ เจริญกรุง', zones: { 'บัตรวันเดียว': 1800, 'บัตร 2 วัน': 3200 } },
-  fan: { name: 'Starlight Fan Meeting in Bangkok', venue: 'ธันเดอร์โดม เมืองทองธานี', zones: { 'Zone C': 2900, 'Zone B': 4200, 'Hi-Touch A': 6900 } },
-  standup: { name: 'Late Night Stand-up Special', venue: 'สามย่านมิตรทาวน์ ฮอลล์', zones: { Regular: 1500, 'Front Row': 2600 } },
-};
+async function events(request, env) {
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT e.id, e.name, e.short_name AS short, e.category AS tag, e.event_date AS date,
+              e.event_time AS time, e.venue, e.poster_background AS bg, e.sold_percent AS sold,
+              z.zone_name AS zone, z.price, z.remaining, z.color
+       FROM events e JOIN event_zones z ON z.event_id = e.id
+       WHERE e.status = 'on_sale' ORDER BY e.event_date, e.id, z.sort_order`,
+    ).all();
+    const byId = new Map();
+    for (const row of rows.results || []) {
+      let event = byId.get(row.id);
+      if (!event) {
+        event = { id: row.id, name: row.name, short: row.short, tag: row.tag, date: row.date,
+          time: row.time, venue: row.venue, bg: row.bg, sold: row.sold, zones: [] };
+        byId.set(row.id, event);
+      }
+      event.zones.push({ z: row.zone, p: row.price, left: row.remaining, c: row.color });
+    }
+    return json([...byId.values()], 200, { 'cache-control': 'no-store' });
+  } catch (err) {
+    console.error('event list failed', err && err.stack || err);
+    return json({ error: 'event_storage_unavailable' }, 503);
+  }
+}
 
 async function createCheckoutSession(request, env) {
   if (!env.STRIPE_SECRET_KEY) return json({ error: 'stripe_unconfigured' }, 503);
@@ -79,11 +99,35 @@ async function createCheckoutSession(request, env) {
   if (!user) return json({ error: 'authentication_required' }, 401);
   let body;
   try { body = await request.json(); } catch (_) { return json({ error: 'invalid_json' }, 400); }
-  const event = TICKET_CATALOG[body?.eventId];
+  let event;
+  try {
+    event = await eventById(env.DB, body?.eventId);
+  } catch (err) {
+    console.error('event lookup failed', err && err.stack || err);
+    return json({ error: 'event_storage_unavailable' }, 503);
+  }
   const zone = event?.zones?.[body?.zone];
   const quantity = Number(body?.quantity);
   if (!event || !zone || !Number.isInteger(quantity) || quantity < 1 || quantity > 4) {
     return json({ error: 'invalid_ticket' }, 400);
+  }
+  if (zone.remaining < quantity) return json({ error: 'sold_out' }, 409);
+
+  async function eventById(db, eventId) {
+    if (!eventId) return null;
+    const rows = await db.prepare(
+      `SELECT e.id, e.name, e.venue, z.zone_name AS zone, z.price, z.remaining
+       FROM events e JOIN event_zones z ON z.event_id = e.id
+       WHERE e.id = ? AND e.status = 'on_sale'`,
+    ).bind(eventId).all();
+    if (!rows.results?.length) return null;
+    const first = rows.results[0];
+    return {
+      id: first.id,
+      name: first.name,
+      venue: first.venue,
+      zones: Object.fromEntries(rows.results.map(row => [row.zone, { price: row.price, remaining: row.remaining }])),
+    };
   }
 
   const origin = new URL(request.url).origin;
@@ -93,7 +137,7 @@ async function createCheckoutSession(request, env) {
     'line_items[0][price_data][currency]': 'thb',
     'line_items[0][price_data][product_data][name]': `${event.name} · ${body.zone}`,
     'line_items[0][price_data][product_data][description]': event.venue,
-    'line_items[0][price_data][unit_amount]': String(Math.round(zone * 1.03 * 100)),
+    'line_items[0][price_data][unit_amount]': String(Math.round(zone.price * 1.03 * 100)),
     'line_items[0][quantity]': String(quantity),
     'success_url': `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     'cancel_url': `${origin}/?checkout=cancelled`,
@@ -116,7 +160,7 @@ async function createCheckoutSession(request, env) {
       await env.DB.prepare(
         `INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, amount, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-      ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03 * 100)).run();
+      ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone.price * quantity * 1.03 * 100)).run();
     } catch (err) {
       console.error('payment order insert failed', err && err.stack || err);
       return json({ error: 'payment_storage_unavailable' }, 503);

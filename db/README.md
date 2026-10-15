@@ -12,6 +12,9 @@ Cloudflare D1 (SQLite). Migrations live in `db/migrations/` and are plain SQL, a
 | `sessions` | Server sessions. Only the SHA-256 hash of the token is stored |
 | `host_profiles` | Shop details and verification status (shops are verified at sign-up). Legal name and ID number are stored encrypted (`*_enc`), never in plain text |
 | `account_events` | Append-only log: sign-up, login, wallet linked, role change, host verified, erasure |
+| `events` | Event catalog and sale status |
+| `event_zones` | Ticket zones, prices, colors, and remaining inventory |
+| `payment_orders` | Stripe Checkout orders and payment status |
 
 Conventions: ids are app-generated `TEXT` (UUID / ULID), timestamps are unix epoch **milliseconds**, booleans are `0`/`1`, wallet addresses are stored lowercase.
 

@@ -177,6 +177,14 @@ The ticket checkout uses a Stripe-hosted Checkout Session. The Worker validates 
 
 The Stripe button works only when the app is opened from the deployed Worker URL (or `npx wrangler dev`), not by opening `mockup/index.html` with `file://`. The buyer must also use the real Google sign-in flow so the Worker has an authenticated session; the local demo login cannot create a server-side payment order.
 
+### Event catalog
+
+The home page loads on-sale events from D1 through `GET /api/events`; event names, dates, venues, poster styles, zones, prices, and remaining inventory are no longer required to be edited in the frontend. Apply `db/migrations/0003_events.sql` to seed the current events. Future admin tooling can edit the `events` and `event_zones` rows without adding frontend buttons.
+
+```sh
+npx wrangler d1 migrations apply jongloei-db --remote
+```
+
 ### Test mint (admin only)
 
 `POST /api/dev/test-mint` mints one ticket from the Fuji ticket contract (`contracts/deployments/fuji.json`) into the signed-in user's own wallet, through the relayer server wallet via thirdweb (`/v1/contracts/write`). It proves the mint path before the paid flow exists. Only users with `role = 'admin'` can call it.
