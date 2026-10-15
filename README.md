@@ -167,7 +167,7 @@ Published organizer events appear on the buyer home page and are bought through 
 6. Event → ตั้งค่า → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
 7. การเงิน: the refunded amount and the payout schedule of the other events.
 
-The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer`.
+The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer/*.test.js`.
 
 ### Google sign-in
 
