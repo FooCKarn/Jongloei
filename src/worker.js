@@ -3,16 +3,20 @@
 // Routes (everything else is served from ./mockup as static assets):
 //   GET  /api/me                 -> { googleEnabled, user }
 //   GET  /auth/google/start      -> redirect to Google's account chooser
-//   GET  /auth/google/callback   -> verify ID token, upsert user in D1, set session cookie
+//   GET  /auth/google/callback   -> verify ID token, upsert user in D1, make sure the user
+//                                   has a ticket wallet, set session cookie
 //   POST /auth/logout            -> revoke the session
 //
-// Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET.
-// Without them /api/me reports googleEnabled=false and the mock-up keeps its demo login.
+// Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+// THIRDWEB_SECRET_KEY. Without the Google ones /api/me reports googleEnabled=false and the
+// mock-up keeps its demo login. Without THIRDWEB_SECRET_KEY login works but no wallet is made.
 
 const SESSION_COOKIE = 'jl_session';
 const STATE_COOKIE = 'jl_oauth';
 const SESSION_DAYS = 30;
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+const WALLET_CHAIN_ID = 43113; // Avalanche Fuji testnet, matches wallets.chain_id default
+const THIRDWEB_API = 'https://api.thirdweb.com';
 
 export default {
   async fetch(request, env) {
@@ -99,6 +103,8 @@ async function callback(request, env) {
     ip: request.headers.get('cf-connecting-ip'),
   };
   const { userId, identityId, isNew } = await upsertGoogleUser(env.DB, claims, meta.ip);
+  // Every login (not only sign-up) checks for a wallet, so a failed attempt heals next time.
+  await ensureWallet(env, userId, meta.ip);
   const token = await createSession(env.DB, userId, identityId, meta);
 
   const headers = new Headers({ location: `/?login=${isNew ? 'new' : 'ok'}` });
@@ -206,6 +212,56 @@ function logEvent(db, userId, type, metadata, ip) {
   ).bind(userId, userId, type, JSON.stringify(metadata), ip || null);
 }
 
+/* ---------- ticket wallet (thirdweb server wallet) ---------- */
+
+// Gives the user a platform-created wallet if they have none yet. Never throws: a thirdweb
+// outage must not block login, and the next login retries.
+async function ensureWallet(env, userId, ip) {
+  if (!env.THIRDWEB_SECRET_KEY) return null;
+  try {
+    const existing = await env.DB.prepare(
+      `SELECT address FROM wallets WHERE user_id = ? AND kind = 'inapp' AND removed_at IS NULL LIMIT 1`,
+    ).bind(userId).first();
+    if (existing) return existing.address;
+
+    const address = await createThirdwebWallet(env.THIRDWEB_SECRET_KEY, walletIdentifier(userId));
+    // thirdweb returns the same wallet for the same identifier, and UNIQUE (address, chain_id)
+    // plus the one-primary index make the insert a no-op on a retry or a parallel login.
+    const res = await env.DB.prepare(
+      `INSERT INTO wallets (id, user_id, address, kind, chain_id, is_primary, label)
+       SELECT ?, ?, ?, 'inapp', ?,
+              NOT EXISTS (SELECT 1 FROM wallets WHERE user_id = ? AND is_primary = 1 AND removed_at IS NULL),
+              'กระเป๋าตั๋ว'
+       WHERE true -- needed by SQLite's parser for INSERT ... SELECT ... ON CONFLICT
+       ON CONFLICT DO NOTHING`,
+    ).bind(crypto.randomUUID(), userId, address, WALLET_CHAIN_ID, userId).run();
+    if (res.meta && res.meta.changes) {
+      await logEvent(env.DB, userId, 'wallet_created', { provider: 'thirdweb', address, chainId: WALLET_CHAIN_ID }, ip).run();
+    }
+    return address;
+  } catch (err) {
+    console.error('wallet creation failed', userId, err && err.stack || err);
+    return null;
+  }
+}
+
+// Stable per user and never reused, so thirdweb always maps one account to one wallet.
+const walletIdentifier = userId => `jongloei-user-${userId}`;
+
+async function createThirdwebWallet(secretKey, identifier) {
+  const res = await fetch(`${THIRDWEB_API}/v1/wallets/server`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-secret-key': secretKey },
+    body: JSON.stringify({ identifier }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`thirdweb ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const body = await res.json();
+  const address = String(body?.result?.address || '').toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(address)) throw new Error('thirdweb returned no wallet address');
+  return address;
+}
+
 async function createSession(db, userId, identityId, { userAgent, ip }) {
   const token = randomToken(32);
   const now = Date.now();
@@ -221,14 +277,19 @@ async function currentUser(request, env) {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.display_name, u.email, u.avatar_url, u.role, s.id AS session_id
+    `SELECT u.id, u.display_name, u.email, u.avatar_url, u.role, s.id AS session_id,
+            (SELECT w.address FROM wallets w WHERE w.user_id = u.id AND w.is_primary = 1
+               AND w.removed_at IS NULL) AS wallet
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?
        AND u.status = 'active' AND u.deleted_at IS NULL`,
   ).bind(await sha256Hex(token), Date.now()).first();
   if (!row) return null;
   await env.DB.prepare('UPDATE sessions SET last_seen_at = ? WHERE id = ?').bind(Date.now(), row.session_id).run();
-  return { id: row.id, name: row.display_name, email: row.email, avatarUrl: row.avatar_url, role: row.role };
+  return {
+    id: row.id, name: row.display_name, email: row.email, avatarUrl: row.avatar_url, role: row.role,
+    wallet: row.wallet || null,
+  };
 }
 
 /* ---------- helpers ---------- */

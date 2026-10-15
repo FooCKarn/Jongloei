@@ -4,8 +4,9 @@
 // deploy command `npx wrangler deploy`.
 //
 // Secrets (Settings > Variables and Secrets, type "Secret"; never commit them):
-//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-// Without them the mock-up keeps its demo login.
+//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, THIRDWEB_SECRET_KEY
+// Without the Google ones the mock-up keeps its demo login; without the thirdweb one
+// login works but no ticket wallet is created.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "jongloei",

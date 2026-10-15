@@ -137,6 +137,15 @@ Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a ph
 
 The redirect URI is built from the address the page was opened on, so add one more origin and redirect URI pair for any other domain (a custom domain, or `http://localhost:8787` for `npx wrangler dev`).
 
+### Ticket wallet at sign-up
+
+After every Google login the Worker checks that the user has a ticket wallet. If not, it asks thirdweb for a **server wallet** (`POST https://api.thirdweb.com/v1/wallets/server` with identifier `jongloei-user-<user id>`) and saves the address in `wallets` as the user's primary wallet on Avalanche Fuji (chain 43113). thirdweb returns the same wallet for the same identifier and the database ignores duplicates, so retries never make a second wallet. If thirdweb is down, login still works and the next login tries again. `/api/me` returns the address as `user.wallet`.
+
+1. thirdweb dashboard (https://thirdweb.com/dashboard) > create a project > copy its **Secret key** (shown once).
+2. Cloudflare dashboard > Workers & Pages > jongloei > Settings > Variables and Secrets: add `THIRDWEB_SECRET_KEY` as type **Secret**, then redeploy.
+
+The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
+
 ## Database
 
 Account system schema (Cloudflare D1) and setup steps: [`db/README.md`](db/README.md).
