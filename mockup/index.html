@@ -319,6 +319,12 @@ body{padding:0}
 .org-swatch{width:44px;height:44px;border-radius:12px;border:2px solid transparent;cursor:pointer}.org-swatch.on{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
 .org-wiz .field input:disabled,.org-wiz .field select:disabled{opacity:.6}
 .seg.four{grid-template-columns:repeat(4,1fr)}
+@media print{
+  html,body{height:auto!important;background:#fff!important}
+  #appbar,#tabbar,.no-print,.toast,.sheet-wrap{display:none!important}
+  .stage,.devwrap,.device,.scroll{height:auto!important;overflow:visible!important;position:static!important;border:0!important;box-shadow:none!important}
+  .screen{padding:0!important;max-width:none!important;animation:none!important}
+}
 /* scan result: fixed colours in both themes so a door scan reads the same everywhere */
 .org-result{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;color:#fff;text-align:center}
 .org-result.ok{background:#1D7A48}.org-result.bad{background:#A00018}
@@ -1373,6 +1379,45 @@ function simCase(c){
   return dc[c]();
 }
 
+/* ---------- organizer: finance ---------- */
+function finRow(e,now){
+  const o=S.org;
+  if(e.status==='cancelled'){
+    const refunded=o.ledger.filter(l=>l.eventId===e.id&&l.type==='REFUND_OUT').reduce((a,l)=>a+l.amount,0);
+    return {e,kind:'cancelled',gross:0,fee:0,net:0,refunded,payAt:null,paid:false,label:'ยกเลิก · ไม่มีการจ่าย',tickets:[]};
+  }
+  const tickets=evTickets(e.id).filter(t=>t.status!=='refunded'),r=OL.settleEvent(e,tickets),payAt=OL.payoutAt(e);
+  const gross=tickets.reduce((a,t)=>a+(t.hops[0]?t.hops[0].paid:0),0);
+  const over=e.endAt&&now>=e.endAt,paid=e.status==='ended'&&payAt!==null&&payAt<=now;
+  const label=paid?'จ่ายแล้ว':over||e.status==='ended'?'รอช่วงตรวจสอบ 24 ชม.':'รองานจบ';
+  return {e,kind:'live',gross,fee:r.shopFee,net:r.shopNet,refunded:0,payAt,paid,label,tickets,settle:r};
+}
+function finDetail(r){
+  const B=OL.fmtBaht,e=r.e;if(r.kind==='cancelled')return '<div class="small muted">งานนี้ยกเลิกแล้ว ผู้ซื้อทุกคนได้รับเงินคืนตามที่จ่าย</div>';
+  const multi=r.tickets.filter(t=>t.hops.length>1),single=r.tickets.filter(t=>t.hops.length===1&&t.hops[0].paid>0);
+  const price=t=>(e.zones.find(z=>z.id===t.zoneId)||{price:0}).price;
+  const singleNet=single.reduce((a,t)=>a+OL.settleTicket(t,price(t)).shopNet,0);
+  return `<div class="small" style="display:flex;flex-direction:column;gap:8px">
+    <div>ตั๋วขายครั้งเดียว ${single.length} ใบ · ร้านได้ ${B(singleNet)}</div>
+    ${multi.length?`<div style="overflow-x:auto"><table class="org-table"><thead><tr><th scope="col">ตั๋วที่ขายต่อ</th><th scope="col">ร้านได้</th><th scope="col">ค่าบริการ</th><th scope="col">ผู้ขายแต่ละเที่ยวได้</th><th scope="col">คอมมิชชัน 6%</th></tr></thead><tbody>
+      ${multi.map(t=>{const s=OL.settleTicket(t,price(t));return `<tr><th scope="row" class="mono">${esc(t.ticketId)}</th><td>${B(s.shopNet)}</td><td>${B(s.shopFee)}</td>
+        <td style="text-align:left">${s.sellerPayouts.map(p=>esc(orgPerson(p.payerId).name)+' '+B(p.amount)).join('<br>')}</td><td>${B(s.commission)}</td></tr>`}).join('')}</tbody></table></div>`:''}</div>`;
+}
+function finPrintDoc(r){
+  const B=OL.fmtBaht,sh=S.org.shop,e=r.e;
+  return `<div id="org-print" class="org-printdoc">
+    <div class="row between no-print"><button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="finPrintClose">กลับ</button><button class="btn" style="width:auto;padding:9px 18px;font-size:14px" data-o="finDoPrint">พิมพ์ / บันทึกเป็น PDF</button></div>
+    <h1 style="font-size:22px">เอกสารสรุปรายการ</h1>
+    <p class="small muted" style="margin:0">เอกสารสรุปจากระบบ JONGLOEI เพื่อใช้ประกอบการทำบัญชี <b>ไม่ใช่ใบกำกับภาษี</b> · ข้อมูลตัวอย่าง</p>
+    <dl class="kv card" style="margin:0"><dt>ผู้จัด</dt><dd>${esc(sh.name)}</dd><dt>งาน</dt><dd>${esc(e.name)}</dd><dt>วันจัดงาน</dt><dd>${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'—'}</dd>
+      <dt>สถานะงาน</dt><dd>${statusPill(e.status)}</dd><dt>ออกเอกสาร</dt><dd>${OL.thaiDate(Date.now())}</dd></dl>
+    <dl class="kv card num" style="margin:0">${r.kind==='cancelled'
+      ?`<dt>เหตุผลที่ยกเลิก</dt><dd>${esc(e.cancelReason||'—')}</dd><dt>คืนเงินผู้ซื้อ</dt><dd>${B(r.refunded)}</dd><dt>ยอดที่ร้านได้รับ</dt><dd>—</dd>`
+      :`<dt>จำนวนตั๋วที่ขาย</dt><dd>${r.tickets.filter(t=>t.hops[0]&&t.hops[0].paid>0).length} ใบ</dd><dt>ยอดขายรวม</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ (฿5 + 3% ต่อใบ)</dt><dd>${B(r.fee)}</dd>
+        <dt style="color:var(--ink);font-weight:600">รายรับสุทธิ</dt><dd style="font-weight:700">${B(r.net)}</dd><dt>วันรับเงิน</dt><dd>${r.payAt?OL.thaiDate(r.payAt):'—'} (${r.label})</dd>`}</dl>
+  </div>`;
+}
+
 const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
 Object.assign(ORG_ACTIONS,{
   wizNext(){
@@ -1449,6 +1494,10 @@ Object.assign(ORG_ACTIONS,{
     const plan=orgCancelEvent(e.id,val('cx-reason'));cancelProgressSheet(e,plan);
   },
   cancelClose(){closeSheet();render()},
+  finToggle(el){const o=S.org;o.finOpen=o.finOpen||{};o.finOpen[el.dataset.id]=!o.finOpen[el.dataset.id];render()},
+  finPrint(el){S.org.printEv=el.dataset.id;render()},
+  finPrintClose(){S.org.printEv=null;render()},
+  finDoPrint(){window.print()},
   gtab(el){S.org.gtab=el.dataset.t;render()},
   simOpen(){sheet(`<h2 style="font-size:19px">จำลองการสแกน</h2><p class="small muted" style="margin:0">เลือกสถานการณ์ ระบบจะหยิบตั๋วจริงของงานนี้มาตรวจ</p>
     ${SIM_CASES.map(([c,l])=>`<button class="btn plain" data-o="sim" data-c="${c}">${c}. ${l}</button>`).join('')}<button class="btn plain" data-act="close">ปิด</button>`)},
@@ -1620,7 +1669,33 @@ orgGatePick(){
       <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</div><div class="small num" style="margin-top:4px">เข้างานแล้ว ${g.used} / ${g.total}</div></div></div></button>`}).join('')}</div>`
   :'<div class="empty">ไม่มีงานที่เปิดขายอยู่</div>'}`;
 },
-orgFinance(){appbar('การเงิน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgFinance(){
+  appbar('การเงิน');
+  const o=S.org,now=Date.now(),B=OL.fmtBaht,sh=o.shop;
+  const rows=o.events.filter(e=>e.status!=='draft').map(e=>finRow(e,now)).sort((a,b)=>(b.e.startAt||0)-(a.e.startAt||0));
+  if(o.printEv){const r=rows.find(x=>x.e.id===o.printEv);if(r)return finPrintDoc(r)}
+  const sum=f=>rows.filter(f).reduce((a,r)=>a+r.net,0);
+  const refunded=o.ledger.filter(l=>l.type==='REFUND_OUT').reduce((a,l)=>a+l.amount,0);
+  const stat=(k,label,v,sub)=>`<div class="card org-stat"><span class="small muted">${label}</span><b class="num" data-fin="${k}">${v}</b>${sub?`<span class="small muted">${sub}</span>`:''}</div>`;
+  return `<div class="row between"><h1 style="font-size:22px">การเงิน</h1><span class="pill grey">ข้อมูลตัวอย่าง</span></div>
+  <div class="org-stats">
+    ${stat('pending','รอจ่ายรวม',B(sum(r=>!r.paid&&r.kind!=='cancelled')),'งานที่ยังไม่จบหรืออยู่ในช่วงตรวจสอบ')}
+    ${stat('paid','จ่ายแล้ว',B(sum(r=>r.paid)),'โอนเข้าบัญชีพร้อมเพย์แล้ว')}
+    ${stat('fees','ค่าบริการรวม',B(rows.reduce((a,r)=>a+r.fee,0)),'฿5 + 3% ต่อใบ')}
+    ${stat('refunded','คืนผู้ซื้อ',B(refunded),'จากงานที่ยกเลิก')}</div>
+  <div class="card row between"><div><b>บัญชีรับเงิน (พร้อมเพย์)</b><div class="small muted mono">••••${esc(String(sh.payoutPromptPay||'').slice(-4))}</div></div>
+    ${sh.verification==='verified'?'<span class="pill ok">ยืนยันแล้ว</span>':'<span class="pill warn">รอยืนยัน</span>'}</div>
+  <div class="small muted">เงินเข้าบัญชีหลังงานจบ 24 ชั่วโมง เผื่อกรณียกเลิกหรือมีข้อพิพาท · ถ้างานถูกยกเลิก ระบบคืนเงินผู้ซื้อแทนการโอนให้ร้าน</div>
+  <h2 style="font-size:17px">รายงานต่องาน</h2>
+  <div style="display:flex;flex-direction:column;gap:10px">${rows.map(r=>`<div class="card" data-fin-row="${r.e.id}" style="display:flex;flex-direction:column;gap:8px">
+    <div class="row between" style="align-items:flex-start"><div style="min-width:0"><b>${esc(r.e.name)}</b><div class="small muted">${r.e.startAt?OL.thaiDate(r.e.startAt):''}</div></div><span class="pill ${r.paid?'ok':r.kind==='cancelled'?'':'warn'}">${r.label}</span></div>
+    <dl class="kv num" style="margin:0"><dt>ยอดขาย</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ</dt><dd>${B(r.fee)}</dd>
+      <dt style="color:var(--ink);font-weight:600">${r.kind==='cancelled'?'คืนผู้ซื้อ':'รายรับสุทธิ'}</dt><dd style="font-weight:700">${r.kind==='cancelled'?B(r.refunded):B(r.net)}</dd>
+      <dt>วันรับเงิน</dt><dd>${r.payAt?OL.thaiDate(r.payAt):'—'}</dd></dl>
+    <div class="row"><button class="btn plain" style="padding:9px;font-size:14px;min-height:44px" data-o="finToggle" data-id="${r.e.id}" aria-expanded="${!!(o.finOpen&&o.finOpen[r.e.id])}">รายการต่อใบ</button>
+      <button class="btn plain" style="padding:9px;font-size:14px;min-height:44px" data-o="finPrint" data-id="${r.e.id}">พิมพ์สรุป</button></div>
+    ${o.finOpen&&o.finOpen[r.e.id]?`<div id="fin-detail-${r.e.id}">${finDetail(r)}</div>`:''}</div>`).join('')}</div>`;
+},
 };
 Object.assign(VIEWS,ORG_VIEWS);
 
