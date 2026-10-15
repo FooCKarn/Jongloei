@@ -1,6 +1,6 @@
 # JONGLOEI ticket contract
 
-**Deployed on Avalanche Fuji:** [`0xef36fcbdED316dEd4367636a6c85d73bFD5e2735`](https://testnet.snowtrace.io/address/0xef36fcbdED316dEd4367636a6c85d73bFD5e2735), relayer `0xDb5C1E726f8777694DF438c96dcCB57055f6B260` (thirdweb server wallet `jongloei-relayer`). Details in `deployments/fuji.json`; the ABI is in `abi/JongloeiTicket.json`.
+**Deployed on Avalanche Fuji:** [`0xef36fcbdED316dEd4367636a6c85d73bFD5e2735`](https://testnet.snowtrace.io/address/0xef36fcbdED316dEd4367636a6c85d73bFD5e2735), relayer `0x8f79c4dE47287b129E2B7279Ae34c779D1eFA952` (ERC-4337 smart account of thirdweb server wallet `jongloei-relayer`; Fuji has no EIP-7702, so writes must come from the smart account, not the signer `0xDb5C…B260`). Details in `deployments/fuji.json`; the ABI is in `abi/JongloeiTicket.json`.
 
 `src/JongloeiTicket.sol` is the minimal ticket contract from context v3.4 section 8 (Core A5): an ERC-721 on Avalanche Fuji where only the platform relayer can act.
 
