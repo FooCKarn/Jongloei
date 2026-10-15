@@ -669,7 +669,7 @@ profile(){
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <div class="row between"><b>กระเป๋าตั๋วของคุณ</b><span class="pill ok">สร้างอัตโนมัติ</span></div>
       <div class="wallet-addr"><span class="mono">${S.user.wallet}</span><button class="iconbtn" data-act="copy" aria-label="คัดลอก"><svg><use href="#i-copy"/></svg></button></div>
-      <dl class="kv" style="margin:0"><dt>เครือข่าย</dt><dd>Base Sepolia (ทดสอบ)</dd><dt>ตั๋ว NFT</dt><dd class="num">${S.tickets.length} ใบ</dd><dt>ค่าแก๊ส</dt><dd>ระบบออกให้ทั้งหมด</dd></dl>
+      <dl class="kv" style="margin:0"><dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd><dt>ตั๋ว NFT</dt><dd class="num">${S.tickets.length} ใบ</dd><dt>ค่าแก๊ส</dt><dd>ระบบออกให้ทั้งหมด</dd></dl>
     </div>
   </div>
   <div class="col">
@@ -696,7 +696,7 @@ function nftCard(t,full){
         <dt>เจ้าของ</dt><dd class="mono">${short(S.user.wallet)} (คุณ)</dd>
         ${full?`<dt>สัญญา</dt><dd class="mono">${short(CONTRACT)}</dd>
         <dt>ธุรกรรม mint</dt><dd class="mono">${t.tx}</dd>
-        <dt>เครือข่าย</dt><dd>Base Sepolia (ทดสอบ)</dd>
+        <dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd>
         <dt>โอนแล้ว</dt><dd class="num">${t.transfers}/2 ครั้ง</dd>`:''}
       </dl>
       ${full?`<div class="small muted">ประวัติ: Mint → ${S.user.name}${t.transfers?' → โอน '+t.transfers+' ครั้ง':''}</div>`:''}
