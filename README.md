@@ -164,7 +164,17 @@ After every Google login the Worker checks that the user has a ticket wallet. If
 
 The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
 
-> **Entry QR signing (context v3.4):** the user does not hold the key, so the Worker asks thirdweb to sign the 60-second entry QR with the ticket owner's server wallet. The scanner still checks the signature against `ownerOf`. Do not say in the pitch that users sign the QR themselves.
+> **Current implementation vs. context v3.3:** this server wallet is what the code does today. Context v3.3 targets a thirdweb **embedded (in-app) wallet** instead, so the ticket owner's own key can sign the entry QR every 60 seconds. With a platform-held server wallet the user cannot sign the QR themselves, so this part still has to move to an embedded wallet.
+### Stripe Checkout
+
+The ticket checkout uses a Stripe-hosted Checkout Session. The Worker validates the event, zone, and quantity against its server-side catalog, then redirects the buyer to Stripe. Payment status is recorded only from a signature-verified webhook; the success URL is not used as proof of payment.
+
+1. Apply the D1 migration (`db/migrations/0002_payments.sql`).
+2. In Stripe, create a test sandbox and a restricted API key with only the permissions required to create Checkout Sessions. Add it in Cloudflare as the secret `STRIPE_SECRET_KEY` (an `rk_` key is preferred).
+3. Add a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.async_payment_failed`. Store its signing secret in Cloudflare as `STRIPE_WEBHOOK_SECRET`.
+4. Set the secrets on the Worker and redeploy. Do not put Stripe keys in `mockup/index.html`, committed files, or client-side code.
+
+The Stripe button works only when the app is opened from the deployed Worker URL (or `npx wrangler dev`), not by opening `mockup/index.html` with `file://`. The buyer must also use the real Google sign-in flow so the Worker has an authenticated session; the local demo login cannot create a server-side payment order.
 
 ## Database
 
