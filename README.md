@@ -226,7 +226,9 @@ npx wrangler d1 migrations apply jongloei-db --remote
 
 ### Organizer API (backend)
 
-`src/organizer.js` is the real backend behind organizer mode. The mock-up screens are not wired to it yet; until they are, use the API from the browser console or a script. Every route checks the signed-in user's shop role on the server.
+`src/organizer.js` is the real backend behind organizer mode. Every route checks the signed-in user's shop role on the server.
+
+The organizer welcome screen has a "ใช้ระบบจริงด้วยบัญชี Google" button (shown when Google sign-in is configured). It signs in with the buyer's Google session and runs the organizer screens on this API: open a shop, add managers and door staff, create, edit, publish and cancel events, edit zones, and list orders. The demo data stays in localStorage and is never mixed with the real shop, which is never written there. Live mode shows only what the API serves: there is no door check-in, finance, resale settings, promo codes or comp tickets yet, zone types are standing and seated only, and prices are whole baht from ฿20. An admin verifies a new shop with `POST /api/admin/hosts/verify` before it can publish.
 
 | Route | Who | What |
 |---|---|---|
