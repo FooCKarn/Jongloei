@@ -1,0 +1,11 @@
+// Cloudflare Workers config: serves the static front-end mock-up in ./mockup.
+// No Worker script and no secrets; deploy from the Cloudflare dashboard (Workers Builds).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "jongloei",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./mockup",
+    "not_found_handling": "single-page-application"
+  }
+}

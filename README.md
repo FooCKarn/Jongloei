@@ -119,6 +119,13 @@ User เข้า web3 ของเราที่เป็นผู้จัด
 | 3 · Then | Mid-size | Festivals and fan meetings; safe resale (price cap, 2-transfer limit, lock window); organizer dashboard |
 | 4 · Later | Big events | Fair Draw lottery vs bots; offline gate for stadiums; pitch with proven traction |
 
+## Front-end mock-up
+
+Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a phone view and a desktop web view. No backend; all data is sample data.
+
+- Page: `mockup/index.html` (open it directly in a browser)
+- Hosting: `wrangler.jsonc` serves `mockup/` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo, leave the build command empty and use `npx wrangler deploy` as the deploy command.
+
 ## Demo
 
 Live demo on testnet: *(add demo link)*
