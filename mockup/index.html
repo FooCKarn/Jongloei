@@ -318,6 +318,8 @@ body{padding:0}
 .org-evcard .top{display:grid;grid-template-columns:64px 1fr;gap:12px}
 .org-swatch{width:44px;height:44px;border-radius:12px;border:2px solid transparent;cursor:pointer}.org-swatch.on{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
 .org-wiz .field input:disabled,.org-wiz .field select:disabled{opacity:.6}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+.org-danger{border-color:var(--red)}.btn.org-danger-btn{background:var(--red-strong);color:#fff}
 .org-progress{display:flex;gap:6px}.org-progress i{flex:1;height:6px;border-radius:9px;background:var(--line)}.org-progress i.on{background:var(--red)}
 </style>
 
@@ -384,7 +386,8 @@ let BASE_EVENTS=[
    zones:[{z:'Regular',p:1500,left:240,c:'#E8485A'},{z:'Front Row',p:2600,left:22,c:'#A00018'}],sold:41},
 ];
 let EVENTS=BASE_EVENTS;
-const evById=id=>EVENTS.find(e=>e.id===id);
+// organizer events that left the buyer list (cancelled / ended) still resolve, so tickets for them keep rendering
+const evById=id=>EVENTS.find(e=>e.id===id)||(S.org&&isLocal(id)&&S.org.events.find(e=>e.id===id)?OL.toBuyerEvent(S.org.events.find(e=>e.id===id)):undefined);
 const isLocal=id=>String(id||'').startsWith('org-');
 
 /* ---------- state ---------- */
@@ -656,8 +659,8 @@ checkout(){
   appbar('ชำระเงิน');
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:e.zones[S.zone].p;const qty=L?1:S.qty;
-  const sub=unit*qty,fee=Math.round(sub*0.03);
   const local=isLocal(e.id);
+  const sub=unit*qty,fee=local?0:Math.round(sub*0.03);   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
   return `<div class="cols">
   <div class="col">
     <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
@@ -674,7 +677,7 @@ checkout(){
     </div>
     <dl class="kv card num" style="margin:0">
       <dt>ราคาบัตร</dt><dd>${fmt(sub)}</dd>
-      <dt>ค่าบริการ 3%</dt><dd>${fmt(fee)}</dd>
+      <dt>ค่าบริการ${local?'':' 3%'}</dt><dd>${local?'<span class="pill ok">ผู้จัดเป็นผู้จ่าย</span>':fmt(fee)}</dd>
       <dt>ค่าแก๊ส (ค่าธรรมเนียมบล็อกเชน)</dt><dd><span class="pill ok">ฟรี ระบบออกให้</span></dd>
       <dt style="font-weight:600;color:var(--ink)">ยอดชำระ</dt><dd style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--red)">${fmt(sub+fee)}</dd>
     </dl>
@@ -684,7 +687,7 @@ checkout(){
 pay(){
   appbar('สแกนเพื่อชำระ');
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
-  const sub=L?L.price:e.zones[S.zone].p*S.qty;const total=sub+Math.round(sub*0.03);
+  const sub=L?L.price:e.zones[S.zone].p*S.qty;const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
   return `<div class="cols even">
   <div class="col">
     <div class="qrbox">
@@ -745,15 +748,15 @@ paymentSuccess(){
 tickets(){
   appbar('ตั๋วของฉัน');
   if(!S.signedIn)return `<div class="empty">เข้าสู่ระบบเพื่อดูตั๋วของคุณ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>`;
-  const groups={active:'ใช้งานได้',listed:'ลงขายอยู่',used:'ใช้แล้ว'};
+  const groups={active:'ใช้งานได้',listed:'ลงขายอยู่',used:'ใช้แล้ว',refunded:'คืนเงินแล้ว'};
   const list=S.tickets.filter(t=>t.status===S.mtab);
   return `
   <h1 class="d-only" style="font-size:24px">ตั๋วของฉัน</h1>
-  <div class="seg three">${Object.entries(groups).map(([k,v])=>`<button data-mtab="${k}" class="${S.mtab===k?'on':''}">${v} (${S.tickets.filter(t=>t.status===k).length})</button>`).join('')}</div>
+  <div class="seg four">${Object.entries(groups).map(([k,v])=>`<button data-mtab="${k}" class="${S.mtab===k?'on':''}">${v} (${S.tickets.filter(t=>t.status===k).length})</button>`).join('')}</div>
   ${list.length?`<div class="tlist">${list.map(t=>{const e=evById(t.ev);return `
     <button class="mticket" data-ticket="${t.tid}">${poster(e)}
       <div><h3>${e.name}</h3><div class="small muted">${e.date} · ${t.zone}</div><div class="tokenid">Token #${t.tid}</div></div>
-      ${t.status==='listed'?`<span class="pill warn">${fmt(t.listPrice)}</span>`:t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':'<span class="pill ok">พร้อมใช้</span>'}
+      ${t.status==='listed'?`<span class="pill warn">${fmt(t.listPrice)}</span>`:t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':t.status==='refunded'?`<span class="pill">คืนเงินแล้ว ${fmt(t.refundAmount||0)}</span>`:'<span class="pill ok">พร้อมใช้</span>'}
     </button>`}).join('')}</div>`:`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ลองดูงานที่หน้าแรก':'ไม่มีตั๋วในหมวดนี้'}</div>`}
   <div class="card small muted">ตั๋วทุกใบเก็บอยู่ใน wallet ที่ระบบสร้างให้ตอนสมัคร คุณไม่ต้องจำ seed phrase หรือจ่ายค่าแก๊สเอง</div>`;
 },
@@ -766,7 +769,7 @@ ticket(){
     <div class="col ${S.ticketView==='qr'?'':'tv-hide'}">
       <div class="qrbox">
         <div style="text-align:center;line-height:1.35"><b style="font-family:var(--f-display)">${e.name}</b><div style="font-size:13px;color:#6E6265">${e.date} · ${t.zone}</div></div>
-        ${t.status==='listed'?`<div style="padding:40px 10px;text-align:center;color:#6E6265">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`:t.status==='used'?`<div style="padding:40px 10px;text-align:center;color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`:`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
+        ${t.status==='refunded'?`<div style="padding:40px 10px;text-align:center;color:#A00018;font-weight:600">งานถูกยกเลิก<br><span style="font-weight:400;color:#6E6265">คืนเงิน ${fmt(t.refundAmount||0)} แล้ว ตั๋วใบนี้ใช้เข้างานไม่ได้</span></div>`:t.status==='listed'?`<div style="padding:40px 10px;text-align:center;color:#6E6265">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`:t.status==='used'?`<div style="padding:40px 10px;text-align:center;color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`:`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
         <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" stroke-width="4"/><circle id="ringfg" cx="18" cy="18" r="15" fill="none" stroke="#A00018" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="0" stroke-linecap="round"/></svg>QR ใหม่ใน <b id="qrcd" class="num">60</b> วินาที</div>`}
       </div>
       <div class="card small" style="display:flex;gap:10px"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
@@ -1169,6 +1172,128 @@ function wizLeaveSheet(){
     <button class="btn" data-o="wizLeaveSave">บันทึกร่าง</button><button class="btn plain" data-o="wizLeaveDiscard">ทิ้งการแก้ไข</button><button class="btn plain" data-act="close">กรอกต่อ</button>`);
 }
 
+/* ---------- organizer: event management ---------- */
+const TICKET_STATUS={valid:'พร้อมใช้',listed:'ลงขายอยู่',used:'ใช้แล้ว',refunded:'คืนเงินแล้ว',unavailable:'ไม่มา'};
+const evTickets=id=>S.org.tickets.filter(t=>t.eventId===id);
+const maskEmail=m=>{const [a,b]=String(m).split('@');return b?a.slice(0,1)+'***@'+b:'***'};
+const csvCell=v=>{let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+
+function evOverview(e){
+  const s=OL.summarize(e),ro=['ended','cancelled'].includes(e.status);
+  const act=e.status==='on_sale'?`<button class="btn plain" data-o="pause">พักการขาย</button>`
+    :e.status==='paused'?`<button class="btn" data-o="resume">เปิดขายต่อ</button>`
+    :e.status==='draft'?`<button class="btn" data-o="editEvent" data-id="${e.id}">แก้ไขและเผยแพร่</button>`:'';
+  return `<div class="org-stats">
+      <div class="card org-stat"><span class="small muted">ขายแล้ว</span><b class="num">${s.sold}/${s.capacity}</b></div>
+      <div class="card org-stat"><span class="small muted">รายรับสุทธิ</span><b class="num">${OL.fmtBaht(s.net)}</b></div></div>
+    <div class="row" style="flex-wrap:wrap">${act}
+      ${['draft','on_sale','paused','sold_out'].includes(e.status)?`<button class="btn plain" data-o="editEvent" data-id="${e.id}">แก้ไขทั้งงาน</button>`:''}
+      ${['on_sale','sold_out','paused'].includes(e.status)?`<button class="btn plain" data-o="gate" data-id="${e.id}">ไปหน้างาน</button>`:''}</div>
+    <h2 style="font-size:17px">โซนตั๋ว</h2>
+    ${e.zones.map((z,i)=>{
+      const locked=(z.sold||0)+(z.held||0)>0,left=z.capacity-z.sold-z.held,pct=z.capacity?Math.round((z.sold+z.held)*100/z.capacity):0;
+      return `<div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <div class="row between"><b style="display:flex;gap:8px;align-items:center"><span style="width:12px;height:12px;border-radius:4px;background:${z.color}"></span>${esc(z.name)}</b>
+          <span class="small muted num">ขาย ${z.sold} · Hold ${z.held} · เหลือ ${left}${z.kind==='comp'?'':' · '+OL.fmtBaht(z.price*z.sold)}</span></div>
+        <div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>
+        ${ro?'':`${z.kind==='comp'?'':fld(`ez${i}-price`,'ราคา (บาท)',{value:String(z.price/100),attrs:`inputmode="decimal" ${locked?'disabled':''}`,hint:locked?OL.canEditZone(z,{price:z.price+1}).reason:''})}
+        ${fld(`ez${i}-cap`,'จำนวนที่ขาย',{value:String(z.capacity),attrs:'inputmode="numeric"'})}
+        <span class="hint err" id="ez${i}-err" role="alert"></span>
+        <button class="btn plain" data-o="zoneSave" data-i="${i}">บันทึกโซนนี้</button>`}</div>`}).join('')}`;
+}
+function buyerRows(e){
+  const o=S.org,q=(o.bq||'').toLowerCase();
+  return evTickets(e.id).map(t=>({t,p:orgPerson(t.holderId),z:e.zones.find(z=>z.id===t.zoneId)||{name:'—'}}))
+    .filter(r=>(o.bzone==='all'||!o.bzone||r.t.zoneId===o.bzone)&&(o.bstatus==='all'||!o.bstatus||r.t.status===o.bstatus)
+      &&(!q||(r.p.name+' '+r.p.email+' '+r.t.ticketId).toLowerCase().includes(q)));
+}
+function buyersTable(e){
+  const rows=buyerRows(e),em=x=>S.org.showEmails?x:maskEmail(x);
+  return `<table id="org-buyers" class="org-table"><thead><tr><th scope="col">ชื่อ</th><th scope="col">อีเมล</th><th scope="col">โซน</th><th scope="col">สถานะ</th><th scope="col">เลขตั๋ว</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><th scope="row">${esc(r.p.name)}</th><td style="text-align:left">${esc(em(r.p.email))}</td><td style="text-align:left">${esc(r.z.name)}</td><td style="text-align:left">${TICKET_STATUS[r.t.status]||r.t.status}</td><td class="mono" style="text-align:left">${esc(r.t.ticketId)}</td></tr>`).join('')}</tbody></table>`
+    +(rows.length?'':'<div class="empty">ไม่พบผู้ซื้อที่ตรงกับตัวกรอง</div>');
+}
+function evBuyers(e){
+  const o=S.org;
+  return `<div class="field"><label for="bq">ค้นหา (ชื่อ / อีเมล / เลขตั๋ว)</label><input id="bq" type="search" value="${esc(o.bq||'')}" autocomplete="off"></div>
+  <div class="row"><div class="field" style="flex:1"><label for="bzone">โซน</label><select id="bzone"><option value="all">ทั้งหมด</option>${e.zones.map(z=>`<option value="${z.id}" ${o.bzone===z.id?'selected':''}>${esc(z.name)}</option>`).join('')}</select></div>
+    <div class="field" style="flex:1"><label for="bstatus">สถานะ</label><select id="bstatus"><option value="all">ทั้งหมด</option>${Object.entries(TICKET_STATUS).map(([k,v])=>`<option value="${k}" ${o.bstatus===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+  <div class="row" style="flex-wrap:wrap"><button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="csv">ส่งออก CSV</button>
+    ${o.role==='owner'?`<button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="showEmails" aria-pressed="${!!o.showEmails}">${o.showEmails?'ซ่อนอีเมล':'แสดงอีเมลเต็ม'}</button>`:''}
+    <span class="small muted" style="align-self:center">อีเมลถูกปิดบังบางส่วนตามค่าเริ่มต้น</span></div>
+  <div style="overflow-x:auto" id="org-buyers-wrap">${buyersTable(e)}</div>`;
+}
+function evResale(e){
+  const B=OL.fmtBaht,tk=evTickets(e.id).filter(t=>t.hops.length>1||t.status==='listed');
+  const hasResale=tk.length>0,p=e.params;
+  const comm=tk.reduce((a,t)=>a+OL.settleTicket(t,(e.zones.find(z=>z.id===t.zoneId)||{price:0}).price).commission,0);
+  return `<div id="org-resale" style="display:flex;flex-direction:column;gap:14px">
+  <div class="card small"><b>ร้านได้ราคาหน้าบัตรตามเดิม</b><br><span class="muted">คอมมิชชัน 6% ของราคาขายต่อหักจากผู้ขายและเป็นของแพลตฟอร์ม ผู้จัดไม่เสียเงินเพิ่มและไม่ได้ส่วนแบ่ง</span></div>
+  ${hasResale?`<div class="row between"><b>ตั๋วที่ขายต่อ / ลงขาย ${tk.length} ใบ</b><span class="small muted num">คอมมิชชันแพลตฟอร์ม ${B(comm)}</span></div>
+  <div style="overflow-x:auto"><table class="org-table"><thead><tr><th scope="col">ตั๋ว</th><th scope="col">เส้นทางการจ่าย (เที่ยวที่ 0 = ซื้อครั้งแรก)</th><th scope="col">สถานะ</th></tr></thead>
+    <tbody>${tk.map(t=>`<tr><th scope="row" class="mono">${esc(t.ticketId)}</th><td style="text-align:left">${t.hops.map(h=>esc(orgPerson(h.payerId).name)+' '+B(h.paid)).join(' → ')}</td><td style="text-align:left">${TICKET_STATUS[t.status]}</td></tr>`).join('')}</tbody></table></div>`
+  :'<div class="empty">ยังไม่มีการขายต่อ</div>'}
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><b>เพดานราคาขายต่อ: ${p.capMultiplier.toFixed(2)} เท่า</b>
+    ${hasResale?'<span class="small muted">มีรายการขายต่อแล้ว เปลี่ยนเพดานไม่ได้ เพื่อไม่ให้กระทบผู้ซื้อที่ลงขายไปแล้ว</span>'
+    :`<label for="rs-capm" class="small">ปรับเพดาน (ได้ก่อนมีรายการขายต่อ)</label><input id="rs-capm" type="range" min="100" max="125" step="5" value="${Math.round(p.capMultiplier*100)}">
+      <button class="btn plain" data-o="rsSave">บันทึกเพดาน</button>`}</div></div>`;
+}
+function evSettings(e){
+  const cancellable=['on_sale','paused','sold_out'].includes(e.status),ro=['ended','cancelled'].includes(e.status);
+  return `${ro?'<div class="card small muted">งานนี้'+(e.status==='ended'?'จบแล้ว':'ถูกยกเลิกแล้ว'+(e.cancelReason?' ('+esc(e.cancelReason)+')':''))+' แก้ไขไม่ได้</div>':`
+  ${fld('st-desc','รายละเอียดงาน',{value:e.description,tag:'textarea'})}
+  ${fld('st-venue','สถานที่',{value:e.venue})}
+  ${fld('st-start','วันเวลาเริ่มงาน',{value:toLocalInput(e.startAt),type:'datetime-local'})}
+  <div class="field"><span class="eyebrow" id="st-poster-l">โปสเตอร์</span><div class="row" role="group" aria-labelledby="st-poster-l" style="flex-wrap:wrap">${POSTERS.map((bg,i)=>`<button type="button" class="org-swatch ${e.bg===bg?'on':''}" style="background:${bg}" data-o="stPoster" data-i="${i}" aria-label="โปสเตอร์แบบที่ ${i+1}" aria-pressed="${e.bg===bg}"></button>`).join('')}</div></div>
+  ${fld('st-msg','ข้อความถึงผู้ซื้อ (จำเป็นถ้าเปลี่ยนสถานที่หรือวันเวลาหลังขายแล้ว)',{value:'',tag:'textarea',hint:'ผู้ซื้อทุกคนจะเห็นข้อความนี้ในหน้าตั๋ว'})}
+  <button class="btn" data-o="stSave">บันทึกการตั้งค่า</button>`}
+  ${cancellable?`<div class="card org-danger" style="display:flex;flex-direction:column;gap:8px"><b>ยกเลิกงาน</b>
+    <span class="small muted">ผู้ซื้อทุกคนได้รับเงินคืนอัตโนมัติเท่าที่จ่าย ร้านจะไม่ได้รับเงินจากงานนี้ ย้อนกลับไม่ได้</span>
+    <button class="btn org-danger-btn" data-o="cancelStart">ยกเลิกงานนี้</button></div>`:''}`;
+}
+
+// cancel an event: one refund per paid hop, safe to run again (idempotency keys), buyer tickets follow
+function orgCancelEvent(id,reason){
+  const o=S.org,ev=orgEv(id);
+  if(!ev||ev.status==='cancelled'||ev.status==='ended'||ev.status==='draft')return {refunded:0,total:0,refunds:[]};
+  const done=new Set(o.ledger.filter(l=>l.type==='REFUND_OUT').map(l=>l.idempotencyKey));
+  const plan=OL.planCancellation(ev,o.tickets,done);
+  for(const r of plan.refunds)ledgerAdd({type:'REFUND_OUT',eventId:id,ticketId:r.ticketId,amount:r.amount,party:r.payerId,idempotencyKey:r.key});
+  for(const t of o.tickets)if(t.eventId===id&&t.hops.some(h=>h.paid>0))t.status='refunded';
+  replaceOrgEvent({...ev,status:'cancelled',cancelReason:reason||''});
+  S.listings=S.listings.filter(l=>l.ev!==id);
+  for(const bt of S.tickets){
+    if(bt.ev!==id)continue;
+    const mine=plan.refunds.filter(r=>r.ticketId===bt.orgTicketId&&r.payerId==='me').reduce((a,r)=>a+r.amount,0);
+    bt.status='refunded';bt.refundAmount=mine/100;
+  }
+  save();
+  return {...plan,refunded:plan.refunds.length};
+}
+window.JL_ORG={cancelEvent:orgCancelEvent};
+
+function cancelImpactSheet(e){
+  const done=new Set(S.org.ledger.filter(l=>l.type==='REFUND_OUT').map(l=>l.idempotencyKey));
+  const plan=OL.planCancellation(e,S.org.tickets,done),payers=new Set(plan.refunds.map(r=>r.payerId));
+  sheet(`<h2 style="font-size:19px">ยกเลิก "${esc(e.name)}"?</h2>
+    <dl class="kv card num" style="margin:0"><dt>ผู้ซื้อที่จะได้เงินคืน</dt><dd>${payers.size} คน</dd><dt>จำนวนรายการคืนเงิน</dt><dd>${plan.refunds.length} รายการ</dd>
+      <dt style="font-weight:600;color:var(--ink)">ยอดคืนรวม</dt><dd style="font-weight:700;color:var(--red)">${OL.fmtBaht(plan.total)}</dd></dl>
+    <ul class="small" style="margin:0;padding-left:18px"><li>ร้านจะไม่ได้รับเงินจากงานนี้</li><li>ไม่เก็บค่าบริการและคอมมิชชันขายต่อ</li><li>ตั๋วทุกใบใช้เข้างานไม่ได้ทันที</li></ul>
+    <button class="btn org-danger-btn" data-o="cancelNext">ถัดไป</button><button class="btn plain" data-act="close">ไม่ยกเลิก</button>`);
+}
+function cancelProgressSheet(e,plan){
+  const by=new Map();for(const r of plan.refunds)by.set(r.payerId,(by.get(r.payerId)||0)+r.amount);
+  const rows=[...by].slice(0,6);
+  sheet(`<h2 style="font-size:19px">กำลังคืนเงินผู้ซื้อ</h2><span class="pill warn" style="align-self:flex-start">จำลอง: เดโมไม่มีการโอนเงินจริง</span>
+    <ol class="steps" id="refsteps">${rows.map(([p,amt])=>`<li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${esc(orgPerson(p).name)}</b><small class="num">${OL.fmtBaht(amt)} · <span class="rs">รอ</span></small></span></li>`).join('')}</ol>
+    ${by.size>rows.length?`<div class="small muted">และอีก ${by.size-rows.length} คน</div>`:''}
+    <div class="small muted">รวมคืน ${OL.fmtBaht(plan.total)} · ${plan.refunds.length} รายการ</div>
+    <button class="btn" data-o="cancelClose">เสร็จสิ้น</button>`);
+  const lis=[...document.querySelectorAll('#refsteps li')];let i=0;
+  const tick=()=>{if(!document.contains(lis[0]||document.body)||i>=lis.length)return;lis[i].classList.add('done');lis[i].querySelector('.rs').textContent='คืนแล้ว';i++;setTimeout(tick,350)};
+  setTimeout(tick,300);
+}
+
 const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
 Object.assign(ORG_ACTIONS,{
   wizNext(){
@@ -1199,6 +1324,57 @@ Object.assign(ORG_ACTIONS,{
     try{navigator.clipboard.writeText(link).then(()=>toast('คัดลอกลิงก์แล้ว'),()=>toast(link))}catch(_){toast(link)}},
   wizLeaveSave(){wizCollect();wizUpsert();S.org.wizDirty=false;save();closeSheet();back()},
   wizLeaveDiscard(){S.org.wizDirty=false;closeSheet();back()},
+  etab(el){S.org.etab=el.dataset.t;render()},
+  pause(){const e=orgEv(S.org.oev);replaceOrgEvent({...e,status:'paused'});toast('พักการขายแล้ว ผู้ซื้อยังเห็นงานแต่ซื้อไม่ได้');render()},
+  resume(){const e=orgEv(S.org.oev);replaceOrgEvent({...e,status:'on_sale'});toast('เปิดขายต่อแล้ว');render()},
+  zoneSave(el){
+    const e=orgEv(S.org.oev),i=+el.dataset.i,z=e.zones[i],g=id=>document.getElementById(id),errEl=g(`ez${i}-err`);
+    const patch={capacity:Number(g(`ez${i}-cap`).value.trim()||0)};
+    const pe=g(`ez${i}-price`);if(pe&&!pe.disabled){const p=OL.toSatang(pe.value.trim());patch.price=Number.isNaN(p)?0:p}
+    const can=OL.canEditZone(z,patch),merged={...z,...patch},v=OL.validateZone(merged);
+    const msg=!can.ok?can.reason:!v.ok?Object.values(v.errors)[0]:'';
+    if(msg){errEl.textContent=msg;return}
+    replaceOrgEvent({...e,zones:e.zones.map((x,k)=>k===i?merged:x)});toast('บันทึกโซนแล้ว');render();
+  },
+  csv(){
+    const e=orgEv(S.org.oev),em=x=>S.org.showEmails?x:maskEmail(x);
+    const rows=[['ชื่อ','อีเมล','โซน','สถานะ','เลขตั๋ว'],...buyerRows(e).map(r=>[r.p.name,em(r.p.email),r.z.name,TICKET_STATUS[r.t.status]||r.t.status,r.t.ticketId])];
+    const blob=new Blob(['﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ผู้ซื้อ-'+e.id+'.csv';document.body.appendChild(a);a.click();a.remove();
+  },
+  showEmails(){S.org.showEmails=!S.org.showEmails;render()},
+  rsSave(){const e=orgEv(S.org.oev);replaceOrgEvent({...e,params:{...e.params,capMultiplier:Number(document.getElementById('rs-capm').value)/100}});toast('บันทึกเพดานแล้ว');render()},
+  stPoster(el){const e=orgEv(S.org.oev);replaceOrgEvent({...e,bg:POSTERS[+el.dataset.i]});render()},
+  stSave(){
+    const e=orgEv(S.org.oev),o=S.org,g=id=>document.getElementById(id);
+    const venue=val('st-venue'),start=fromLocalInput(val('st-start')),msg=g('st-msg').value.trim();
+    const changed=venue!==e.venue||(start&&start!==e.startAt);
+    if(!start){g('st-start-err').textContent='ใส่วันเวลาเริ่มงาน';return}
+    if(changed&&(e.zones.reduce((a,z)=>a+(z.sold||0),0)>0)&&!msg){g('st-msg-err').textContent='เปลี่ยนสถานที่หรือวันเวลาหลังขายแล้ว ต้องเขียนข้อความแจ้งผู้ซื้อ';return}
+    const shift=start-e.startAt;
+    replaceOrgEvent({...e,description:g('st-desc').value,venue,startAt:start,endAt:e.endAt?e.endAt+shift:e.endAt,doorsAt:e.doorsAt?e.doorsAt+shift:e.doorsAt});
+    if(changed&&msg){const n=new Set(evTickets(e.id).filter(t=>['valid','listed'].includes(t.status)).map(t=>t.holderId)).size;
+      o.announcements.push({id:'an-'+Date.now(),eventId:e.id,at:Date.now(),text:msg,recipients:n,zone:'all'});toast('จำลอง: แจ้งผู้ซื้อ '+n+' คนแล้ว')}
+    else toast('บันทึกการตั้งค่าแล้ว');
+    render();
+  },
+  cancelStart(){cancelImpactSheet(orgEv(S.org.oev))},
+  cancelNext(){const e=orgEv(S.org.oev);
+    sheet(`<h2 style="font-size:19px">ยืนยันการยกเลิกงาน</h2>
+      ${fld('cx-name','พิมพ์ชื่องานเพื่อยืนยัน',{value:'',hint:'ชื่องาน: '+esc(e.name)})}
+      ${fld('cx-reason','เหตุผล',{value:'สภาพอากาศ',options:['สภาพอากาศ','ศิลปินยกเลิก','สถานที่ไม่พร้อม','ขายไม่ถึงเป้า','อื่น ๆ'].map(x=>[x,x])})}
+      <button class="btn org-danger-btn" data-o="cancelConfirm">ยกเลิกงานและคืนเงินทุกคน</button><button class="btn plain" data-act="close">กลับ</button>`)},
+  cancelConfirm(){
+    const e=orgEv(S.org.oev);
+    if(val('cx-name')!==e.name){document.getElementById('cx-name-err').textContent='ชื่องานไม่ตรง พิมพ์ให้เหมือนกับด้านบน';return}
+    const plan=orgCancelEvent(e.id,val('cx-reason'));cancelProgressSheet(e,plan);
+  },
+  cancelClose(){closeSheet();render()},
+});
+$('#device').addEventListener('input',e=>{
+  const id=e.target.id;if(!['bq','bzone','bstatus'].includes(id)||!S.org)return;
+  S.org[id]=e.target.value;const w=document.getElementById('org-buyers-wrap'),ev=orgEv(S.org.oev);
+  if(w&&ev)w.innerHTML=buyersTable(ev);
 });
 
 const ORG_VIEWS={
@@ -1315,7 +1491,16 @@ orgWizard(){
       ${o.wizStep<4?`<button class="btn" data-o="wizNext">ถัดไป</button>`:''}</div>
   </div><div class="col side">${wizPreview(d)}</div></div>`;
 },
-orgEvent(){appbar('จัดการงาน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgEvent(){
+  const e=S.org.oev&&orgEv(S.org.oev);
+  if(!e){S.stack=['orgEvents'];S.tab='orgEvents';return VIEWS.orgEvents()}
+  appbar(e.name);
+  const tabs=[['overview','ภาพรวม'],['buyers','ผู้ซื้อ'],['resale','ขายต่อ'],['settings','ตั้งค่า']],t=S.org.etab||'overview';
+  const body={overview:evOverview,buyers:evBuyers,resale:evResale,settings:evSettings}[t](e);
+  return `<div class="row between" style="align-items:flex-start"><div><h1 style="font-size:22px">${esc(e.name)}</h1>
+      <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน'} · ${esc(e.venue||'')}</div></div>${statusPill(e.status)}</div>
+    <div class="seg four" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="etab" data-t="${k}">${v}</button>`).join('')}</div>${body}`;
+},
 orgGate(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
 orgGatePick(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
 orgFinance(){appbar('การเงิน');return `<div class="empty">กำลังพัฒนา</div>`},
