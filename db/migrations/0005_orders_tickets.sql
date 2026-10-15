@@ -1,13 +1,15 @@
 -- Paid flow end to end (context 6.1): seat hold, verified payment, mint, tickets.
 --
--- Seats are now taken when the order is created (the hold), not when the payment arrives, so
--- 0004's inventory_update_token is no longer used and is dropped with the rebuild below.
+-- Keeps 0004 as it is: remaining drops when a payment is verified, guarded by
+-- inventory_update_token, which the rebuild below carries over.
 -- payment_orders is rebuilt because SQLite cannot change a CHECK constraint. Order life cycle:
---   pending      seats are held (event_zones.remaining already reduced) until expires_at
---   expired      hold ran out or the Stripe session expired; seats were given back
---   paid         all 5 payment checks passed; minting is owned by exactly one worker
+--   pending      seats are held until expires_at: they count against event_zones.remaining
+--                but remaining itself is not reduced
+--   expired      hold ran out or the Stripe session expired; the held seats are free again
+--   paid         all 5 payment checks passed and remaining was reduced (0004's
+--                inventory_update_token step); minting is owned by exactly one worker
 --   fulfilled    every ticket of the order is minted on chain
---   failed       Stripe reported the payment failed; seats were given back
+--   failed       Stripe reported the payment failed; the held seats are free again
 --   needs_review paid at Stripe but a check failed (amount, reference, late payment)
 --                or minting cannot be retried safely; a person must look at it
 PRAGMA foreign_keys = ON;
@@ -32,6 +34,7 @@ CREATE TABLE payment_orders_new (
                           ('pending', 'expired', 'paid', 'fulfilled', 'failed', 'needs_review')),
   expires_at            INTEGER NOT NULL,          -- end of the seat hold
   review_reason         TEXT,
+  inventory_update_token TEXT,                    -- 0004: set only inside the payment batch
   mint_tx_id            TEXT,                      -- thirdweb transaction id; 'sending' while claimed
   mint_tx_hash          TEXT,
   mint_attempts         INTEGER NOT NULL DEFAULT 0,
@@ -42,16 +45,16 @@ CREATE TABLE payment_orders_new (
   updated_at            INTEGER NOT NULL DEFAULT (unixepoch('subsec') * 1000)
 );
 
--- Old pending orders never took seats, so they close as expired without giving any back.
--- Old paid orders already took their seats (0004) but were never minted: a person reviews them.
+-- Old pending orders close as expired (they had no hold time). Old paid orders already reduced
+-- remaining (0004) but were never minted: a person reviews them.
 INSERT INTO payment_orders_new (id, user_id, stripe_session_id, stripe_payment_intent, event_id, zone,
-  quantity, unit_amount, amount, status, expires_at, review_reason, created_at, paid_at)
+  quantity, unit_amount, amount, status, expires_at, review_reason, created_at, paid_at, inventory_update_token)
 SELECT id, user_id, stripe_session_id, stripe_payment_intent, event_id, zone, quantity,
   amount / quantity, amount,
   CASE status WHEN 'pending' THEN 'expired' WHEN 'paid' THEN 'needs_review' ELSE status END,
   created_at + 600000,
   CASE status WHEN 'paid' THEN 'paid before automatic minting existed' END,
-  created_at, paid_at
+  created_at, paid_at, inventory_update_token
 FROM payment_orders;
 
 DROP TABLE payment_orders;

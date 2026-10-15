@@ -40,6 +40,10 @@ const HOLD_MS = 10 * 60000; // seat hold while the guest pays (context: 10 minut
 const SERVICE_FEE = 0.03;
 const MAX_TICKETS_PER_EVENT = 4;
 const MAX_MINT_ATTEMPTS = 3;
+// Seats a buyer can still take in zone z: not sold (remaining, reduced on verified payment by
+// 0004) and not held by a pending order (the 10-minute hold).
+const AVAILABLE_SEATS = `(z.remaining - (SELECT COALESCE(SUM(o.quantity), 0) FROM payment_orders o
+  WHERE o.event_id = z.event_id AND o.zone = z.zone_name AND o.status = 'pending'))`;
 
 export default {
   scheduled,
@@ -86,7 +90,7 @@ async function events(request, env) {
     const rows = await env.DB.prepare(
       `SELECT e.id, e.name, e.short_name AS short, e.category AS tag, e.event_date AS date,
               e.event_time AS time, e.venue, e.poster_background AS bg, e.sold_percent AS sold,
-              z.zone_name AS zone, z.price, z.remaining, z.color
+              z.zone_name AS zone, z.price, z.color, ${AVAILABLE_SEATS} AS remaining
        FROM events e JOIN event_zones z ON z.event_id = e.id
        WHERE e.status = 'on_sale' ORDER BY e.event_date, e.id, z.sort_order`,
     ).all();
@@ -119,7 +123,7 @@ async function createCheckoutSession(request, env, ctx) {
   let zone;
   try {
     zone = body?.eventId && typeof body?.zone === 'string' ? await env.DB.prepare(
-      `SELECT e.id AS event_id, e.name, e.venue, z.zone_name, z.price, z.remaining
+      `SELECT e.id AS event_id, e.name, e.venue, z.zone_name, z.price
        FROM events e JOIN event_zones z ON z.event_id = e.id
        WHERE e.id = ? AND z.zone_name = ? AND e.status = 'on_sale'`,
     ).bind(body.eventId, body.zone).first() : null;
@@ -136,20 +140,19 @@ async function createCheckoutSession(request, env, ctx) {
   ).bind(user.id, zone.event_id).first();
   if (held.n + quantity > MAX_TICKETS_PER_EVENT) return json({ error: 'ticket_limit' }, 409);
 
-  // Seat hold: take the seats and create the order in one transaction, or do neither.
+  // Seat hold: the order is created only if the zone still has enough seats that are neither
+  // sold (remaining) nor held by another pending order. One statement, so two buyers cannot
+  // both take the last seat. remaining itself drops only when the payment is verified (0004).
   const unitAmount = Math.round(zone.price * (1 + SERVICE_FEE) * 100); // satang, fee included
   const orderId = crypto.randomUUID();
   const now = Date.now();
-  const [take, insert] = await env.DB.batch([
-    env.DB.prepare(
-      `UPDATE event_zones SET remaining = remaining - ? WHERE event_id = ? AND zone_name = ? AND remaining >= ?`,
-    ).bind(quantity, zone.event_id, zone.zone_name, quantity),
-    env.DB.prepare(
-      `INSERT INTO payment_orders (id, user_id, event_id, zone, quantity, unit_amount, amount, status, expires_at)
-       SELECT ?, ?, ?, ?, ?, ?, ?, 'pending', ? WHERE changes() = 1`,
-    ).bind(orderId, user.id, zone.event_id, zone.zone_name, quantity, unitAmount, unitAmount * quantity, now + HOLD_MS),
-  ]);
-  if (!take.meta.changes || !insert.meta.changes) return json({ error: 'sold_out' }, 409);
+  const insert = await env.DB.prepare(
+    `INSERT INTO payment_orders (id, user_id, event_id, zone, quantity, unit_amount, amount, status, expires_at)
+     SELECT ?, ?, z.event_id, z.zone_name, ?, ?, ?, 'pending', ?
+     FROM event_zones z WHERE z.event_id = ? AND z.zone_name = ? AND ${AVAILABLE_SEATS} >= ?`,
+  ).bind(orderId, user.id, quantity, unitAmount, unitAmount * quantity, now + HOLD_MS,
+    zone.event_id, zone.zone_name, quantity).run();
+  if (!insert.meta.changes) return json({ error: 'sold_out' }, 409);
 
   const origin = new URL(request.url).origin;
   const params = new URLSearchParams({
@@ -314,12 +317,19 @@ async function confirmPayment(env, ctx, sessionId) {
     console.error('payment needs review', order.id, problems);
     return 'needs_review';
   }
-  // Check 5: only one caller can move the order from pending to paid, so it is minted once.
-  const res = await env.DB.prepare(
-    `UPDATE payment_orders SET status = 'paid', stripe_payment_intent = ?, paid_at = ?, updated_at = ?
-     WHERE id = ? AND status = 'pending'`,
-  ).bind(session.payment_intent || null, Date.now(), Date.now(), order.id).run();
-  if (!res.meta.changes) return 'already_handled';
+  // Check 5: only one caller can move the order from pending to paid (and take the seats from
+  // remaining, 0004), so it is minted once.
+  const result = await confirmPaymentAndDecrementInventory(env.DB, session);
+  if (result === 'already_paid') return 'already_handled';
+  if (result !== 'paid') {
+    await env.DB.prepare(
+      `UPDATE payment_orders SET status = 'needs_review', review_reason = ?, stripe_payment_intent = ?,
+              paid_at = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
+    ).bind('paid but the zone has no seats left', session.payment_intent || null, Date.now(), Date.now(), order.id).run();
+    console.error('ticket inventory unavailable', session.id);
+    return 'needs_review';
+  }
   ctx.waitUntil(mintOrder(env, order.id).catch(err => console.error('mint failed', order.id, err && err.stack || err)));
   return 'paid';
 }
@@ -342,20 +352,65 @@ async function stripeGetSession(secret, sessionId) {
   throw lastError;
 }
 
+// Verified payment: pending -> paid and remaining -= quantity in one batch (Pitichod, 0004).
+// The token ties the inventory update to the one caller that changed the order, so a repeated
+// webhook never decrements twice.
+async function confirmPaymentAndDecrementInventory(db, session) {
+  const paidAt = Date.now();
+  const inventoryToken = crypto.randomUUID();
+  const result = await db.batch([
+    db.prepare(
+      `UPDATE payment_orders
+       SET status = 'paid', stripe_payment_intent = ?, paid_at = ?, updated_at = ?, inventory_update_token = ?
+       WHERE stripe_session_id = ? AND status = 'pending'
+         AND EXISTS (
+           SELECT 1 FROM event_zones z
+           WHERE z.event_id = payment_orders.event_id
+             AND z.zone_name = payment_orders.zone
+             AND z.remaining >= payment_orders.quantity
+         )`,
+    ).bind(session.payment_intent || null, paidAt, paidAt, inventoryToken, session.id),
+    db.prepare(
+      `UPDATE event_zones
+       SET remaining = remaining - (
+         SELECT quantity FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       WHERE event_id = (
+         SELECT event_id FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       AND zone_name = (
+         SELECT zone FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       AND remaining >= (
+         SELECT quantity FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )`,
+    ).bind(session.id, inventoryToken, session.id, inventoryToken,
+      session.id, inventoryToken, session.id, inventoryToken),
+    db.prepare(
+      `UPDATE payment_orders SET inventory_update_token = NULL
+       WHERE stripe_session_id = ? AND inventory_update_token = ?`,
+    ).bind(session.id, inventoryToken),
+  ]);
+  if (!result[0]?.meta?.changes) {
+    const existing = await db.prepare(
+      'SELECT status FROM payment_orders WHERE stripe_session_id = ?',
+    ).bind(session.id).first();
+    return existing?.status === 'paid' || existing?.status === 'fulfilled' ? 'already_paid' : 'inventory_unavailable';
+  }
+  return 'paid';
+}
+
 /* ---------- seat hold ---------- */
 
-// Gives the seats back and closes the order, once: only a pending order can be released.
+// Closes a pending order, once. Its held seats free up by themselves: a hold is only a pending
+// order, and remaining was never reduced for it.
 async function releaseOrder(db, orderId, status) {
-  const [close] = await db.batch([
-    db.prepare(`UPDATE payment_orders SET status = ?, updated_at = ? WHERE id = ? AND status = 'pending'`)
-      .bind(status, Date.now(), orderId),
-    db.prepare(
-      `UPDATE event_zones SET remaining = remaining + (SELECT quantity FROM payment_orders WHERE id = ?1)
-       WHERE changes() = 1
-         AND event_id = (SELECT event_id FROM payment_orders WHERE id = ?1)
-         AND zone_name = (SELECT zone FROM payment_orders WHERE id = ?1)`,
-    ).bind(orderId),
-  ]);
+  const close = await db.prepare(`UPDATE payment_orders SET status = ?, updated_at = ? WHERE id = ? AND status = 'pending'`)
+    .bind(status, Date.now(), orderId).run();
   return Boolean(close.meta.changes);
 }
 
@@ -364,7 +419,7 @@ async function releaseOrderBySession(db, sessionId, status) {
   return order ? releaseOrder(db, order.id, status) : false;
 }
 
-// Expires the Stripe session first, so the customer can no longer pay, then gives the seats back.
+// Expires the Stripe session first, so the customer can no longer pay, then frees the hold.
 // If Stripe says the session already completed, the payment is confirmed instead.
 async function expireOrder(env, order, ctx) {
   if (!order.stripe_session_id) return releaseOrder(env.DB, order.id, 'expired');
