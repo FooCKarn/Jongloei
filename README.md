@@ -167,7 +167,7 @@ Published organizer events appear on the buyer home page and are bought through 
 6. Event → ตั้งค่า → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
 7. การเงิน: the refunded amount and the payout schedule of the other events.
 
-The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer`.
+The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer/*.test.js`.
 
 ### Google sign-in
 
@@ -223,6 +223,36 @@ The home page loads on-sale events from D1 through `GET /api/events`; event name
 ```sh
 npx wrangler d1 migrations apply jongloei-db --remote
 ```
+
+### Organizer API (backend)
+
+`src/organizer.js` is the real backend behind organizer mode. The mock-up screens are not wired to it yet; until they are, use the API from the browser console or a script. Every route checks the signed-in user's shop role on the server.
+
+| Route | Who | What |
+|---|---|---|
+| `GET /api/org/me` | signed in | your shop and role (`owner`, `manager`, `gate`) or none |
+| `POST /api/org/shop` | signed in, no shop yet | open a shop `{ name, type, contactLine, phone }`; you become its owner and your account role becomes `host` |
+| `POST /api/admin/hosts/verify` | admin | `{ userId, status: "verified" \| "rejected", note }` |
+| `GET`, `POST`, `DELETE /api/org/team` | owner | add `{ email, role: "manager" \| "gate" }`; members get that role when they sign in with that Google e-mail |
+| `GET /api/org/events`, `GET /api/org/events/:id` | any role | the shop's events with sold / held / available per zone |
+| `POST /api/org/events`, `PATCH /api/org/events/:id` | owner, manager | create a draft `{ name, venue, category, description, short, poster, startsAt, endsAt, zones: [{ name, price, capacity, color }] }` or edit it |
+| `POST /api/org/events/:id/publish` | owner, manager | verified shops only; the event goes on sale and gets the next `chain_event_id` |
+| `POST /api/org/events/:id/cancel` | owner | `{ reason, confirmName }`; stops sales and releases every seat hold |
+| `GET /api/org/events/:id/orders` | owner, manager | orders with masked e-mails |
+
+Rules that keep the paid flow consistent:
+- Prices are whole baht (20 to 100,000), like the seeded events. Times are epoch milliseconds; the Thai date and time text is generated from `startsAt`.
+- `remaining` still means "not sold yet". A new zone starts with `remaining = capacity`; a capacity change moves `remaining` by the same amount and cannot go below sold + held.
+- Orders and tickets refer to a zone by name, and minting reads the face price from the zone. So once a zone has an order its name is locked, and while it has live orders its price is locked. Zones are never deleted after the event goes on sale. The checks run again inside the UPDATE, so an order that arrives while saving makes the save fail as a whole (`changed_meanwhile`).
+- `chain_event_id` is the largest one so far + 1 (the four seeded events have 1 to 4). The contract's `mint(to, eventId)` accepts any id, so nothing has to be registered on chain.
+- Event ids start with `ev-`. The mock-up treats `org-` ids as its own demo events.
+- Names, venues and zone names cannot contain the characters <code>&lt; &gt; " ' &#96;</code>, because buyer screens put them into HTML. Posters and zone colours come from fixed lists.
+- A payment that arrives after its event was cancelled goes to `needs_review` and is not minted. **Refunds are not automatic yet:** cancelling returns the number and total of paid orders to refund by hand in Stripe.
+- Not built yet: comp tickets and promo codes (a zone price must be above 0), door check-in (needs the signed QR, A6), payouts.
+
+Apply `0006_organizer.sql` to the remote database before or right after deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Until it is applied the buyer event list and the payment webhook keep working, but the organizer routes return errors.
+
+Tests: `node --test tests/worker/*.test.mjs` (validation), and `tests/worker/organizer-api.e2e.mjs` runs 46 checks against `wrangler dev` with a fresh local D1 (steps at the top of the file).
 
 ### Test mint (admin only)
 

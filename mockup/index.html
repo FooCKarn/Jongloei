@@ -689,7 +689,7 @@ checkout(){
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:buyUnit(e);const qty=L?1:S.qty;
   const local=isLocal(e.id);
-  const sub=unit*qty,fee=local?0:Math.round(sub*0.03);   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
+  const sub=L?unit:buyTotal(e),fee=local?0:Math.round(sub*0.03);   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
   return `<div class="cols">
   <div class="col">
     <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
@@ -718,7 +718,7 @@ checkout(){
 pay(){
   appbar('สแกนเพื่อชำระ');
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
-  const sub=L?L.price:buyUnit(e)*S.qty;const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
+  const sub=L?L.price:buyTotal(e);const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
   return `<div class="cols even">
   <div class="col">
     <div class="qrbox">
@@ -1560,6 +1560,13 @@ function buyUnit(e){
   const z=e.zones[S.zone];
   if(isLocal(e.id)&&S.promo&&S.promo.ev===e.id){const r=OL.applyPromo(S.promo.code,S.org.promos,z.zoneId,Math.round(z.p*100),Date.now());if(r.ok)return r.price/100}
   return z.p;
+}
+// total for S.qty tickets: a promo code with fewer uses left than S.qty discounts only that many (finishMint does the same per ticket)
+function buyTotal(e){
+  const z=e.zones[S.zone],unit=buyUnit(e);
+  if(unit===z.p)return unit*S.qty;
+  const p=S.org.promos.find(x=>x.code===S.promo.code),n=Math.min(S.qty,Math.max(0,p.maxUses-(p.used||0)));
+  return unit*n+z.p*(S.qty-n);
 }
 
 const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
