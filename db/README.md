@@ -14,7 +14,9 @@ Cloudflare D1 (SQLite). Migrations live in `db/migrations/` and are plain SQL, a
 | `account_events` | Append-only log: sign-up, login, wallet linked, role change, host verified, erasure |
 | `events` | Event catalog and sale status |
 | `event_zones` | Ticket zones, prices, colors, and remaining inventory |
-| `payment_orders` | Stripe Checkout orders and payment status |
+| `payment_orders` | Orders: seat hold (`pending` until `expires_at`, counted against `remaining` without changing it), Stripe session, payment checks, mint progress. Status `pending` → `paid` (decrements `remaining`, 0004) → `fulfilled`, or `expired` / `failed` (hold freed) / `needs_review` |
+| `tickets` | One row per ticket: owner wallet, on-chain `token_id`, mint transaction, status (`minting`, `active`, `listed`, `used`, `mint_failed`) |
+| `webhook_events` | Stripe event ids already handled, so a replayed webhook is ignored |
 
 Conventions: ids are app-generated `TEXT` (UUID / ULID), timestamps are unix epoch **milliseconds**, booleans are `0`/`1`, wallet addresses are stored lowercase.
 
