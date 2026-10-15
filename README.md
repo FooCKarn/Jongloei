@@ -121,10 +121,21 @@ User เข้า web3 ของเราที่เป็นผู้จัด
 
 ## Front-end mock-up
 
-Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a phone view and a desktop web view. No backend; all data is sample data.
+Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a phone view and a desktop web view. Sign-in with Google is real (below); everything else is sample data.
 
 - Page: `mockup/index.html` (open it directly in a browser)
 - Hosting: `wrangler.jsonc` serves `mockup/` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo, leave the build command empty and use `npx wrangler deploy` as the deploy command.
+
+### Google sign-in
+
+`src/worker.js` makes "ดำเนินการต่อด้วย Google" a real Google login: Google always shows its account chooser, the Worker verifies the ID token, stores the user in D1 (`users`, `auth_identities`, `sessions`) and sets an HttpOnly session cookie. Until the two secrets below are set, the button keeps the demo flow.
+
+1. Google Cloud Console > APIs & Services > Credentials > Create credentials > OAuth client ID, type **Web application** (set up the OAuth consent screen first if asked; while it is in Testing, add your team's Gmail addresses as test users).
+   - Authorized JavaScript origins: `https://jongloei.<your-subdomain>.workers.dev`
+   - Authorized redirect URIs: `https://jongloei.<your-subdomain>.workers.dev/auth/google/callback`
+2. Cloudflare dashboard > Workers & Pages > jongloei > Settings > Variables and Secrets: add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as type **Secret**, then redeploy.
+
+The redirect URI is built from the address the page was opened on, so add one more origin and redirect URI pair for any other domain (a custom domain, or `http://localhost:8787` for `npx wrangler dev`).
 
 ## Database
 
