@@ -144,6 +144,31 @@ Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a ph
 - Page: `mockup/index.html` (open it directly in a browser)
 - Hosting: `wrangler.jsonc` serves `mockup/` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo, leave the build command empty and use `npx wrangler deploy` as the deploy command.
 
+### Organizer mode (mock-up)
+
+The same page has a second mode for **organizers** (bars, workshops, pop-ups, small concerts). Open **บัญชี → เข้าโหมดผู้จัดงาน** (or "สำหรับผู้จัดงาน" in the desktop header). Everything here is sample data kept in the browser (`localStorage`); no backend, no real money. Screens that show money carry a "ข้อมูลตัวอย่าง" / "จำลอง" label.
+
+- **Organizer account:** organizers sign up and log in with their own (simulated) Google account, separate from the buyer's login. No buyer sign-in is needed, and logging out of one side never logs out the other. One account belongs to one shop; an owner can invite managers and door staff, who log in with the invited e-mail and get that role. Sample accounts: `owner@rooftop88.example`, `manager@example.com`, `door.staff@example.com`. Real organizer Google sign-in needs an account type in the Worker session and is future work.
+- **Shop onboarding:** four steps (shop, tax ID, PromptPay payout account, ID document), then a simulated 3-second verification. Unverified shops can draft events but not publish. Team roles: owner, manager, door staff.
+- **Dashboard:** today's sales, net revenue, next payout, held seats, a to-do list, a 14-day sales chart, and the event list (with duplicate).
+- **Create / edit event:** 4-step wizard with a zone editor (standing, seated, table, comp), sale windows for early-bird pricing, a resale price cap (1.00–1.25×), and a live fee preview (฿5 + 3% per ticket, `ticket ฿1,000 → ฿35`). Zones that already have buyers lock their price and cannot shrink below sold + held.
+- **Event page:** zones, buyers (search, filter, CSV export with masked e-mails), resale hops, comp tickets, promo codes, announcements to ticket holders, settings, and **cancel event** (every payer is refunded exactly what they paid, once; buyers see "คืนเงินแล้ว").
+- **Door:** simulated scan with 8 cases (valid, used, old QR, future QR, other event, cancelled, old owner, listed) and manual check-in by name, e-mail, ticket number or last 4 phone digits.
+- **Finance:** pending / paid / fees / refunded, per-event payout date (event end + 24 h), per-ticket split for resold tickets, and a printable summary (not a tax invoice).
+
+Published organizer events appear on the buyer home page and are bought through a **simulated** PromptPay flow (events from `/api/events` still use Stripe). Buying, checking in and cancelling update both sides, so the whole loop can be shown in two minutes.
+
+**2-minute demo**
+1. Profile → organizer mode → "สมัครผู้จัดงานด้วย Google" (or "เข้าสู่ระบบ" with a sample account, e.g. the Rooftop 88 owner).
+2. Dashboard → สร้างงานใหม่ → fill the basics, start from the "บาร์" zone template, publish.
+3. Switch to buyer mode, buy 2 tickets for the new event.
+4. Back in organizer mode: the dashboard sales went up; open the event → ผู้ซื้อ.
+5. หน้างาน → จำลองการสแกน: case 1 passes, case 2 ("ใช้ไปแล้ว") and case 3 ("QR เก่า") are refused with their reasons.
+6. Event → ตั้งค่า → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
+7. การเงิน: the refunded amount and the payout schedule of the other events.
+
+The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer`.
+
 ### Google sign-in
 
 `src/worker.js` makes "ดำเนินการต่อด้วย Google" a real Google login: Google always shows its account chooser, the Worker verifies the ID token, stores the user in D1 (`users`, `auth_identities`, `sessions`) and sets an HttpOnly session cookie. Until the two secrets below are set, the button keeps the demo flow.

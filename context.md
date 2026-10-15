@@ -18,7 +18,8 @@
 | ฐานข้อมูลบัญชี (Cloudflare D1 `jongloei-db`) | เสร็จ | `db/migrations/0001_accounts.sql` (ตาราง `users`, `auth_identities`, `wallets`, `sessions`, `host_profiles`, `account_events`) |
 | **A1 Login** | เสร็จ: Google OAuth ของเราเอง (ไม่ผ่าน thirdweb) ที่ Worker, session cookie, `/api/me` | `src/worker.js` |
 | **A1 Wallet** | เสร็จ: ตอน login ครั้งแรก Worker สร้าง **thirdweb server wallet** ให้ (`POST /v1/wallets/server`, identifier `jongloei-user-<users.id>` ได้ wallet เดิมเสมอ) บันทึกใน `wallets` (kind `inapp`, primary, chain 43113) | `ensureWallet` ใน `src/worker.js`; secret `THIRDWEB_SECRET_KEY` |
-| A2-A8, กลุ่ม B | ยังไม่เริ่ม | ขั้นถัดไป: contract ตั๋วขั้นต่ำบน Fuji (A5) ดูหัวข้อ 10.1 |
+| B6 หน้าผู้จัด (mock-up) | เสร็จเฉพาะ UI จำลอง: สมัครร้าน, dashboard, สร้างงานและแบ่งโซน, จัดการงาน, ยกเลิกงาน+คืนเงินใน ledger จำลอง, หน้างานสแกน/เช็กอินมือ, การเงิน, บัตรเชิญ/โค้ดส่วนลด/ประกาศ — ข้อมูลอยู่ใน localStorage ไม่มี backend | โหมดผู้จัดใน `mockup/index.html`, logic ที่ทดสอบได้ใน `mockup/organizer-logic.js` (`node --test tests/organizer`), แผน `docs/superpowers/plans/2026-10-15-organizer-mockup.md` |
+| A2-A8, กลุ่ม B (backend จริง) | ยังไม่เริ่ม | ขั้นถัดไป: contract ตั๋วขั้นต่ำบน Fuji (A5) ดูหัวข้อ 10.1 |
 
 **ข้อควรรู้จากที่ทำแล้ว:** wallet เป็นแบบ platform-custodial ผ่าน thirdweb (key อยู่ที่ thirdweb ใต้ secret key ของเรา ผู้ใช้ไม่ถือ key เอง) ดังนั้นการเซ็นใด ๆ ในนามผู้ใช้ (เช่น QR ใน A6) Worker เป็นผู้ขอลายเซ็นผ่าน API ของ thirdweb — ห้ามพูดใน pitch ว่า "ผู้ใช้เซ็นเอง"
 
