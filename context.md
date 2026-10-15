@@ -1,99 +1,715 @@
-# FairTicket: Project Context
+# JONGLOEI — Project Context (v3.3)
 
-Background for anyone (human or AI) picking up this project. Source: the team's pitch deck in Canva, "U-HACK_Web3_FairTicket_Caffeine Commit" (11 slides), plus the team's own notes on user flow, TO DO and future work.
+> ไฟล์นี้คือ "สมองกลาง" ของโปรเจกต์ ให้ทุกคนในทีม และ AI agent (Cursor / Claude / ChatGPT) อ่านก่อนเริ่มงาน
+> อัปเดตล่าสุด: พฤ. 15 ต.ค. 2026, 19:40 (v3.3 แทน v3.2; เวอร์ชันก่อนหน้ายังอยู่เป็นประวัติ) — **ส่งงานภายใน 14:00 วันศุกร์**
+> **ชื่อโปรเจกต์: JONGLOEI** (เดิม FairTicket ใน v1-v2)
+>
+> **อ่านก่อน: ไฟล์นี้มี 2 ระดับ** (1) **ขอบเขต MVP 24 ชม.** อยู่ในหัวข้อ 0 และ 10 — **Core (A):** PromptPay + ขายต่อ + **mint NFT เข้า thirdweb wallet (contract ขั้นต่ำ)** + QR/สแกน; **กลุ่ม B:** ยกเลิกแล้วคืนเงินอัตโนมัติ + จ่ายตอนงานจบ; **Future work:** จัดการ mint ล้มเหลวอัตโนมัติ และ contract ที่ถือเงิน/บังคับกติกาเอง (เงินอยู่ใน ledger ของแพลตฟอร์ม) (2) หัวข้อ 5-8 อธิบาย **สถาปัตยกรรมเป้าหมายเต็มรูปแบบ** ถ้าเนื้อหาขัดกัน ให้ยึดหัวข้อ 10>
+> **ป้ายสถานะข้อมูลในไฟล์นี้**
+> - **[ตัดสินแล้ว]** ทีมตกลงแล้ว
+> - **[สมมติ]** ตัวเลขหรือค่าที่ AI เสนอ ทีมยังไม่ยืนยัน ปรับได้
+> - **[ยังไม่ยืนยัน]** ต้องตรวจกับผู้รู้/ผู้ให้บริการ หรือ AI ตีความข้อความของทีมเอง ต้องให้ทีมยืนยันก่อนนำไปใช้
 
-## Snapshot
+---
 
-- **Product:** FairTicket, scam-proof event booking for small venues.
-- **Team:** Caffeine Commit.
-- **Event:** U-Hackathon 2026, Web3 Track. Contract, web app and QR scanner built in two days with open-source libraries.
-- **Stage:** Prototype on an EVM testnet. Demo link not yet added.
-- **One-liner:** The contract is the middleman. Guests pay into escrow, get an NFT ticket, and are refunded automatically if the event is cancelled.
+## 0. เรื่องที่ยังค้างต้องตัดสินใจ (ก่อนเริ่มเขียนโค้ด)
 
-## Target users
+**ต้องตอบ (1 ข้อ)**
+- [ ] **PromptPay จริงหรือจำลอง:** คืนนี้สมัคร sandbox ของผู้ให้บริการที่มี test mode PromptPay (Opn/Omise, 2C2P, GB Prime Pay) **[ยังไม่ยืนยัน]** ว่ารายไหนมี ถ้า 10:00 ยังไม่ได้ ใช้ mock PSP ตามหัวข้อ 10.3 (ตรรกะ verify เขียนจริงเหมือนกัน)
 
-- **Shops / hosts:** bars, pop-ups, workshops that currently sell tickets via LINE / IG / FB chat and bank transfer, with no tech team and no staff to check slips.
-- **Guests:** people who pay first and currently have no protection if the event flops.
-- **Market note (team TO DO):** focus on ticket prices above 1,000 THB where demand is high.
+**ค้างเดิม (ไม่ขวางการเขียนโค้ด)**
+- [ ] ตลาด >1,000 บาท: ยังไม่ได้เลือกกลุ่มเป้าหมาย (หัวข้อ 3.3)
+- [ ] เรื่องกฎหมาย/ภาษี/ผู้ให้บริการชำระเงินที่ต้องตรวจก่อนเปิดจริง (หัวข้อ 12) — ไม่ขวาง MVP
 
-## Problem the deck argues
+**ตัดสินแล้วและตั้งเป็นสมมติฐานการทำงาน:** ขอบเขต mint (หัวข้อ 10.3), chain = Avalanche Fuji, ไม่มี U-Pay/SDK ของ U-topia ให้เชื่อ (ไม่มี session mentor แล้ว — เล่า U-Pay เป็น roadmap เท่านั้น), เริ่มเขียนโค้ดศุกร์ 10:00 และคืนนี้ทำเฉพาะงานที่ไม่ใช่โค้ดโปรเจกต์ (หัวข้อ 10.1), parameter ทั้งหมดใช้ค่าตั้งต้นหัวข้อ 10.2 ปรับจูนทีหลังได้
 
-1. Fake or future-dated bank slips (slip-editing apps exist).
-2. Overbooking from handling bookings in chat.
-3. Guests lose deposits if events flop.
-4. No staff to verify every slip at the door.
+---
 
-Existing options (chat + transfer, manual slip check in bank app, Eventpop / Ticketmelon, NFT ticketing like Fansland / WeloveNFT) do not protect both shop and guest. NFT ticketing exists but targets organizers and large events.
+## 1. งานแข่ง
 
-## Core design
-
-### Escrow + NFT mint
-- Shop creates event on-chain with price, seats and date.
-- Guest pays into escrow and the NFT ticket (ERC-721) is minted in **one transaction**.
-- Contract releases funds to the shop after the event, or refunds guests if cancelled.
-- **Atomic mint** stops sales at seat capacity, so no double seats.
-
-### Dynamic QR entry
-- Fan's app signs `ticketId + timestamp` with the owner's wallet every **60 seconds**.
-- Gate scanner verifies: signer equals on-chain owner, signature is under 60 s old, nonce not reused, ticket not used.
-- On check-in the ticket is marked used and **locked** (no transfers after entry).
-
-### Scam → rule mapping
-| Scam | Rule |
+| หัวข้อ | รายละเอียด |
 |---|---|
-| Fake slip | Payment confirmed by contract |
-| Event flops | Escrow + auto refund |
-| Screenshot reuse | 60 s expiry + nonce + used flag |
-| Overbooking | Atomic mint capped at seats |
+| งาน | U-Hackathon 2026 (จัดใน FLOW Summit Bangkok, host: U-topia × Team1/Avalanche) |
+| Track | Web3 — "build anything deployable on-chain" |
+| สถานที่ | Avani Sukhumvit Bangkok |
+| เวลา hack | พฤ. 15 ต.ค. 10:00–18:00 (จบแล้ว) / **ศ. 16 ต.ค. 10:00–21:00** |
+| Demo | บ่ายวันศุกร์บนเวที (**[ยังไม่ยืนยัน]** เวลาที่แน่นอนกับผู้จัด) |
+| การตัดสิน | กรรมการเลือก 6 ทีม → U-Center DAO Community โหวตสดหาผู้ชนะ |
+| กติกา | ทีมไม่เกิน 4 คน, ใช้ AI ได้, **ห้ามใช้โปรเจกต์ที่ทำไว้ก่อน** (deck ใช้ template เดิมได้ แต่โค้ด contract/frontend/backend ต้องเขียนใหม่ในงาน) |
+| ทีม | Caffeine Commit |
+| Luma | https://luma.com/lqrbtu27 |
 
-### Why blockchain (deck's argument)
-Blockchain is the trust layer: it holds the money, owns the ticket and enforces refunds by code. Anyone can verify the real owner, there are zero slips to check, money and ticket move in one tx, and refunds are automatic.
+**นัยต่อการ pitch:** รอบสุดท้ายคนโหวตคือชุมชน ไม่ใช่กรรมการสายเทคนิค → เรื่องเล่าต้องเข้าใจง่าย, demo ต้องเห็นผลใน 3 นาที
 
-## Stack and constraints
+**สมมติฐานการทำงาน (ไม่มี session mentor แล้ว จึงไม่ถามต่อ):**
+- ใช้ **Avalanche Fuji testnet** (Team1 = ชุมชน Avalanche; โค้ด EVM ย้าย chain ได้)
+- ไม่มี API / SDK / U-Pay sandbox ของ U-topia ให้เชื่อม → เล่า U-Pay เป็น roadmap ห้ามโชว์เป็นของจริง
 
-- ERC-721 + OpenZeppelin, EVM chain, testnet or L2 for low fees. No custom chain or token.
-- Wallet creation via **thirdweb** at sign-up (from user flow); deck says guests log in with Google and gas is sponsored ("Web2.5 UX").
-- **PDPA:** only wallet addresses on-chain; names and IDs encrypted off-chain.
-- **Known limit:** code cannot detect a fake event, so shops are verified at sign-up.
+---
 
-## Intended user flow (team notes)
+## 2. ไอเดียปัจจุบัน
 
-1. User visits our web3 ticket-seller site.
-2. User signs up; thirdweb creates a wallet for them.
-3. User picks a ticket and pays via PromptPay.
-4. Payment gateway processes payment and triggers mint *(marked future work)*.
-5. System mints the ticket into the user's wallet.
-6. Users can buy / sell the NFT ticket (possibly locked within 1 hour before the event starts).
-7. User shows the ticket QR at the gate to enter.
+**JONGLOEI — จองเลย: ตั๋วที่ตรวจสอบได้ ซื้อง่ายด้วย PromptPay ขายต่อได้อย่างแฟร์**
+**Tagline:** *The middleman is code.* (ใช้ได้เต็มที่ในโหมด on-chain; ในโหมด PromptPay ใช้กับ "กติกาของตั๋วและการเช็กอิน" ดูหัวข้อ 7)
 
-## Open points to be aware of
+แพลตฟอร์มขายตั๋วที่:
+- ร้าน/ผู้จัดสร้างงานได้ในไม่กี่นาที (ราคา, จำนวนที่นั่ง, วันเวลา)
+- ลูกค้าสมัครด้วย Google, ไม่ต้องรู้จัก wallet/NFT/gas, **จ่ายผ่าน PromptPay** แล้วได้ **ตั๋ว NFT** เข้า wallet ที่ระบบสร้างให้
+- เข้างานด้วย **QR ที่เซ็นใหม่ทุก 60 วินาที** ภาพแคปใช้ไม่ได้
+- **ซื้อขายตั๋วต่อกันบนแพลตฟอร์มด้วยเงินบาท** ขายต่อได้ไม่จำกัดครั้ง ในราคาไม่เกินเพดาน (ตัวอย่าง 1.25 เท่าของราคาหน้าตั๋ว) และ **ตั๋วที่เพิ่งได้มาต้องรอ 6 ชม. จึงขายต่อได้** (กันการกดแล้วพลิกทันที) แพลตฟอร์มเก็บค่าคอมมิชชันเล็กน้อย
+- **จ่ายร้านและผู้ขายตอนงานจบ** / **ยกเลิกงาน → คืนเงินอัตโนมัติ** ให้ผู้จ่ายแต่ละคนเท่าที่ตัวเองจ่าย / จ่ายแล้วไม่มา → ไม่คืนเงิน
 
-These are differences between the deck and the team's notes, not decisions:
+> **สถานะ MVP (ศุกร์นี้):** ตั๋วเป็น NFT จริงบน Fuji อยู่ใน thirdweb wallet ของผู้ใช้ (contract ขั้นต่ำ: mint / โอนผ่านแพลตฟอร์ม / markUsed) แต่ **เงินอยู่ใน ledger ของแพลตฟอร์ม** และกติกาเวลา/ราคาบังคับที่ backend — escrow/refund/settle บน contract เป็น Future work ดังนั้น "The middleman is code" ยังเป็นเป้าหมาย ไม่ใช่สิ่งที่ MVP พิสูจน์ครบ
+### ประวัติการ pivot
+1. ไอเดียแรก: ขายต่อบัตรคอนเสิร์ต → เจ้าใหญ่ไม่มีเหตุผลใช้เรา (ได้กำไรจากการขายบัตรอยู่แล้ว)
+2. Pivot: เก็บเจ้าเล็กก่อน (ร้านเหล้า, pop-up, workshop) ที่เจ็บจริงเรื่องสลิปปลอมและไม่มีระบบจอง แล้วค่อยไปเจ้าใหญ่พร้อม Fair Draw
+3. ล่าสุด: ทีมต้องการโซนราคา **>1,000 บาท** ที่มีความต้องการสูง **[ยังไม่ได้ตัดสินกลุ่มเป้าหมาย]** และเปลี่ยนชื่อเป็น **JONGLOEI**
 
-- **Payment rail:** deck says the demo pays in **stablecoin** and PromptPay is "next" (Phase 2). The user flow puts **PromptPay** in the main path, with the gateway → mint step marked future work. Whoever builds the demo should confirm which one ships.
-- **Resale:** deck Phase 1 has "transfers off"; resale with price cap, 2-transfer limit and lock window is Phase 3. The team TO DO wants the demo to clearly show NFT buy/sell/exchange on the platform. Resale timing ("within 1 hour before event") is still undecided.
-- **Escrow vs fiat:** if payment comes via PromptPay (fiat), the on-chain escrow / auto-refund needs a defined bridge (e.g. gateway confirms payment → backend mints and records escrow). Not specified in the deck.
+---
 
-## TO DO (team)
+## 3. ปัญหาและตลาด
 
-- Easy to use; ideally users never deal with the wallet, but those familiar with wallets can opt in.
-- Demo that clearly shows the ticket is an NFT and can be traded on the platform.
-- Pipeline + payment gateway that verifies the user's payment.
-- Find a suitable market: price band above 1,000 THB with high demand.
+### 3.1 ปัญหา (มีหลักฐาน)
 
-## Future work (team)
+| ปัญหา | หลักฐาน |
+|---|---|
+| สลิปปลอม | ธปท. เตือนว่ามีคนขายโปรแกรมแก้สลิปได้ทั้งยอด เลขบัญชี ชื่อ เวลา (Bangkok Biznews, มิ.ย. 2569) |
+| ใช้สลิปตัดต่อ | ตำรวจหาดใหญ่จับคู่สามีภรรยาตัดต่อสลิปกินฟรี-เติมน้ำมันฟรีหลายร้านช่วงสงกรานต์ (Thai PBS, เม.ย. 2569) |
+| LINE ปลอมหลอกมัดจำ | มิจฉาชีพอ้างจองโต๊ะกลุ่มใหญ่ผ่านบัญชี LINE ที่ไม่ใช่ LINE OA หลอกให้ร้านโอนเงินซื้อไวน์ (Thairath) |
+| ไม่มีระบบจอง/เช็กสลิปด้วยมือ | ร้านเล็กรับจองผ่าน LINE / IG DM ต้องสแกน QR บนสลิปทีละใบ (ธนาคารแนะนำให้เช็กทุกครั้ง) |
+| ลูกค้าเสี่ยง | จ่ายก่อน ถ้างานล่มต้องตามเงินคืนเอง |
+| บอทและการจ้างกดบัตร | ข้อร้องเรียนจ้างกดบัตร BTS ต่อรัฐสภา (มิ.ย. 2569) กรรมาธิการจะหาทางยืนยันตัวตน/จำกัด 3 ใบต่อคน (Dailynews) |
+| ความเสียหายรวม | 5 ปีมีเรื่องร้องเรียนธุรกิจบันเทิงประมาณ 8,058 เคส เสียหายกว่า 33 ล้านบาท ช่วยได้เงินคืนเพียง 34% (ข้อมูลสภาองค์กรของผู้บริโภค ตามข่าว Matichon 3 ก.ย. 2569) / สศช.: 9,053 เรื่อง 32.9 ล้านบาท ช่วง 2564-2568 |
 
-- Can users bring an existing wallet?
-- Harden the payment pipeline: who gets the ticket when purchases arrive at the same time.
-- Can users pay with crypto? If crypto and PromptPay payments arrive together, who wins?
+ไอเดียแรก (คอนเสิร์ต) ยังมีตัวเลขเสริม: แก๊งขายบัตรทิพย์บน X ใช้ 350+ บัญชี, 739 คดี, เสียหาย 3.7 ล้านบาท
 
-## Roadmap (deck)
+**ห้ามใช้บนสไลด์:** ตัวเลข "ออนไลน์ 20% / เงินสดเป็นส่วนใหญ่ / Thai Ticket Major 95%" จากข่าว Bangkok Post ปี 2015 เก่าเกินไป
 
-1. **Now, Prototype:** escrow + auto refund, owner-signed dynamic QR, atomic seat mint with transfers off, shop setup in minutes.
-2. **Next, Small venues:** bars, pop-ups, workshops; LINE OA booking link; PromptPay on-ramp; U-Pay for tourist guests.
-3. **Then, Mid-size:** festivals and fan meetings; safe resale (price cap, 2-transfer limit, lock window); organizer dashboard.
-4. **Later, Big events:** Fair Draw lottery vs bots; offline gate for stadiums; pitch with proven traction.
+### 3.2 สถานะตลาดปัจจุบัน (สิ่งที่ตรวจแล้ว)
 
-## Source
+- Thai Ticket Major เป็นผู้จำหน่ายหลัก (Ticketmaster เข้าซื้อกิจการบางส่วนปี 2022); Ticketmelon และ Eventpop เป็นทางเลือกที่รับงานเล็กถึงใหญ่
+- **ดังนั้นประโยค "ร้านเล็กไม่มีระบบจอง" ต้องปรับ** ช่องว่างที่ตรวจสอบได้จริงคือ: ร้านกินดื่มที่รับจอง/มัดจำผ่าน LINE, ไม่มีใครรับประกันทั้งสองฝั่งหลังเงินโอน, ส่วนลด/สิทธิ์ที่ต้องตรวจเอกสารตัวจริงยังต้องไปเคาน์เตอร์, ตั๋วกีฬา/ราชการยังต้องเงินสด+บัตรประชาชน
+- ประเทศไทยไม่มีกฎหมายห้ามขายตั๋วต่อโดยตรง (รายงาน International Ticketing Report 2025) **ร่าง พ.ร.บ. ของกลุ่ม Fair Ticket (ยื่นรัฐสภา 3 ก.ย. 2569) ยังไม่เป็นกฎหมาย** ตามข่าวมีเรื่องกำกับการขายต่อ มาตรฐานระบบขาย กันบอท ยืนยันตัวตนผู้ถือบัตร (**[ยังไม่ยืนยัน]** ไม่ได้อ่านตัวร่าง จึงไม่ทราบว่ามีเพดานราคาเป็นตัวเลขหรือไม่) ใช้เป็นบริบทสนับสนุนปัญหาที่เราแก้ได้ (ไม่ใช่โปรเจกต์ของเรา)
 
-- Canva deck: https://www.canva.com/design/DAHYDOP6qkg/d0ahB8YBoioS_P_KdMuvpQ/edit
+### 3.3 ตลาด >1,000 บาท **[ยังไม่ตัดสิน]**
+
+ข้อขัดแย้ง: ตั๋วระดับนี้ส่วนใหญ่ขายผ่าน Thai Ticket Major/ช่องทางใหญ่ และผู้จัดงานใหญ่ไม่มีแรงจูงใจย้ายมา
+**ข้อเสนอ (สมมติฐานที่ต้องทดสอบกับร้านจริง 5-10 ราย):** ผู้จัดรายเล็ก-กลางที่ตั๋วหรือมัดจำเกิน 1,000 บาท เช่น workshop, supper club, ค่ามัดจำโต๊ะร้านกินดื่ม, งานแฟนมีต/คอนเสิร์ตขนาดเล็ก ค่าบริการ 5 บาท + 3% = 35 บาทที่ตั๋ว 1,000 บาท
+ไปเจ้าใหญ่เป็นเฟสหลัง พร้อมเครื่องมือกันบอท (Fair Draw)
+
+---
+
+## 4. User Flow (เวอร์ชันล่าสุด)
+
+1. User เข้าเว็บ JONGLOEI (ผู้จัดจำหน่ายตั๋ว) → sign up (Google) → **thirdweb สร้าง embedded wallet ให้อัตโนมัติ** user ไม่เห็นคำว่า wallet / NFT / gas (+ **เก็บบัญชีรับเงินคืน/รับเงิน (เลขพร้อมเพย์)** เพื่อรองรับคืนเงินอัตโนมัติและจ่ายผู้ขาย; MVP เป็นฟอร์มที่ไม่ตรวจจริง)
+2. User เลือกงาน/ที่นั่ง → ระบบสร้าง order และ **HOLD ที่นั่ง 10 นาที** → ออก PromptPay QR ที่ผูก reference กับ order
+3. User จ่ายผ่าน PromptPay → Payment Gateway ส่ง webhook → backend ตรวจ 5 ข้อ (หัวข้อ 6.1)
+4. verify ผ่าน → สถานะ **"ชำระเงินแล้ว กำลังออกตั๋ว"** (ที่นั่งการันตีแล้ว)
+5. System mint ตั๋ว (ERC-721) เข้า wallet ของ user → สถานะ **"ได้รับตั๋วแล้ว (จองเสร็จสิ้น)"** แล้วจึงแสดง QR
+6. User ซื้อ-ขายตั๋วต่อบนแพลตฟอร์มด้วยเงินบาท: **ประกาศขายได้หลังได้ตั๋วครบ 6 ชม.** และก่อนงานเริ่ม 1 ชม. (ขายต่อได้ไม่จำกัดครั้ง)
+7. หน้างาน: User แสดง QR → ระบบ verify → **Valid / Invalid พร้อมเหตุผล** → mark `used`
+8. หลังงาน: **จ่ายร้านและผู้ขายทุกเที่ยวตอนงานจบ** / ถ้ายกเลิก → **คืนเงินอัตโนมัติ** / no-show ไม่คืน (หัวข้อ 5)
+
+### หลักการ UX **[ตัดสินแล้ว]**
+- ใช้ง่าย user ไม่ต้องเกี่ยวกับ wallet เลย แต่ใครคุ้นเคยอยู่แล้วเป็นตัวเลือกเสริมได้ (Future work)
+- Demo ต้องเห็นชัดว่าได้ตั๋วเป็น NFT และซื้อขายแลกเปลี่ยนด้วยเงินบาทบนแพลตฟอร์มได้
+
+---
+
+## 5. สถานะและกติกา
+
+> **การอ่านหัวข้อนี้ใน MVP:** contract ใน MVP บางมาก (mint / `operatorTransfer` / `markUsed`) ส่วนกติกาเวลา ราคา hop และเงิน (`acquiredAt`, `hops`, `settle`, `refund`, `usedOrder` ที่เอ่ยถึง) **บังคับที่ backend + ledger** และย้ายไปอยู่ใน contract ใน Future work; สถานะสองชั้นใช้ใน MVP; 5.4 (จัดการ mint ล้มเหลวอัตโนมัติ) ใช้แบบย่อตามแถว "mint ล้มเหลว" ในหัวข้อ 10.2
+
+### 5.1 สถานะ order และ Hold **[ตัดสินแล้ว: สถานะสองชั้น, Hold 10 นาที]**
+
+**Hold = ตั้งแต่ user กดซื้อ จน Payment Gateway ยืนยันว่าจ่ายจริง**
+
+| สถานะ order | เริ่มเมื่อ | ข้อความแสดง user | ผลต่อที่นั่ง |
+|---|---|---|---|
+| **HOLD** | กดซื้อ และหักที่นั่งสำเร็จ | "เรากันที่นั่งให้คุณ 10 นาที กรุณาชำระเงิน" | `held` +1 |
+| **ชำระเงินแล้ว กำลังออกตั๋ว** | verify เงินผ่านครบ | "ชำระเงินสำเร็จ กำลังออกตั๋ว (ปกติไม่เกิน 1 นาที)" | `held` −1, `sold` +1 |
+| **ได้รับตั๋วแล้ว (จองเสร็จสิ้น)** | mint ยืนยันบน chain | "ตั๋วอยู่ในบัญชีของคุณแล้ว" + แสดง QR | ไม่เปลี่ยน |
+| **ออกตั๋วไม่สำเร็จ** | mint ล้มเหลวเกินเวลาที่ตั้ง หรือที่นั่งหมดจริง | "ออกตั๋วไม่สำเร็จ กำลังคืนเงินอัตโนมัติ" | คืนที่นั่ง + คืนบาท |
+| **EXPIRED (hold)** | Hold หมดเวลาโดยไม่มีการจ่าย | - | `held` −1 |
+| **CANCELLED** | user ยกเลิกเอง | - | `held` −1 |
+
+**เหตุผลที่ไม่ประกาศ "จองสำเร็จ" ตอน verify:** ถ้า mint ล่มแล้วที่นั่งหมด user จะถูกบอกว่าสำเร็จแต่ไม่มีตั๋ว ซึ่งเสียหายกว่ามาก (อาจรู้ตัวที่หน้างาน) ข้อความสองขั้นทำให้ user รู้ตรงกับความจริงและตัดสินใจทัน
+
+- **ไม่แสดง QR จนกว่า mint ยืนยัน**
+- ที่นั่งว่าง = `capacity − sold − held`
+
+### 5.2 สถานะตั๋ว (คำนวณจากสถานะงาน + ตัวตั๋ว)
+
+| สถานะ | เงื่อนไข | QR |
+|---|---|---|
+| **Valid** | งาน Active, ยังไม่ใช้ | ผ่าน ถ้าลายเซ็นตรงเจ้าของปัจจุบัน |
+| **Locked (รอ 6 ชม.)** | เพิ่งได้ตั๋วมา ยังไม่ครบ 6 ชม. | ใช้เข้างานได้ตามปกติ แต่ประกาศขายต่อไม่ได้ |
+| **Listed** | อยู่ระหว่างประกาศขายต่อ | ผ่านจนกว่าขายสำเร็จ (ถ้าเช็กอินก่อน รายการถูกยกเลิก) |
+| **Used** | เช็กอินแล้ว | Invalid: ใช้แล้ว |
+| **Unavailable (Expired)** | งานจบ/เลยเวลา และไม่เคยใช้ (no-show) | Invalid: งานจบแล้ว |
+| **Cancelled → Refunded** | งานยกเลิก แล้วผู้จ่ายแต่ละคนได้รับเงินคืน | Invalid: งานยกเลิก/คืนเงินแล้ว |
+
+### 5.3 กติกา Hold และการซื้อพร้อมกัน
+
+1. **ทุกคนต้องมี Hold ก่อนจ่าย** ออก QR หลังหักที่นั่งเท่านั้น ใครได้ hold ก่อนมีสิทธิ์ก่อน (ไม่ใช่ใครจ่ายเสร็จก่อน) **[ตัดสินแล้ว]**
+2. **หักที่นั่งแบบอะตอมมิก** (transaction เดียวแบบมีเงื่อนไข) ไม่ใช่อ่านแล้วค่อยเขียน และ contract เป็นด่านสุดท้าย (`sold < capacity`)
+3. **TTL ของ Hold = 10 นาที [ตัดสินแล้ว]** และ **อายุ QR ที่ออกต้องเท่า TTL** (บางผู้ให้บริการตั้งค่าเริ่มต้น 24 ชม. ต้องขอปรับ)
+4. **ก่อนปล่อยที่นั่งตอนหมดเวลา ให้ถามสถานะซ้ำจากผู้ให้บริการ** และตัดสินจาก "เวลาที่ชำระ" ไม่ใช่เวลาที่ webhook มาถึง
+5. **จ่ายหลังหมดเวลาจริง ๆ:** ถ้ายังมีที่ว่างให้ออกตั๋ว ถ้าไม่มี คืนบาทอัตโนมัติให้ผู้จ่ายเดิม
+6. **จ่ายซ้ำใน order เดียว:** รายการที่สองคืนเงินอัตโนมัติ (`usedOrder` กันออกตั๋วซ้ำ)
+7. **จำกัด 1 Hold ที่ยังไม่หมดอายุต่อบัญชีต่อ 1 งาน [สมมติ]** + ลิมิตตั๋วต่อ wallet กันจอง Hold ทิ้งเพื่อกันที่นั่งคนอื่น
+8. job ล้าง Hold หมดอายุ + กระทบยอดรายวัน
+
+### 5.4 กรณี mint ล้มเหลวหลัง "ชำระเงินแล้ว" **[MVP: ลองซ้ำ 3 ครั้ง + จัดการเองด้วยสคริปต์; ระบบอัตโนมัติเต็มรูปแบบ = Future work]**
+
+| สาเหตุ | วิธีรับมือ |
+|---|---|
+| **โครงสร้างพื้นฐาน** (RPC ล่ม, relayer หมด gas, key มีปัญหา, contract ถูก pause) | ที่นั่งการันตีแล้ว → retry อัตโนมัติ (ปลอดภัยเพราะ `usedOrder`), แจ้งทีม |
+| **ที่นั่งเต็มที่ contract** (ตัวนับสองที่เพี้ยน หรือช่องทางอื่นใช้ที่นั่งไปก่อน) | เลวร้ายที่สุด ป้องกันตั้งแต่ออกแบบ: mint ทุกอย่างผ่าน relayer ช่องทางเดียวต่องาน **หรือ** แบ่งโควตาที่ contract บังคับ; ถ้ายังหลุด คืนเงินทันทีพร้อมขอโทษ |
+
+**ระยะเวลา [สมมติ]:** retry 10 นาที, แจ้งทีมที่ 5 นาที, เกิน 30 นาทีคืนเงินอัตโนมัติ; ถ้างานเริ่มภายใน 1 ชม. ต้องมีขั้นตอน manual ที่หน้างาน
+
+### 5.5 จ่ายแล้วไม่มา (no-show) **[ตัดสินแล้ว]**
+- เงินเข้าผู้จัดตอนงานจบ (`endTime + DISPUTE_WINDOW`) ตามเดิม
+- ตั๋วที่ user ถืออยู่เป็น **Unavailable (Expired)**: ใช้ไม่ได้ ขายต่อไม่ได้ ขอคืนเงินไม่ได้
+- เก็บโทเคนไว้บน chain ไม่ burn (แยก `Used` ออกจาก `Expired` และเป็นบันทึกว่าตั๋วเคยมี) **[สมมติ ข้อเสนอเชิงออกแบบ]**
+- ถ้าผู้ถือเป็นผู้ซื้อต่อ: ร้านได้เงิน, ผู้ขายแต่ละเที่ยวได้เงินตามตาราง 5.6, ผู้ถือสุดท้ายที่ไม่มาไม่ได้คืน
+
+### 5.6 ซื้อขายตั๋วต่อบนแพลตฟอร์ม (เงินบาท)
+
+**กติกา**
+- ขายต่อได้ **ไม่จำกัดจำนวนครั้ง [ตัดสินแล้ว]** (ยกเลิกค่า `maxResales` ที่เสนอไว้ใน v2)
+- **หน่วงการขายต่อ 6 ชม. [ตัดสินแล้ว: ทีมยืนยันความหมายแล้ว]:** `listableFrom = acquiredAt + 6 ชม.` โดย `acquiredAt` คือเวลาที่ได้ตั๋วมา (mint ครั้งแรก หรือโอนครั้งล่าสุด) ตั๋วที่ยังไม่ถึง `listableFrom` ประกาศขายไม่ได้ (แต่ใช้เข้างานได้)
+- **ปิดการโอนก่อนงานเริ่ม 1 ชม. [ตัดสินแล้ว]** → หน้าต่างขายต่อของแต่ละเที่ยว = `[acquiredAt + 6 ชม., startTime − 1 ชม.]` ถ้างานเริ่มภายใน 7 ชม. หลังได้ตั๋ว จะขายต่อไม่ได้
+- จำนวนเที่ยวไม่จำกัดตามกติกา แต่ **มีเพดานตามเวลาโดยธรรมชาติ**: เที่ยวละอย่างน้อย 6 ชม. (เช่น ตั๋วที่ออก 30 วันก่อนงานได้ไม่เกิน ~120 เที่ยว)
+- **เพดานราคา = 1.25 × ราคาหน้าตั๋วครั้งแรก [ตัวอย่างจากทีม ยังไม่ล็อกค่า]** อิงราคาเดิมเสมอ ไม่ทบเพิ่มทุกเที่ยว ร้านปรับได้ต่องาน (1.0-1.25) ขายต่ำกว่าได้
+- รายการประกาศขายมีได้รายการเดียวต่อใบ (ล็อกตาม tokenId); ตั๋วที่ใช้แล้วโอนไม่ได้
+- โอนได้เฉพาะผ่านแพลตฟอร์ม (`transferViaPlatform`) ห้ามโอนอิสระ (กันขายนอกระบบด้วยเงินโอนตรง = สแกมเดิม)
+- tokenId เดิม ไม่ burn + mint ใหม่ (บัญชีเงินง่ายกว่า, QR ผู้ขายเก่าตายเองเพราะตัวตรวจเช็ก `ownerOf` ทุกครั้ง)
+- ผู้ขาย KYC และเพิ่มบัญชีรับเงิน (ชื่อบัญชีต้องตรงกับชื่อที่ยืนยัน)
+
+**เหตุผลของการหน่วง 6 ชม. (ข้อดีที่เล่าได้):** กันการกดซื้อแล้วพลิกขายทันที (ที่บอท/โบรกเกอร์ทำ), ผู้ขายต้องถือตั๋วจริงก่อน, ลดการเก็งกำไรเป็นทอด ๆ ข้อเสีย: คนที่ซื้อใกล้งานแล้วไปไม่ได้จะขายต่อไม่ได้ ต้องมีทางเลือกอื่น (เช่น "คืนตั๋วเข้ากองกลาง" ใน Future work)
+
+**ค่าคอมมิชชัน [สมมติ]:** 6% ของราคาขายต่อ เก็บจากผู้ขาย **แบบโปร่งใส** ตอนจ่ายผู้ขาย (ไม่ใช่ส่วนต่างที่ซ่อน) เพราะผลเงินเหมือนกันแต่ไม่ขัดกับภาพ "แฟร์" ของแบรนด์ และไม่ต้องคืนเมื่องานยกเลิก (ยังไม่ได้เก็บ)
+
+**ตัวอย่างสามเที่ยว** (ตั๋ว 1,000 บาท): A ซื้อครั้งแรก → (หลัง 6 ชม.) ขายให้ B 1,100 → (หลัง 6 ชม. ของ B) B ขายให้ C 1,200
+
+| เงินที่พักไว้ | งานจัดตามปกติ (จ่ายตอนงานจบ) | งานยกเลิก (คืนอัตโนมัติ) |
+|---|---|---|
+| ร้าน: 1,000 (ขายครั้งแรก) | ร้านได้ตามกติกาเดิม | A ได้คืน 1,000 |
+| B จ่าย 1,100 | A ได้ 1,034 (หักคอมฯ 66) | B ได้คืน 1,100 |
+| C จ่าย 1,200 | B ได้ 1,128 (หักคอมฯ 72) | C ได้คืน 1,200 |
+| เราได้ | 138 | 0 |
+
+ตรวจยอด: 1,034 + 1,128 + 138 = 2,300 = 1,100 + 1,200 ✓
+
+**เวลาจ่ายผู้ขาย [ตัดสินแล้ว: ตอนงานจบ]:** ปล่อยทุกเที่ยวพร้อมกันที่จุดเดียวกับร้าน (`endTime + DISPUTE_WINDOW` ตามที่ตีความ) ไม่จ่ายทันทีที่ขายสำเร็จ เพราะถ้างานยกเลิกต้องคืนทุกคน
+
+**ลำดับขายต่อ:** ผู้ขายตั้งราคา+เซ็นยินยอมครั้งเดียว (EIP-712: `tokenId`, `maxPrice`, `deadline`) → ผู้ซื้อกด → ล็อกรายการ (TTL 10 นาที เท่า Hold) → จ่าย PromptPay → verify 5 ข้อ → โอนตั๋ว (ตั้ง `acquiredAt` ใหม่ให้ผู้ซื้อ) → เงินพักไว้
+
+**ข้อจำกัดตรง ๆ:** contract เห็นราคาบาทไม่ได้ เพดานราคาจึงบังคับที่ backend + ค่า `maxPrice` ที่ผู้ขายเซ็น ไม่ใช่ chain ตรวจเงินบาท ส่วนกติกา 6 ชม./1 ชม. บังคับที่ contract ได้ (ใช้เวลาบล็อก)
+
+**ความเสี่ยง/วิธีคุม:** ผู้ขายเช็กอินระหว่างรอ → รายการถูกยกเลิก, contract ปฏิเสธโอนตั๋วที่ใช้แล้ว, ผู้ซื้อที่จ่ายแล้วคืนเงินอัตโนมัติ; บัญชีรับเงินไม่ตรง KYC → ค้างเงินไว้ตรวจ; คนเดียวกวาดตั๋ว → จำกัดต่อ wallet + หน่วง 6 ชม. (ยังไม่แก้บอท)
+
+### 5.7 ยกเลิกงานและคืนเงินอัตโนมัติ **[ตัดสินแล้ว: เป้าหมายคืนอัตโนมัติ; MVP = กลุ่ม B ใช้ "โหมด PromptPay" อ่านจาก ledger]**
+
+- ผู้จ่ายแต่ละคนได้คืน **เท่าที่ตัวเองจ่าย** (ตามตาราง 5.6) ค่าคอมมิชชันไม่เก็บ
+- ใครสั่งยกเลิกได้ (MVP): ร้าน (ก่อนงานเริ่ม) และ platform admin (กรณีข้อพิพาท)
+- **admin ทำได้แค่เปลี่ยนสถานะเป็น `Cancelled` ไม่มีฟังก์ชันที่ admin โอนเงินออกไปเอง** (**[ยังไม่ยืนยัน]** ต้องตรวจว่าโค้ดจริงเป็นแบบนี้ก่อนพูดบนเวที)
+
+**โหมด on-chain — Future work (ทำอัตโนมัติได้ตรงไปตรงมา)**
+- บันทึกผู้จ่ายต่อเที่ยวแบบ mapping `hops[tokenId][i] = (payer, paid)` ไม่ใช้ array ที่ต้องวนจ่ายในฟังก์ชันเดียว → ค่า gas ต่อเที่ยวคงที่ รองรับขายต่อไม่จำกัดได้
+- `refund(tokenId, hopIndex)` **ใครก็เรียกได้ แต่เงินไปที่ `payer` เสมอ** ให้ relayer ของเราเรียกเป็นชุดทันทีที่เห็นสถานะ `Cancelled` (อัตโนมัติ + ไม่ต้องเชื่อใจเรา เพราะปลายทางเงินล็อกที่ผู้จ่าย)
+- ถ้าส่งเงินไม่สำเร็จ (ผู้รับปฏิเสธ) เก็บเป็นยอดคงค้างให้ถอนเอง (pull fallback) + ป้องกัน reentrancy
+
+**โหมด PromptPay — ทำอัตโนมัติได้ ถ้ามีบัญชีปลายทาง [ยังไม่ยืนยัน]**
+- job ฟัง event `EventCancelled` → อ่าน ledger → คืนบาทให้ผู้จ่ายทุกรายตามที่แต่ละรายจ่าย (idempotent ไม่คืนซ้ำ, มีสถานะรายคน, แจ้งเตือน, กระทบยอด)
+- ช่องทางคืน: ฟีเจอร์ refund ของผู้ให้บริการ (ถ้ามี) หรือโอนออกไปยังบัญชีที่ผู้ใช้ลงทะเบียน (**บางผู้ให้บริการระบุว่า Thai QR ไม่มี refund ในตัว** ต้องถามให้แน่ใจ)
+- **ข้อกำหนดที่ตามมา:** ต้องเก็บ/ยืนยันบัญชีรับเงินคืนตั้งแต่สมัครหรือก่อนจ่ายครั้งแรก
+- รายที่คืนอัตโนมัติไม่ได้ (ไม่มีบัญชี, โอนล้มเหลว) → หน้าขอรับเงินคืนเอง **[ยังไม่ตัดสิน]** เวลาที่ให้กดรับ และเงินที่ไม่มีคนรับไปไหน
+- ค่าโอนออกของบัญชีนิติบุคคลยังไม่ทราบ (ตารางมาตรฐาน ธปท. คือฟรีถึง 5,000 บาทต่อรายการสำหรับการโอนพร้อมเพย์ทั่วไป) **[ยังไม่ยืนยัน]**
+
+---
+
+## 6. Pipeline การชำระเงินและสองโหมดเงิน
+
+### 6.1 ตรวจว่าเงินเข้าจริง (โหมด PromptPay) ก่อน mint ทุกครั้ง
+1. ลายเซ็นของ webhook ถูกต้อง
+2. **ถามสถานะซ้ำผ่าน API ของผู้ให้บริการ** (ไม่เชื่อ webhook อย่างเดียว)
+3. ยอดและสกุลเงินตรงกับ order
+4. reference ตรงและ order ไม่หมดอายุ
+5. order นี้ยังไม่เคย mint (MVP: ตรวจที่ backend ด้วย event id ของ webhook/idempotency key ที่ห้ามซ้ำ; `usedOrder[hash]` ใน contract = Future work)
+
+**ห้ามใช้รูปสลิปเป็นหลักฐาน** (ปัญหาเดียวกับที่เราอ้างว่าแก้) และต้องมี **กระทบยอดรายวัน** กับสเตทเมนต์ธนาคาร/ผู้ให้บริการ
+
+**ถามผู้ให้บริการ (Opn/Omise, 2C2P, GB Prime Pay หรือ API ธนาคาร):** อัตรา PromptPay QR (และค่าคงที่ต่อรายการ), ระยะ settlement, รองรับคืนเงินไหม (บางรายระบุว่า Thai QR ไม่มี refund/chargeback → ต้องโอนออกเอง), ตั้งเวลา QR หมดอายุได้ไหม, มี test mode จำลอง PromptPay ไหม, มี marketplace payout/split payment ไหม
+
+### 6.2 สองโหมดเงิน (ต้องเล่าให้ตรงกันทั้งทีม)
+
+> **MVP:** ใช้โหมด PromptPay โดยจำลอง PSP + **mint NFT จริงบน Fuji** แต่ไม่มี escrow contract — เงินบาทพักใน ledger ของแพลตฟอร์ม (ใน demo ไม่มีเงินจริง); โหมด on-chain ในตารางเป็น Future work
+
+| | **โหมด on-chain (demo)** | **โหมด PromptPay (ลูกค้าไทยจริง)** |
+|---|---|---|
+| เงินพักที่ไหน | ใน contract (AVAX บน Fuji) | บัญชีที่แยกไว้ที่พาร์ทเนอร์ที่มีใบอนุญาต |
+| contract ทำอะไร | ถือเงินและจ่ายเอง (จ่ายร้าน/ผู้ขายตอนงานจบ, คืนอัตโนมัติเมื่อยกเลิก) | บันทึกสถานะ (`Active/Cancelled/Released`) การโอนบาทนอก chain ทำตามสถานะบน chain |
+| ซื้อและ mint | atomic ใน transaction เดียว (`buyTicket` ตรวจยอด/capacity/limit แล้ว mint) | backend mint หลัง verify |
+| "ไม่มีใครถือเงิน" | จริง | **ไม่จริง** ต้องใช้ข้อความอื่น |
+| ใช้ตอนไหน | demo บนเวที | roadmap; ใน demo เป็น **simulation** ติดป้ายชัด |
+
+**ความจริงที่ต้องบอกตรง ๆ ในโหมด PromptPay:** เงินบาทผ่านมือ JONGLOEI/พาร์ทเนอร์ รอบรับ และรอบจ่าย contract คุมสถานะ ไม่ได้ถือเงิน การคืนเงินให้ลูกค้าเป็นขั้นตอนนอก chain ผู้ใช้ยังต้องเชื่อผู้ให้บริการและเรา จึงต้องแก้ contract: เก็บ `payer` (address ผู้จ่ายบน chain คือ treasury) และให้ `refund` ไปที่ payer ไม่ใช่ผู้ถือ
+
+### 6.3 ทำไมไม่ใช้ USDC ใน MVP
+- ไม่จำเป็นต่อความเป็นเจ้าของตั๋ว (ความเป็นเจ้าของมาจาก ERC-721 ใน wallet ไม่ใช่สกุลเงินที่จ่าย)
+- ต้นทุน: ค่าเทรดคู่บาทประมาณ 0.25% ต่อขา (Bitkub ยืนยันจากประกาศทางการ ก.ค. 2569), ค่าถอนบาท (Orbix 20 บาท จากเว็บรวมข้อมูล), ค่าเครือข่ายตอนถอน USDC (ไม่พบตัวเลขของกระดานไทย/Avalanche) ซึ่งหนักสำหรับตั๋ว 100 บาท
+- ความเสี่ยง peg: USDC เคยหลุดเหลือต่ำสุดราว 0.87-0.88 ดอลลาร์ (มี.ค. 2023) และบางกระดานระงับถอนช่วงนั้น
+- กฎ: ปี 2565 ก.ล.ต./ธปท. ห้ามผู้ประกอบธุรกิจสินทรัพย์ดิจิทัลสนับสนุนการใช้สินทรัพย์ดิจิทัลเป็นสื่อกลางชำระค่าสินค้า/บริการ (**ไม่พบประกาศยกเลิก [ยังไม่ยืนยัน]**) การที่ ก.ล.ต. เพิ่ม USDT/USDC (มีผล 16 มี.ค. 2568) เป็นเรื่องซื้อขายในศูนย์ซื้อขายฯ ไม่ใช่การจ่ายค่าสินค้า
+- TouristDigiPay (sandbox 18 เดือน เฉพาะนักท่องเที่ยวต่างชาติ) แปลงคริปโตเป็นบาทผ่านผู้ได้รับอนุญาต ร้านได้รับบาท: ทิศทางที่ regulator รับได้ ใช้กับ U-Pay/นักท่องเที่ยวใน roadmap
+
+---
+
+## 7. ทำไมต้อง blockchain (คำตอบหลักต่อกรรมการ)
+
+> **ข้อควรระวังสำหรับ MVP:** เงินยังอยู่ใน ledger ไม่ใช่ใน contract ดังนั้น "The contract pays..." และ "escrow on-chain" **ใช้บนเวทีไม่ได้** สิ่งที่พูดได้จริงใน MVP: ตั๋วเป็น NFT ใน wallet ของผู้ใช้ตรวจเจ้าของได้, โอนได้เฉพาะผ่านแพลตฟอร์ม, QR เซ็นสดกันภาพแคป, ตรวจเงินเข้าด้วย PSP ไม่ใช้สลิป, ขายต่อมีเพดานราคา/หน่วง 6 ชม./คอมมิชชันโปร่งใส, คืนเงินอัตโนมัติ และ roadmap ย้ายเงินกับกติกาเข้า contract
+
+**ข้อความบนสไลด์สำหรับ MVP (ใช้แทนข้อความด้านล่างจนกว่า contract จะถือเงิน):**
+> Shops create an event in minutes. Guests pay with PromptPay and get an NFT ticket in their own wallet. If an event is cancelled, everyone is refunded automatically — exactly what they paid. Next: moving escrow and payouts into the smart contract, so you don't have to trust us.
+
+**สถาปัตยกรรมเป้าหมาย (Future work):**
+
+> "A payment gateway proves money arrived. It can't promise the shop delivers or refunds. Escrow can."
+
+- ตั๋วเป็นของใครตรวจสอบได้ (`ownerOf`) ไม่ต้องเชื่อภาพแคปหรือสลิป
+- กติกาของตั๋วเป็นโค้ด: ขายเกิน capacity ไม่ได้, QR ใช้ซ้ำไม่ได้, ขายต่อเกินเพดาน/ก่อนครบ 6 ชม./หลังปิดโอนไม่ได้, สถานะ Used/Expired/Refunded ตรวจสอบได้
+- โหมด on-chain: escrow คุ้มครองทั้งสองฝั่ง โดยไม่มีใครถือเงินของคนอื่น แม้แต่ JONGLOEI; คืนเงินอัตโนมัติเมื่อยกเลิกและเงินไปที่ผู้จ่ายเสมอ
+- โหมด PromptPay: **กติกาของตั๋วเป็นโค้ด** แต่เงินบาทพักที่พาร์ทเนอร์ที่มีใบอนุญาต เงินคืน/จ่ายร้านทำตามสถานะบน chain
+- เข้ากับ U-topia (non-custodial, borderless → U-Pay สำหรับนักท่องเที่ยว **[ยังไม่ยืนยัน]**)
+
+**ข้อความบนสไลด์ (มีเชิงอรรถ):**
+> Shops create an event in minutes. Guests pay into escrow\* and get an NFT ticket on-chain. The contract pays the shop after the event, or refunds guests if it's cancelled.
+> \* In the prototype, payment is held by the smart contract itself. For Thai guests paying by PromptPay, a licensed payment partner holds the baht, and the contract controls ticket status.
+
+**ข้อจำกัดที่ยอมรับตรงๆ:**
+- code กันร้านปลอมเองไม่ได้ → ยืนยันตัวตนร้านตอนสมัคร
+- blockchain ไม่ได้แก้บอท → ลิมิตตั๋วต่อ wallet + หน่วงขายต่อ 6 ชม. ใน MVP, Fair Draw/ยืนยันตัวตนอยู่ใน roadmap
+- no-show ไม่คืนเงิน (กติกาที่ประกาศชัดก่อนซื้อ)
+- ลูกค้าไทยจ่ายคริปโตตรง ๆ ไม่ได้ในทางปฏิบัติ → จ่ายผ่าน PromptPay
+
+---
+
+## 8. Design decisions
+
+> ตารางนี้คือการตัดสินใจเชิงสถาปัตยกรรม; คอลัมน์สถานะบอกว่า MVP ทำไหม รายละเอียดค่าที่ใช้จริงอยู่หัวข้อ 10.2
+
+| เรื่อง | ตัดสิน | สถานะ |
+|---|---|---|
+| ชื่อ | **JONGLOEI** | [ตัดสินแล้ว] |
+| Chain | EVM testnet: Avalanche Fuji | [ตัดสินแล้ว]; **Core A5** |
+| Ticket | ERC-721, **โอนผ่านแพลตฟอร์มเท่านั้น** | [ตัดสินแล้ว]; **Core A5** (contract ขั้นต่ำ) |
+| เงิน (demo on-chain) | Native token (AVAX บน Fuji) ใน contract | Future work (MVP เงินอยู่ใน ledger) |
+| เงิน (ลูกค้าไทย) | PromptPay ผ่าน Payment Gateway + พาร์ทเนอร์ที่มีใบอนุญาต (MVP: sandbox หรือ mock PSP) | [ตัดสินแล้ว]; **Core A4** |
+| จ่ายร้านและผู้ขาย | **ตอนงานจบ** (`endTime + DISPUTE_WINDOW`; ค่าตั้งต้น 24 ชม., demo 60 วิ) | [ตัดสินแล้ว]; กลุ่ม B2 |
+| คืนเงินเมื่อยกเลิก | **อัตโนมัติ** (MVP/PromptPay: job คืนตาม ledger; Future on-chain: `refund` ใครเรียกก็ได้ เงินไป payer) | [ตัดสินแล้ว]; **กลุ่ม B1**; PSP refund จริง [ยังไม่ยืนยัน] |
+| QR | EIP-712 `{tokenId, ts}` เซ็นโดยเจ้าของ อายุ 60 วิ ตรวจ `ownerOf` ทุกครั้ง | [ตัดสินแล้ว]; **Core A6** |
+| Wallet | thirdweb embedded wallet | [ตัดสินแล้ว]; ใครถือ key จริง [ยังไม่ยืนยัน] |
+| PDPA | on-chain เก็บแค่ address และ hash ของ reference (มี salt) | [ตัดสินแล้ว] |
+| สถานะจอง | สองชั้น (ชำระแล้ว กำลังออกตั๋ว → ได้รับตั๋วแล้ว) | [ตัดสินแล้ว]; **Core A5** |
+| Hold | เริ่มกดซื้อ จนยืนยันเงิน; **10 นาที**; ใครได้ hold ก่อนมีสิทธิ์ก่อน | [ตัดสินแล้ว] |
+| ขายต่อ — จำนวนครั้ง | **ไม่จำกัด** | [ตัดสินแล้ว] |
+| ขายต่อ — หน่วง | **6 ชม. หลังได้ตั๋ว** (นับตั้งแต่ mint/โอนล่าสุด; เก็บเป็นพารามิเตอร์ `resaleDelay` ต่อ event) | [ตัดสินแล้ว] |
+| ขายต่อ — ปิดโอน | ก่อนงานเริ่ม 1 ชม. | [ตัดสินแล้ว] |
+| ขายต่อ — เพดานราคา | 1.25 × ราคาหน้าตั๋วครั้งแรก | ค่าตั้งต้น ปรับจูนทีหลัง (บังคับที่ backend) |
+| no-show | ไม่คืนเงิน ร้านได้เงิน ตั๋ว Unavailable | [ตัดสินแล้ว] |
+| ค่าคอมมิชชันขายต่อ | 6% โปร่งใส | ค่าตั้งต้น ปรับจูนทีหลัง |
+| ยืนยันตัวผู้ขายต่อ | KYC + บัญชีรับเงินชื่อตรง | MVP: ฟอร์มจำลอง; ของจริง = Future work |
+| mint | backend (relayer) เป็นผู้ส่งธุรกรรมและจ่าย gas; contract จำกัดสิทธิ์ minter | **Core A5** (กรณีปกติ; จัดการล้มเหลวอัตโนมัติ = Future) |
+
+### ทะเบียนฝั่ง backend ของ MVP — โครงข้อมูลที่ต้องตกลงคืนนี้
+ความเป็นเจ้าของตั๋ว = NFT (`ownerOf`); **เงินและกติกาเวลา/ราคา = ledger ในฐานข้อมูล** เก็บเงินเป็นสตางค์ (จำนวนเต็ม)
+
+| ตาราง | ฟิลด์หลัก |
+|---|---|
+| `events` | id, shop_id, name, price, capacity, start_at, end_at, status (ACTIVE/CANCELLED/ENDED), พารามิเตอร์ต่อ event (`hold_ttl`, `resale_delay`, `transfer_cutoff`, `cap_multiplier`, `commission_bps`, `dispute_window`) |
+| `users` | id, google_id, wallet_address (thirdweb), payout_account (เลขพร้อมเพย์, จำลอง) |
+| `orders` | id, kind (PRIMARY/RESALE), event_id, buyer_id, listing_id (ถ้า RESALE), amount, status (HOLD/PAID/MINTING/COMPLETED/MINT_FAILED/EXPIRED/CANCELLED), expires_at, psp_ref, paid_at |
+| `payment_events` | psp_event_id (unique), order_id, raw, verified_at — กัน webhook ซ้ำ |
+| `tickets` | id, event_id, token_id, mint_tx, holder_user_id, acquired_at, face_price, status (VALID/LISTED/USED/UNAVAILABLE/REFUNDED), used_at |
+| `listings` | id, ticket_id, seller_id, price, status (ACTIVE/LOCKED_BY_ORDER/SOLD/CANCELLED), มี ACTIVE ได้รายการเดียวต่อ ticket |
+| `hops` | ticket_id, idx (0 = ซื้อครั้งแรก), payer_user_id, paid, order_id, refunded_at, settled_at |
+| `ledger_entries` | id, order_id, type (PAYMENT_IN/REFUND_OUT/PAYOUT_SHOP/PAYOUT_SELLER/COMMISSION/SHOP_FEE), amount, party, status (PENDING/DONE/FAILED_RETRY), idempotency_key (unique) |
+
+- ที่นั่งว่าง = `capacity − sold − held` หักด้วยคำสั่งเดียวที่มีเงื่อนไข ไม่อ่านแล้วค่อยเขียน
+- ยอดจ่ายตอนงานจบ: ร้านได้ `face_price − (5 บาท + 3%)` ต่อใบ; ผู้ขายเที่ยว i ได้ `paid(i+1) − commission(paid(i+1))`
+- ยอดคืนเมื่อยกเลิก: ผู้จ่ายแต่ละเที่ยวได้ `paid(i)` เต็มจำนวน (ไม่เก็บคอมมิชชัน)
+
+### Contract ขั้นต่ำของ MVP **[Core A5]**
+- ERC-721 (OpenZeppelin) + AccessControl: `mint(to, eventId)` (MINTER = relayer), `operatorTransfer(tokenId, to)` (OPERATOR = relayer), `markUsed(tokenId)`; การโอนโดยเจ้าของเองถูกปิด (OpenZeppelin v5 override `_update`, v4 override `_beforeTokenTransfer` ตรวจเวอร์ชันที่ใช้)
+- ไม่มี escrow, ไม่มี `settle`/`refund`, ไม่เก็บ `acquiredAt`/hop บน chain; event `Transfer` มาตรฐานพอสำหรับ explorer
+
+### สิ่งที่ contract ต้องมี (เต็มรูปแบบ) **[Future work]**
+- `capacity`, `sold`, จำกัดตั๋วต่อ wallet, `usedOrder[hash]` (กัน mint ซ้ำ)
+- struct ตั๋ว: `eventId`, `tier`, `used`, `acquiredAt`, `hopCount`, `paymentRefHash`; **ผู้จ่ายต่อเที่ยวเก็บเป็น mapping** `hops[tokenId][i] = (payer, paid, refunded, settled)` (ไม่ใช้ array ที่ต้องวน)
+- ฟังก์ชัน: `mintTicket` (สิทธิ์ minter) / `buyTicket` (โหมด on-chain), `transferViaPlatform` (ตรวจ ยังไม่ใช้, `now ≥ acquiredAt + 6h`, `now ≤ startTime − 1h`, order ไม่ซ้ำ, ลายเซ็นยินยอมของผู้ขาย; ตั้ง `acquiredAt = now` ให้ผู้ซื้อ), `settle(tokenId, hop)` จ่ายร้าน/ผู้ขายตอนงานจบ, `cancelEvent` (ไม่มีทางถอนเงินออกโดย admin), `refund(tokenId, hop)` ใครเรียกก็ได้ เงินไป `payer` + pull fallback
+- ห้ามโอนทั่วไป (OpenZeppelin v5 override `_update`, v4 override `_beforeTokenTransfer` ตรวจเวอร์ชันที่ใช้)
+- event: `TicketResold(tokenId, from, to, hopIndex, orderHash)`, `EventCancelled(eventId)` (ให้ relayer ฟังเพื่อคืนเงินอัตโนมัติ)
+
+### ระบบ verify QR (Valid / Invalid พร้อมเหตุผล) **[Core A6]**
+- **Valid:** ลายเซ็นตรงกับ `ownerOf(tokenId)`, ตั๋วยังไม่ `used`, งานไม่ถูกยกเลิก/ตั๋วไม่ถูกคืนเงิน, `ts` อยู่ในช่วงที่ถูกต้อง (ตั๋ว Locked ใช้เข้างานได้)
+- **Invalid + เหตุผล:** หมดอายุ (อายุ > 60 วิ), `ts` อนาคต (`age < -15`), ลายเซ็นไม่ตรงเจ้าของปัจจุบัน (เช่น QR ผู้ขายเก่า), ใช้แล้ว, งานจบ/Unavailable, งานยกเลิก/คืนเงินแล้ว, ตั๋วไม่ใช่ของงานนี้
+- หน้าสแกนต้องแสดงเหตุผลของ Invalid ชัดๆ (ใช้ใน demo)
+
+---
+
+## 9. โมเดลรายได้และต้นทุน (ตัวเลขทั้งหมด [สมมติ] จนกว่าจะได้ใบเสนอราคาจริง)
+
+> MVP ใช้ Fuji testnet (ไม่มีต้นทุน gas จริง); ตัวเลข gas ด้านล่างใช้ตอนขึ้น mainnet และต้องวัด `gasUsed` จริงของ contract ขั้นต่ำ
+
+### โมเดลราคา
+- **ขายครั้งแรก:** 5 บาท + 3% ต่อใบ เก็บจากร้าน (ตั๋ว 100 บาท = 8 บาท / 500 บาท = 20 บาท / 1,000 บาท = 35 บาท) เหตุผล: ต้นทุนส่วนใหญ่เป็นค่าคงที่ต่อใบ ไม่ใช่สัดส่วน
+- **ตลาดรอง:** ค่าคอมมิชชัน 6% จากผู้ขาย
+- ยังไม่รวม VAT 7% ของค่าบริการ (ถ้าจดทะเบียน) **[ยังไม่ยืนยัน กับผู้ทำบัญชี]**
+- **ต้นทุนที่เพิ่มจาก v3:** ค่าโอนออกตอนจ่ายผู้ขายทุกเที่ยวและตอนคืนเงินอัตโนมัติ (ยังไม่ทราบอัตราของบัญชีนิติบุคคล) — ขายต่อไม่จำกัดครั้งทำให้ต้นทุนจ่ายออกโตตามจำนวนเที่ยว แต่คอมมิชชัน 6% ต่อเที่ยวชดเชยได้ถ้ายอดขายต่อไม่ต่ำเกินไป
+
+### ต้นทุนแปรผันต่อใบ (บาท)
+
+| รายการ | ต่ำ | กลาง | สูง | ที่มา |
+|---|---|---|---|---|
+| Mint fee (gas) | 0.3 | 1.0 | 3.0 | คำนวณ: gasUsed × gasPrice × ราคา AVAX; base fee Avalanche C-Chain ต่ำสุด 1 nAVAX (หลังลด 96% จาก 25) ถ้า mint ใช้ ~150,000 gas (**สมมติ ต้องวัดจริงบน Fuji**) ≈ 0.2-2.4 บาท |
+| PromptPay fee | 1.0 | 2.0 | 5.0 | **สมมติ** ไม่พบอัตราที่เผยแพร่ของผู้ให้บริการไทย (ค่าโอนฝั่งผู้จ่ายฟรีถึง 5,000 บาท ตามตาราง ธปท.) |
+| Chain ops อื่น | 0.3 | 0.5 | 1.0 | สมมติ |
+| คืนเงิน/ซัพพอร์ต | 0.5 | 1.0 | 2.0 | สมมติ |
+| **รวม** | **2.1** | **4.5** | **11.0** | |
+
+ต้นทุนคงที่ **8,000 บาท/เดือน [สมมติ]** (เซิร์ฟเวอร์, RPC, embedded wallet, มอนิเตอร์, เครื่องมือซัพพอร์ต ไม่รวมเงินเดือนทีม) ค่า embedded wallet ของ thirdweb ยังไม่ทราบว่าคิดต่อ wallet หรือต่อเดือน **[ยังไม่ยืนยัน]**
+
+### ปริมาณคุ้มทุน (ตั๋วต่อเดือน) ที่ต้นทุนแปรผันกลาง (4.5 บาท)
+
+| ค่าบริการต่อใบ | ปริมาณคุ้มทุน |
+|---|---|
+| 8 บาท | ~2,290 |
+| 10 บาท | ~1,460 |
+| 12 บาท | ~1,070 |
+| 15 บาท | ~760 |
+
+ต้นทุนสูง (PromptPay 5 บาท/ใบ) ค่าบริการต่ำกว่า 11 บาทขาดทุนทุกใบ → **ค่า PromptPay จริงเป็นตัวแปรที่ต้องได้ราคาก่อนตั้งราคา**
+
+---
+
+## 10. TO DO และขอบเขต MVP (ส่งงานภายใน 14:00 วันศุกร์)
+
+### 10.1 กรอบเวลา [ตัดสินแล้ว: กำหนดส่ง 14:00; ตารางย่อยเป็นข้อเสนอ]
+
+เวลาเขียนโค้ดที่แน่ ๆ คือ **ศุกร์ 10:00-14:00 = 4 ชม.** โดยนับเริ่มเขียนโค้ดตั้งแต่ศุกร์เช้า (กติกาห้ามโปรเจกต์ที่ทำไว้ก่อน) งานคืนนี้จึงจำกัดที่ไม่ใช่โค้ดโปรเจกต์ตามแถวแรกของตาราง จึงต้องสั้นและตัดแรง
+
+| ช่วง | เป้าหมาย | หมุดหมาย |
+|---|---|---|
+| คืนนี้ (ไม่ใช่โค้ดโปรเจกต์) | สมัคร sandbox PSP, สร้าง thirdweb project, สร้าง relayer wallet + เติม test-AVAX จาก faucet, ตกลง schema/API (หัวข้อ 8), เขียนสคริปต์ demo, แก้ deck (ชื่อ JONGLOEI) | พร้อมเริ่ม 10:00 |
+| 10:00-11:00 | repo + ฐานข้อมูล + seed งาน; **คนที่ 1 deploy contract ตั๋วขั้นต่ำบน Fuji ให้ได้ภายใน 11:00** (ถ้าไม่ทัน ใช้ contract สำเร็จรูปของ thirdweb แล้วปิดการโอนทั่วไป — **[ยังไม่ยืนยัน]** ว่ารองรับ) | contract + ABI พร้อมใช้ |
+| 11:00-12:00 | **M1:** login → ซื้อ → hold 10 นาที → จ่าย PromptPay (sandbox/จำลอง) → verify → **mint NFT เข้า wallet** → QR → สแกน Valid/Invalid | ซื้อจนสแกนผ่านครบวงจร |
+| 12:00-13:00 | **M2:** ขายต่อ (ลงขาย, เพดานราคา, หน่วง 6 ชม., ผู้ซื้อจ่าย PromptPay, relayer โอน NFT, QR เก่า Invalid/ใหม่ Valid, ตาราง hop) | ขายต่อ 2 เที่ยวได้ `ownerOf` เปลี่ยนบน explorer |
+| 13:00-13:40 | **กลุ่ม B:** ยกเลิกงาน → คืนเงินอัตโนมัติ, จ่ายร้าน/ผู้ขายตอนงานจบ | M3: ยกเลิกแล้วทุกคนได้คืนตามที่จ่าย |
+| 13:40-14:00 | **Freeze + ส่งงาน:** แก้เฉพาะบั๊ก, อัด video สำรอง, ซ้อมสคริปต์ | ส่ง |
+
+ช่วงซ้อมสั้นมาก ถ้าพลาดหมุดหมายให้ใช้เส้นตัดในหัวข้อ 10.4 ทันที ไม่รอ
+
+### 10.2 ค่า parameter ตั้งต้น [สมมติ — ปรับจูนทีหลัง]
+
+กติกาเวลา/ราคาในตารางนี้ **บังคับที่ backend ใน MVP** (ย้ายไปบังคับที่ contract ใน Future work)
+
+| parameter | ค่าจริง (prod) | ค่าใน demo | หมายเหตุ |
+|---|---|---|---|
+| Hold TTL (ซื้อครั้งแรกและซื้อต่อ) | 10 นาที | 10 นาที (มีปุ่มลดเป็น 90 วินาทีไว้โชว์หมดเวลา) | อายุ PromptPay QR = Hold TTL |
+| อายุ QR เข้างาน / ยอมให้ `ts` ล้ำอนาคต | 60 วินาที / 15 วินาที | เท่าเดิม | |
+| หน่วงขายต่อ `resaleDelay` | 6 ชม. หลังได้ตั๋ว | 60 วินาที | ติดป้าย "demo" บนหน้าจอ |
+| ปิดโอน `transferCutoff` | 1 ชม. ก่อนงานเริ่ม | 30 วินาที | |
+| เพดานราคาขายต่อ | 1.25 × ราคาหน้าตั๋ว (ร้านปรับ 1.0-1.25) | เท่าเดิม | อิงราคาเดิมเสมอ ไม่ทบ |
+| ค่าคอมมิชชันขายต่อ | 6% จากผู้ขาย ปัดเศษเป็นสตางค์แบบ half-up | เท่าเดิม | หักตอนจ่ายผู้ขาย |
+| ค่าบริการขายครั้งแรก | 5 บาท + 3% จากร้าน | เท่าเดิม | |
+| `DISPUTE_WINDOW` (จ่ายร้าน/ผู้ขายหลังงานจบ) | 24 ชม. หลัง `endTime` | 60 วินาที | |
+| จำนวนครั้งขายต่อ | ไม่จำกัด | เท่าเดิม | |
+| รายการประกาศขาย | 1 รายการที่ active ต่อใบ, ยกเลิกเองได้, หมดอายุเมื่อถึง `transferCutoff` | เท่าเดิม | |
+| จำกัดตั๋วต่อผู้ใช้ต่องาน | 4 ใบ | เท่าเดิม | กลุ่ม B |
+| งานตัวอย่างที่ seed | - | ราคา 1,000 บาท, 20 ที่นั่ง, เริ่มใน 10 นาทีหลังกด reset, จบหลังเริ่ม 5 นาที | |
+| mint ล้มเหลวหลังจ่ายแล้ว | ลองซ้ำ 3 ครั้ง ห่างกัน 10 วินาที แล้วขึ้น "ออกตั๋วไม่สำเร็จ" และแจ้งทีม (คืนเงิน/ออกตั๋วซ้ำด้วยสคริปต์) | เท่าเดิม | ระบบอัตโนมัติเต็มรูปแบบ = Future work |
+| ตรวจเงินเข้า | webhook ต้องผ่านตรวจ 5 ข้อ (หัวข้อ 6.1), ถามสถานะซ้ำ timeout 5 วินาที ลองใหม่ 3 ครั้ง | เท่าเดิม | |
+| job คืนเงิน/จ่ายเงิน | รันทุก 5 นาที | ทุก 15 วินาที | ทำซ้ำได้ไม่เกิดผลซ้ำ (idempotent) |
+| ผู้ขาย KYC / บัญชีรับเงิน | ตรวจชื่อบัญชีตรง | ฟอร์มกรอก ไม่ตรวจจริง (จำลอง) | |
+| เก็บเงินเป็นหน่วย | สตางค์ (จำนวนเต็ม) | เท่าเดิม | กันปัญหาทศนิยม |
+
+### 10.3 ขอบเขตงาน
+
+**ขอบเขต mint ใน MVP [ตัดสินแล้ว]**
+- **Core:** mint ERC-721 (กรณีปกติ) เข้า thirdweb wallet ของผู้ใช้ผ่าน relayer ที่จ่าย gas, โอนเปลี่ยนมือผ่านแพลตฟอร์มตอนขายต่อ, `markUsed` ตอนสแกน, QR ตรวจด้วย `ownerOf`
+- **Future work:** การจัดการ mint ล้มเหลวแบบอัตโนมัติ (retry ตามเวลา, timeout, คืนเงินเมื่อ mint ไม่ได้), contract ที่ถือเงิน (escrow/refund/settle on-chain) และ contract ที่บังคับกติกาเวลา/ราคาเอง
+- ใน MVP เงินอยู่ใน ledger ของแพลตฟอร์ม และกติกาเวลา/ราคาบังคับที่ backend
+
+**กลุ่ม A — Core ต้องทำงานจริงตามเวลา (ขาดข้อไหน demo ไม่ผ่าน)**
+
+| # | งาน | ต้องมี |
+|---|---|---|
+| A1 | Login + wallet | Google login ผ่าน thirdweb สร้าง embedded wallet ให้ (เป็นที่รับ NFT และกุญแจเซ็น QR; ผู้ใช้ไม่จ่าย gas) |
+| A2 | หน้างาน | รายละเอียดงาน, ที่นั่งเหลือ = `capacity − sold − held` |
+| A3 | Order + Hold | กดซื้อ → หักที่นั่งแบบอะตอมมิก (คำสั่งเดียวมีเงื่อนไข) → Hold 10 นาที → หมดเวลาคืนที่นั่ง (ถามสถานะซ้ำจาก PSP ก่อนปล่อย) |
+| A4 | จ่าย PromptPay | สร้างรายการเก็บเงิน/QR ผูก reference กับ order → webhook เซ็นลายเซ็น → **verify 5 ข้อ** (หัวข้อ 6.1) → บันทึก ledger; callback ซ้ำไม่ออกตั๋วซ้ำ |
+| A5 | **Contract ตั๋วขั้นต่ำ + Mint** | ERC-721 บน Fuji: `mint(to, eventId)` เฉพาะ minter (relayer), `operatorTransfer(tokenId, to)` เฉพาะ operator (ปิดการโอนทั่วไปของเจ้าของ), `markUsed(tokenId)`; **ไม่มี escrow/refund/settle**; backend mint เข้า wallet ผู้ซื้อหลัง verify (relayer จ่าย gas) → สถานะสองชั้น "ชำระเงินแล้ว กำลังออกตั๋ว" → "ได้รับตั๋วแล้ว" (แสดง QR หลัง mint ยืนยันเท่านั้น); mint ล้มเหลวทำตามแถว "mint ล้มเหลว" ในหัวข้อ 10.2 |
+| A6 | QR + สแกน | QR เซ็นด้วย wallet ทุก 60 วิ (EIP-712 `{tokenId, ts}`), หน้าสแกนตรวจกับ `ownerOf` + ทะเบียน (ใช้แล้ว/งานยกเลิก) แสดง Valid/Invalid + เหตุผล (หัวข้อ 8), เรียก `markUsed` |
+| A7 | **ขายต่อด้วย PromptPay** | ลงขาย (backend ตรวจเพดาน 1.25×, ครบ `resaleDelay` จาก `acquired_at` ในทะเบียน, ก่อน `transferCutoff`, ตั๋วยังไม่ใช้, 1 รายการต่อใบ) → ผู้ซื้อ Hold 10 นาที → จ่าย PromptPay → verify 5 ข้อ → relayer เรียก `operatorTransfer` → ตั้ง `acquired_at` ใหม่, บันทึก hop (ผู้จ่าย, ยอดที่จ่าย), บันทึกคอมมิชชันใน ledger → QR เจ้าของเก่า Invalid / ใหม่ Valid; ขายต่อไม่จำกัดครั้ง |
+| A8 | Pitch | deck ชื่อ JONGLOEI ที่ไม่อ้างเกินกว่า MVP (หัวข้อ 7, 16), สคริปต์ 3 นาที, คำตอบกรรมการ, video สำรอง |
+
+**กลุ่ม B — ทำหลัง M2 (ถ้าไม่ทันเป็นสไลด์)**
+
+| # | งาน | ต้องมี |
+|---|---|---|
+| B1 | **ยกเลิกงาน → คืนเงินอัตโนมัติ** | ปุ่ม/สคริปต์ยกเลิกงาน → job อ่าน hop ทุกใบ → คืนตามที่แต่ละคนจ่าย (ผ่าน PSP refund หรือโอนไปบัญชีรับเงินคืน; ใน demo เป็นรายการ ledger "คืนแล้ว"), idempotent, สถานะรายคน, คอมมิชชันไม่เก็บ, ตั๋วเป็น Refunded (QR Invalid) |
+| B2 | **จ่ายตอนงานจบ** | job หลัง `endTime + DISPUTE_WINDOW`: ร้านได้ราคาหน้าตั๋วหักค่าบริการ, ผู้ขายแต่ละเที่ยวได้ยอดที่ผู้ซื้อต่อจ่ายหักคอมมิชชัน (ตัวอย่าง 3 เที่ยว หัวข้อ 5.6) |
+| B3 | บัญชีรับเงิน/รับเงินคืน | ฟอร์มตอนสมัคร (เลขพร้อมเพย์) ไม่ตรวจจริง |
+| B4 | no-show | ตั๋วที่ไม่เคยใช้หลังงานจบ → Unavailable |
+| B5 | จำกัดตั๋วต่อผู้ใช้ | 4 ใบต่องาน |
+| B6 | หน้าผู้จัดแบบเรียบง่าย | สร้างงาน/ยกเลิกงาน/ดูยอดขาย |
+
+**กลุ่ม C — จำลอง (ติดป้าย simulation ในจอและสไลด์)**
+- **PSP:** ถ้าไม่มี sandbox ใช้ mock PSP ที่ออก QR ปลอม ปุ่ม "จำลองการจ่าย" ส่ง webhook เซ็น HMAC เข้า endpoint จริง; ตรรกะ verify 5 ข้อเขียนจริง (ถามสถานะซ้ำจาก mock API)
+- **เงินทั้งหมดอยู่ใน ledger ของแพลตฟอร์ม:** การจ่ายออก/คืนเงินจริงเป็นรายการ ledger ไม่มีการโอนเงินจริงและไม่มี escrow บน chain
+- **KYC:** ฟอร์มเท่านั้น
+- ตัวเลขเวลาใน demo (หัวข้อ 10.2 คอลัมน์ "ค่าใน demo") ติดป้าย
+
+**Future work (ไม่ทำใน 24 ชม.):** จัดการ mint ล้มเหลวอัตโนมัติเต็มรูปแบบ (retry ตามเวลา, แจ้งเตือน, คืนเงินเมื่อเกินเวลา), contract ถือเงิน (escrow/refund/settle on-chain, per-hop mapping), contract บังคับกติกาเวลา/ราคา, ใช้ wallet ภายนอก, จ่ายคริปโต, PSP/KYC/ใบอนุญาตจริง, dashboard เต็ม ฯลฯ (หัวข้อ 11)
+
+### 10.4 เส้นตัด (ถ้าช้ากว่าแผน ตัดจากล่างขึ้นบน)
+
+1. B6 → B5 → B4 → B3 (ใช้สคริปต์/ค่า seed แทน)
+2. หน้า mock PSP สวย ๆ เหลือปุ่ม "จ่ายเงิน (จำลอง)" เดียว
+3. B2 (จ่ายตอนงานจบ) เป็นสไลด์พร้อมตัวเลขตัวอย่าง
+4. B1 (คืนอัตโนมัติ) ให้ทำเป็นสคริปต์รันสดแทนปุ่ม แต่ **อย่าตัดทิ้ง** เพราะเป็นจุดขายเรื่องความไว้ใจ
+5. A7 ลดเหลือ **1 เที่ยว** ใน demo (โครงสร้างข้อมูลต่อเที่ยวยังคงไว้)
+6. ถ้า contract เขียนเองไม่ทัน 11:00: ใช้ contract สำเร็จรูปของ thirdweb (ปิดการโอนทั่วไปถ้ารองรับ **[ยังไม่ยืนยัน]**) แล้วให้ backend คุมการโอนผ่านบทบาท operator
+7. **ห้ามตัด:** A1-A6 (ซื้อ → mint → QR → สแกน) และตรวจ 5 ข้อก่อน mint
+
+### 10.5 สคริปต์ demo 3 นาที (golden path)
+
+1. (0:00) ปัญหา 20 วินาที: สลิปปลอม / งานล่ม / ตามเงินคืนเอง
+2. (0:20) Login Google → เลือกงาน → ซื้อ → Hold นับถอยหลัง 10 นาที → จ่าย PromptPay (จำลอง) → "ชำระเงินแล้ว กำลังออกตั๋ว" → "ได้รับตั๋วแล้ว" → เปิด explorer เห็น NFT อยู่ใน wallet ผู้ซื้อ
+3. (1:00) ตั๋วมี QR เปลี่ยนทุก 60 วิ → หน้าสแกนขึ้น Valid → สแกนซ้ำ/ภาพแคป ขึ้น Invalid พร้อมเหตุผล
+4. (1:30) ขายต่อ: ลงราคาเกินเพดาน → ถูกปฏิเสธ; ลงขายก่อนครบเวลา → ถูกปฏิเสธ (demo 60 วิ); หลังครบ → ผู้ซื้อจ่ายจริง → `ownerOf` เปลี่ยนบน explorer, QR เจ้าของเก่า Invalid, ตาราง hop เห็นว่าใครจ่ายเท่าไร
+5. (2:20) [B1] ผู้จัดยกเลิกงาน → ระบบคืนเงินทุกคนเองตามที่จ่ายจริง (ดูใน ledger)
+6. (2:45) ปิดด้วย roadmap: "ขั้นต่อไปย้ายเงินและกติกาทั้งหมดเข้า smart contract" (พูดตรง ๆ ว่าตอนนี้เงินอยู่ใน ledger จำลอง)
+
+ข้อสำรอง: video ที่อัดไว้, ปุ่ม reset demo + seed, PSP sandbox มี mock สำรอง, RPC สำรองของ Fuji
+
+### 10.6 แบ่งงาน (ทีมไม่เกิน 4 คน) [ข้อเสนอ]
+
+| คน | หน้าที่ | ก่อน M1 | ก่อน M2 / M3 |
+|---|---|---|---|
+| 1 | Contract + relayer (A5) | deploy contract ภายใน 11:00; ฟังก์ชัน mint/operatorTransfer/markUsed/อ่าน `ownerOf` ที่ backend เรียกได้ | ช่วย A7 ฝั่งโอน NFT, B2 จ่ายตอนจบ |
+| 2 | Backend: order, hold, ชำระเงิน (A3, A4) | order + hold + webhook verify + เรียก mint | job หมดเวลา Hold, B1 คืนเงิน |
+| 3 | Frontend (A1, A2, A6, A7 ฝั่งจอ) | login, หน้างาน, ซื้อ, สถานะสองชั้น, ตั๋ว, QR, หน้าสแกน | หน้าลงขาย/ซื้อต่อ, ตาราง hop, B3, B6 |
+| 4 | Pitch + QA + mock PSP (A8) + กติกาขายต่อฝั่ง backend (A7) | mock PSP, deck, สคริปต์ | ลงขาย/ตรวจเพดาน/ledger คอมมิชชัน, ซ้อม, video |
+
+### 10.7 เทสต์ที่ต้องผ่านก่อน freeze
+
+**ต้องผ่าน (กลุ่ม A)**
+- สองคนกดที่นั่งสุดท้ายพร้อมกัน (หักอะตอมมิก); Hold หมดเวลาแล้วที่นั่งกลับ
+- webhook ลายเซ็นผิด / ยอดไม่ตรง / order หมดอายุ → ไม่ mint; callback ซ้ำไม่ mint ซ้ำ
+- mint เข้า wallet ของผู้ซื้อถูกคน; เจ้าของโอนตั๋วเองตรง ๆ ไม่ได้ (ธุรกรรมถูกปฏิเสธ)
+- QR: `ts` อนาคตเกิน 15 วิ ถูกปฏิเสธ, เกิน 60 วิ ถูกปฏิเสธ, ใช้แล้วถูกปฏิเสธ, ลายเซ็นไม่ตรง `ownerOf` ถูกปฏิเสธ
+- ขายต่อ: เกินเพดาน / ก่อนครบ `resaleDelay` / หลัง `transferCutoff` / ตั๋วที่ใช้แล้ว / มีรายการ active อยู่แล้ว → ถูกปฏิเสธ; หลังขายสำเร็จ `acquired_at` รีเซ็ตและ QR เจ้าของเก่า Invalid; ได้ตั๋วเหลือเวลาน้อยกว่า `resaleDelay + transferCutoff` (prod = 7 ชม.) ขายต่อไม่ได้
+- ผู้ซื้อต่อจ่ายไม่ทันใน Hold → รายการกลับไปเป็น Listed ตั๋วไม่เปลี่ยนมือ
+- ผลรวมเงินใน ledger ตรง: ที่รับเข้า = ที่จ่ายออก + คอมมิชชัน + ค่าบริการ (ตัวอย่าง 3 เที่ยว = 2,300)
+
+**ต้องผ่านถ้าทำกลุ่ม B**
+- ยกเลิกงานหลังขายต่อหลายเที่ยว → ทุกคนได้คืนเท่าที่จ่าย ผลรวมตรง; job รันซ้ำไม่คืนซ้ำ; คืนล้มเหลวมีสถานะให้ตามต่อ
+- งานจัดตามปกติ → จ่ายร้านและผู้ขายทุกเที่ยวถูกต้องหลัง `DISPUTE_WINDOW`
+- no-show → Unavailable ไม่คืนเงิน
+
+**ข้ามได้:** ขายต่อ 10+ เที่ยว (พิสูจน์ด้วย unit test บน ledger พอ), KYC จริง, ทดสอบโหลด, การจัดการ mint ล้มเหลวอัตโนมัติ
+
+---
+
+## 11. Future work
+
+1. **ใช้ wallet ที่มีอยู่แล้วได้ไหม:** ได้ในหลักการ (mint ไปที่ address ที่ระบุ เซ็น QR ผ่าน wallet นั้น) แต่ QR ต้องเซ็นทุก 60 วินาที จะมี popup ทุกครั้ง → ตัวเลือกขั้นสูง; **[ยังไม่ยืนยัน]** ว่า thirdweb รองรับ wallet ภายนอกในโปรเจกต์นี้อย่างไร
+2. **Reinforce payment pipeline กรณีมาพร้อมกัน:** ตัวนับที่นั่งแหล่งความจริงเดียว, hold ก่อนมีสิทธิ์ก่อน, ย้ายตัวนับ `held` ขึ้น contract
+3. **จ่ายผ่าน crypto ได้ไหม และถ้าจ่ายพร้อม PromptPay ใครได้ก่อน:** ใช้ inventory เดียวกัน ผู้ชนะคือคนที่ได้ hold ก่อน (ทางเลือกง่ายกว่า: แบ่งโควตาแยก) ติดข้อจำกัดเกณฑ์ปี 2565 (หัวข้อ 6.3)
+4. **Fair Draw** กันบอท และระบบยืนยันตัวตนผู้ถือบัตร
+5. **สลับตั๋วกัน (swap)** แทนขายเป็นเงิน เป็นทางเลือกที่เลี่ยงเรื่องการจ่ายเงินให้ผู้ขาย
+6. **"คืนตั๋วเข้ากองกลาง"** ที่ราคาหน้าตั๋วหักค่าธรรมเนียมต่ำ (ถ้าร้านอนุญาต) เป็นทางออกของคนที่ได้ตั๋วใกล้งานและขายต่อไม่ได้เพราะกติกา 6 ชม./1 ชม.
+7. ตั๋วโอนฟรีระหว่างเพื่อน (ถ้าร้านอนุญาต)
+
+**ย้ายมาจากขอบเขต MVP 24 ชม. (หัวข้อ 10.3) ที่ต้องทำจริงหลังแข่ง**
+8. จัดการ mint ล้มเหลวอัตโนมัติเต็มรูปแบบ: retry ตามเวลา, แจ้งเตือนทีม, คืนเงินอัตโนมัติเมื่อเกินเวลา, กันที่นั่งเพี้ยนระหว่าง backend กับ contract (ช่องทาง mint เดียวหรือแบ่งโควตา)
+9. ย้ายเงินและกติกาขึ้น contract: escrow, `settle`/`refund` per-hop (ใครก็เรียกได้ เงินไปที่ผู้จ่าย), เก็บ `acquiredAt`/hop บน chain, บังคับ `resaleDelay`/`transferCutoff` ด้วยเวลาบล็อก, `usedOrder`
+10. เชื่อมผู้ให้บริการชำระเงินจริง (PromptPay QR, webhook, refund/payout, test mode) — ต้องขอใบเสนอราคาและตรวจว่ารองรับคืนเงินและจ่ายผู้ขายหรือไม่ **[ยังไม่ยืนยัน]**
+11. KYC ผู้ขายและยืนยันบัญชีรับเงิน/รับเงินคืนจริง (ชื่อบัญชีตรงชื่อผู้ใช้)
+12. ใบอนุญาตตาม Payment Systems Act, ภาษี/VAT, ข้อกำหนดผู้ใช้ — ถามที่ปรึกษากฎหมาย (หัวข้อ 12)
+13. dashboard ผู้จัดเต็มรูปแบบ (ยอดขาย, ข้อพิพาท, export) และลิงก์จองผ่าน LINE OA
+14. ย้ายตัวนับ `held` ขึ้น contract; ตรวจตั๋วออฟไลน์ในสนาม; ตั๋วหลายราคา/หลายโซน; no-show logic เต็มรูปแบบ
+
+**ย้ายมาจากขอบเขต MVP 24 ชม. (หัวข้อ 10.2 กลุ่ม C) ที่ต้องทำจริงหลังแข่ง**
+8. เชื่อมผู้ให้บริการชำระเงินจริง (PromptPay QR, webhook, refund/payout, test mode) — ต้องขอใบเสนอราคาและตรวจว่ารองรับคืนเงินและจ่ายผู้ขายหรือไม่ **[ยังไม่ยืนยัน]**
+9. KYC ผู้ขายและยืนยันบัญชีรับเงิน/รับเงินคืนจริง (ชื่อบัญชีตรงชื่อผู้ใช้)
+10. ใบอนุญาตตาม Payment Systems Act, ภาษี/VAT, ข้อกำหนดผู้ใช้ — ถามที่ปรึกษากฎหมาย (หัวข้อ 12)
+11. dashboard ผู้จัดเต็มรูปแบบ (ยอดขาย, ข้อพิพาท, export) และลิงก์จองผ่าน LINE OA
+12. ย้ายตัวนับ `held` ขึ้น contract และกำหนดช่องทาง mint เดียว/แบ่งโควตา
+13. ตรวจตั๋วออฟไลน์ในสนาม, ตั๋วหลายราคา/หลายโซน
+14. no-show logic เต็มรูปแบบ (Unavailable/Expired หลังจบงาน พร้อมรายงาน)
+
+---
+
+## 12. กฎหมายและเรื่องที่ยังไม่ยืนยัน (ต้องถามผู้รู้ก่อนเปิดจริง)
+
+- [ ] การรับเงิน PromptPay แทนร้านแล้วจ่ายต่อ (จ่ายผู้ขายขายต่อและคืนเงินอัตโนมัติ) ต้องขอใบอนุญาตตาม **พ.ร.บ. ระบบการชำระเงิน พ.ศ. 2560** หรือใช้พาร์ทเนอร์ที่มีใบอนุญาตหรือไม่ (ธปท. กำกับ; ผมไม่ได้ยืนยันเกณฑ์/ข้อยกเว้น) การขายต่อไม่จำกัดครั้งทำให้จำนวนผู้ขายที่ต้องจ่ายเงินให้เพิ่มขึ้น ประเด็นนี้หนักขึ้นตามจำนวนผู้ขาย
+- [ ] การถือ/โอน USDC ในนามบริษัท (ถ้าใช้) เข้าข่ายธุรกิจสินทรัพย์ดิจิทัลหรือไม่
+- [ ] เกณฑ์ห้ามใช้คริปโตชำระสินค้า/บริการปี 2565 ยังใช้อยู่ในรูปเดิมหรือไม่ (ไม่พบประกาศยกเลิก)
+- [ ] ภาษี: VAT 7% ของค่าบริการ/ค่าคอมมิชชัน และการรายงานธุรกรรมผู้ขายตามกฎหมาย e-Payment (ถามผู้ทำบัญชี; ไม่ยืนยันเกณฑ์ปัจจุบัน)
+- [ ] ร่าง พ.ร.บ. ของกลุ่ม Fair Ticket: อ่านตัวร่างว่ามีเพดานราคาขายต่อเป็นตัวเลขไหม
+- [ ] ค่า gas จริง (`gasUsed` บน Fuji), ค่า embedded wallet (thirdweb), อัตรา PromptPay จริง, ค่าโอนออกของบัญชีนิติบุคคล
+- [ ] ผู้ให้บริการชำระเงิน: marketplace payout/split payment, refund ไปบัญชีต้นทาง, QR expiry, test mode
+- [ ] ข้อกล่าวอ้างเรื่อง Eventpop "ถือเงินแทน ลูกค้าต้องเชื่อผู้จัดเรื่องคืนเงิน" ยังไม่มีแหล่งอ้างอิง ต้องตรวจก่อนใช้
+
+---
+
+## 13. คำถามกรรมการที่ต้องตอบได้
+
+| คำถาม | คำตอบ |
+|---|---|
+| ทำไมไม่ใช้ payment gateway | gateway พิสูจน์ได้แค่ว่าเงินเข้า เรายังใช้ gateway ตรวจเงินเข้า (ไม่ใช้สลิป) แล้วออกตั๋วเป็น NFT ใน wallet ผู้ซื้อที่โอนได้เฉพาะผ่านระบบ ตรวจเจ้าของได้ และใช้ QR เซ็นสด; ใน MVP การคืนเงินและกติกาเวลา/ราคายังบังคับโดยระบบของเรา ขั้นต่อไปย้ายเข้า contract เพื่อให้ตรวจสอบได้โดยไม่ต้องเชื่อเรา |
+| ต่างจาก Eventpop/Ticketmelon ยังไง | **ต้องตรวจก่อนตอบ** (ข้อกล่าวอ้างเดิมยังไม่มีแหล่งอ้างอิง) จุดที่ตรวจสอบได้: ตั๋ว NFT ตรวจเจ้าของได้ (เป็นของผู้ใช้ใน wallet), QR กันแคป, ขายต่อมีเพดานราคาและหน่วงเวลาบนระบบเดียวกัน, คืนเงินอัตโนมัติเมื่อยกเลิก, ตั้งงานได้ในไม่กี่นาทีโดยไม่ต้องมีทีม |
+| ใครถือเงิน | MVP: เงินบาทอยู่ใน ledger ของแพลตฟอร์ม (ใน demo เป็นการจำลอง; ของจริงต้องผ่านพาร์ทเนอร์ที่มีใบอนุญาต) ยังไม่ได้อยู่ใน contract — ตอบตรง ๆ ไม่อ้างว่าไม่มีใครถือ; roadmap: ย้ายสถานะเงินเข้า contract (โหมด on-chain ไม่มีใครถือ) |
+| ร้านปลอมล่ะ | ยืนยันตัวตนร้านตอนสมัคร + เงินไม่ถึงร้านจนงานจบ + dispute window |
+| ลูกค้าไม่รู้จักคริปโต | login ด้วย Google, ไม่จ่าย gas, ไม่เห็นคำว่า NFT, จ่ายผ่าน PromptPay |
+| admin ยกเลิกงานได้ แล้วไว้ใจได้ไหม | MVP: การยกเลิกทำให้ระบบคืนเงินทุกคนตาม ledger ที่ตรวจย้อนได้ แต่ยังต้องไว้ใจระบบเรา; เมื่อเงินอยู่ใน contract admin เปลี่ยนได้แค่สถานะเป็น Cancelled เอาเงินเข้ากระเป๋าตัวเองไม่ได้ (ต้องยืนยันโค้ดจริงก่อนพูด) |
+| บอทล่ะ | ยอมรับว่ายังไม่แก้ ใน MVP ลิมิตตั๋วต่อ wallet, ขายต่อมีเพดานราคา และต้องถือตั๋ว 6 ชม. ก่อนขายต่อ; Fair Draw + ยืนยันตัวตนอยู่ใน roadmap (บริบท: ร่างกฎหมายคุมบอทกำลังอยู่ในรัฐสภา) |
+| ขายต่อทำไมจำกัดราคาและต้องรอ 6 ชม. | กันเก็งกำไรและการกดแล้วพลิกทันที; ที่คอมมิชชัน 6% ผู้ซื้อต่อในราคาสูงกว่าสุทธิที่ขายได้ขาดทุน การพลิกตั๋วหลายทอดจึงไม่คุ้ม; คอมมิชชันเปิดเผยตรงๆ ไม่ซ่อนส่วนต่าง |
+| ถ้าได้ตั๋วใกล้งานแล้วไปไม่ได้ ขายต่อได้ไหม | ถ้าเหลือเวลาน้อยกว่า 7 ชม. ขายต่อไม่ได้ตามกติกา (ข้อแลกเปลี่ยนที่ยอมรับ) ทางออกใน roadmap: คืนตั๋วเข้ากองกลาง |
+| จ่ายแล้วไม่มาทำไมไม่คืนเงิน | กติกาประกาศก่อนซื้อ ร้านต้องจ่ายต้นทุนของงานไปแล้ว ตั๋วที่ไม่ได้ใช้เป็น Unavailable; (ผู้ถือที่ซื้อต่อ ผู้ขายแต่ละเที่ยวได้เงินตามปกติ) |
+| ยกเลิกงานแล้วต้องทำอะไรเพื่อรับเงินคืน | ไม่ต้อง ระบบคืนให้อัตโนมัติ (ผู้จ่ายแต่ละคนเท่าที่ตัวเองจ่าย) ถ้าคืนอัตโนมัติไม่ได้ (เช่น ไม่มีบัญชีปลายทาง) มีหน้าขอรับเงินคืนเอง |
+| mint ล่มทำไง | สถานะสองขั้น user รู้ตรงกับความจริง; MVP ลองซ้ำ 3 ครั้ง ถ้ายังไม่ได้แจ้งทีมแก้/คืนเงิน (ด้วยสคริปต์); ระบบอัตโนมัติเต็มรูปแบบอยู่ใน roadmap |
+| ทำไมต้อง blockchain (ในเมื่อเงินยังอยู่ในระบบ) | ตอนนี้ blockchain ให้ตั๋วที่เป็นของผู้ใช้จริงใน wallet ตรวจเจ้าของได้โดยไม่ต้องเชื่อภาพแคป โอนนอกระบบไม่ได้ และเป็นฐานให้ขั้นต่อไปที่ย้ายเงินกับกติกาเข้า contract (คืนเงินอัตโนมัติที่ใครก็ตรวจได้) เราบอกตรง ๆ ว่าส่วนเงินยังไม่ถึงขั้นนั้น |
+| หาเงินจากไหน | 5 บาท + 3% ต่อใบ (เก็บจากร้าน) + 6% ของราคาขายต่อ (เก็บจากผู้ขาย) [สมมติ] |
+| ลูกค้าจ่ายด้วยคริปโตได้ไหม | อยู่ใน roadmap สำหรับนักท่องเที่ยว/ผู้ที่ถือคริปโต (ผ่านผู้ได้รับอนุญาต); ลูกค้าไทยทั่วไปจ่าย PromptPay |
+
+---
+
+## 14. Roadmap
+
+1. **Now — Prototype (ส่ง 14:00 ศุกร์):** จ่าย PromptPay (sandbox/จำลอง) + hold 10 นาที/สถานะสองชั้น + **mint NFT เข้า thirdweb wallet บน Fuji** + QR ไดนามิก Valid/Invalid + ขายต่อด้วยเงินบาทพร้อมเพดานราคาและหน่วง 6 ชม. + (กลุ่ม B) **คืนเงินอัตโนมัติเมื่อยกเลิก** และจ่ายตอนงานจบ — เงินอยู่ใน ledger ยังไม่มี escrow contract
+   - เกณฑ์ผ่าน: demo ไม่พัง และคุยกับเจ้าของร้านจริง 2-3 ราย หลังงาน
+2. **Next — ผู้จัดรายเล็ก-กลาง (ตั๋ว/มัดจำ >1,000 บาท):** ผู้ให้บริการชำระเงินจริง, **ย้าย escrow/refund/settle ขึ้น contract + จัดการ mint ล้มเหลวอัตโนมัติ**, ลิงก์จองผ่าน LINE OA, ร้านเหล้า/pop-up/workshop; จุดชู: ง่ายและเบาแรง ไม่ต้องตรวจสลิป ไม่ต้องตามเงิน
+   - ตัวชี้วัด: ร้านที่สร้างงานครั้งที่ 2, สัดส่วนจ่ายสำเร็จจนได้ตั๋ว, เวลา setup, เหตุสลิปปลอม (ควรเป็น 0 โดยโครงสร้าง)
+3. **Then — งานขนาดกลาง:** เทศกาล, fan meeting; dashboard ผู้จัด, ตลาดรองเต็มรูปแบบ; จุดชู: ควบคุมและไว้ใจได้ในสเกลใหญ่
+   - ตัวชี้วัด: ความเร็วเช็กอิน, สัดส่วนข้อพิพาท, refund ล้มเหลว (ควรเป็น 0), รายได้จากคอมมิชชัน
+4. **Later — งานใหญ่:** Fair Draw กันบอท + ยืนยันตัวตนผู้ถือบัตร, ตรวจบัตรออฟไลน์ในสนาม, pitch ด้วย traction จริง; เข้าทางศิลปิน/ทีมแฟนคลับที่เดือดร้อนจากบอทก่อนไปโปรโมเตอร์ (**[สมมติฐาน]**)
+
+**เส้นเรื่อง:** "เริ่มจากผู้จัดที่เจ็บจริงและไม่มีใครดูแล ชนะด้วยความง่าย แล้วใช้ความไว้ใจที่สะสมมาเข้าหาผู้จัดกลาง จบที่งานใหญ่ด้วยความยุติธรรม ตั๋วเป็นของผู้ใช้ตั้งแต่ MVP และตั้งแต่เฟส Next กติกาเงินเป็นโค้ดบน chain"
+
+---
+
+## 15. บั๊กที่ต้องไม่ทำซ้ำ (จากการรีวิวโค้ดรอบแรก)
+
+- Verifier ต้องปฏิเสธ `ts` ในอนาคต: `if (age > 60 || age < -15) reject`
+- จำกัดจำนวนบัตรต่อ wallet
+- อย่า claim ว่า QR กัน "ขายใบเดียวให้หลายคน" — สิ่งที่คุ้มครองจริงคือซื้อผ่าน contract
+- อย่า mint ก่อนยืนยันการจ่าย และกัน callback ซ้ำ (MVP: unique event id ใน `payment_events`/idempotency key; contract: `usedOrder`)
+- อย่าเชื่อ webhook อย่างเดียว ถามสถานะซ้ำจากผู้ให้บริการ
+- อย่าใช้ array ที่ต้องวนจ่ายผู้จ่ายทุกเที่ยวในฟังก์ชันเดียว (ขายต่อไม่จำกัด) ใช้ mapping + ฟังก์ชันต่อเที่ยวที่ gas คงที่
+
+---
+
+## 16. ลิงก์ และสิ่งที่ต้องแก้ใน deck
+
+| อะไร | ลิงก์ |
+|---|---|
+| Deck (template เดิม, แก้แล้ว) | แก้ไข https://www.canva.com/d/hO4bozzkz6cB3cF · ดู https://www.canva.com/d/QODTIayU5psIOwU |
+| Deck ดีไซน์ใหม่ | ใน Canva (สร้างจากแชต) |
+| Luma | https://luma.com/lqrbtu27 |
+| U-topia | https://u-topia.com/ |
+
+**ต้องแก้ใน deck ก่อนขึ้นเวที:** เปลี่ยนชื่อเป็น **JONGLOEI** ทุกหน้า (รวมโลโก้/ข้อความ), QR หน้า 8 ยังเป็นของ Stockplify, รูปหน้า 1/4/6 ยังเป็นรูปเก่า; **เอาประโยค "The contract pays..." และคำว่า escrow on-chain ออก** ใช้ข้อความ MVP ในหัวข้อ 7 แทน (เงินยังอยู่ใน ledger); อัปเดตสไลด์ Roadmap ตามหัวข้อ 14; เพิ่มกติกาขายต่อ (เพดานราคา + หน่วง 6 ชม.) และคืนเงินอัตโนมัติ
+
+---
+
+## 17. สิ่งที่เปลี่ยน
+
+### จาก v3.2 เป็น v3.3
+
+| เรื่อง | v3.2 | v3.3 |
+|---|---|---|
+| คำถามเรื่องเริ่มโค้ดคืนนี้ (ถามผู้จัด) | ค้างในหัวข้อ 0 | **ตัดออก**; สมมติฐาน: เริ่มโค้ดศุกร์ 10:00, คืนนี้ทำเฉพาะงานที่ไม่ใช่โค้ดโปรเจกต์ |
+| ยืนยันขอบเขต mint | ค้างในหัวข้อ 0 | **ตัดออก**; ย้ายไปเป็น [ตัดสินแล้ว] ในหัวข้อ 10.3 |
+| คำถามถึง mentor (chain, U-Pay/SDK) | ค้าง | **ตัดออก** (ไม่มี session mentor); chain = Fuji, U-Pay = roadmap อย่างเดียว |
+| ข้อที่ต้องตอบ | 3 ข้อ | **1 ข้อ** (PromptPay sandbox หรือ mock) |
+
+### จาก v3.1 (19:30) เป็น v3.2 (19:55)
+
+| เรื่อง | v3.1 | v3.2 |
+|---|---|---|
+| กำหนดส่ง | ไม่ระบุ (สมมติ demo ~15:00) | **ส่งภายใน 14:00 วันศุกร์** (เวลาเขียนโค้ด ~4 ชม.) |
+| ขายต่อ + PromptPay | ขายต่อเป็นกลุ่ม B | **ย้ายเป็น Core (A4, A7)** |
+| ยกเลิกแล้วคืนเงินอัตโนมัติ | Core | **ย้ายเป็นกลุ่ม B (B1)** พร้อมจ่ายตอนงานจบ (B2) |
+| mint | Core (contract พร้อม escrow/refund/settle) | **Core เฉพาะ contract ขั้นต่ำ + mint กรณีปกติเข้า thirdweb wallet (A5)**; การจัดการ mint ล้มเหลวอัตโนมัติ และ contract ถือเงิน/บังคับกติกา = Future work |
+| เงินใน MVP | relayer ฝาก test-AVAX เข้า contract | **อยู่ใน ledger ของแพลตฟอร์ม** (PSP จำลอง) — คำว่า "contract pays" ใช้บนเวทีไม่ได้ |
+| Parameter | หลายค่า "ยังไม่กำหนด/สมมติ" | **ตั้งค่าตั้งต้นครบ** (หัวข้อ 10.2) ปรับจูนทีหลัง |
+| คำถามที่ตอบแล้ว | อยู่ในหัวข้อ 0 | **ตัดออก** (ชื่อ JONGLOEI, ความหมาย 6 ชม., เวลาจ่ายผู้ขาย, DISPUTE_WINDOW, บัญชีรับเงินคืน, เพดาน/คอมมิชชัน, ช่องทาง mint, ฯลฯ) เหลือ 3 ข้อที่ต้องตอบ |
+| โครงสร้างข้อมูล | - | เพิ่มตารางทะเบียนฝั่ง backend + contract ขั้นต่ำ (หัวข้อ 8) |
+| Future work | 14 ข้อ | จัดใหม่ รวมรายการที่ย้ายออกจาก MVP |
+
+### จาก v3 (19:10) เป็น v3.1 (19:30)
+
+| เรื่อง | v3 | v3.1 |
+|---|---|---|
+| หน่วงขายต่อ | 12 ชม. หลังได้ตั๋ว | **6 ชม.** [ตัดสินแล้ว; ทีมยืนยันความหมายและยอมรับผลข้างเคียง] |
+| ช่วงที่ขายต่อไม่ได้ก่อนงาน | น้อยกว่า 13 ชม. | **น้อยกว่า 7 ชม.** (6 + ปิดโอน 1) |
+| เพดานจำนวนเที่ยวตามเวลา | ~60 เที่ยวต่อ 30 วัน | ~120 เที่ยวต่อ 30 วัน |
+| ค่าเวลาใน contract | ค่าคงที่ 12 ชม./1 ชม. | **เป็นพารามิเตอร์ต่อ event** (`resaleDelay`, `transferCutoff`) prod = 6 ชม./1 ชม.; demo ใช้ 60 วินาทีโดยติดป้าย demo |
+| หัวข้อ 10 | TO DO + แบ่งงาน + เทสต์ | + **ขอบเขต MVP 24 ชม.:** กรอบเวลาจริง, กลุ่ม A Core / B ขายต่อ / C จำลอง, เส้นตัด, สคริปต์ demo 3 นาที, แบ่งงาน, เทสต์ที่ต้องผ่าน |
+| Future work | 7 ข้อ | + 7 ข้อ ที่ย้ายมาจากขอบเขต MVP (PSP จริง, KYC, ใบอนุญาต, dashboard เต็ม ฯลฯ) |
+
+(ตารางเปรียบเทียบ v2→v3 ด้านล่างยังอ้างค่า 12 ชม. ตามที่เป็นจริง ณ v3)
+
+### จาก v2 (18:52) เป็น v3 (19:10)
+
+| เรื่อง | v2 | v3 |
+|---|---|---|
+| ชื่อ | FairTicket | **JONGLOEI** (ปัญหาชื่อซ้ำกลุ่ม Fair Ticket หมดไป) |
+| จ่ายผู้ขายขายต่อ | เสนอ: ปล่อยพร้อมกันตอนจบงาน หรือเมื่อผู้ถือสุดท้ายเช็กอิน | **ตอนงานจบ** (จุดเดียวกับร้าน) |
+| Hold | 10 นาที [สมมติ] | 10 นาที **[ตัดสินแล้ว]** |
+| ขายต่อ | หลายครั้ง สูงสุด `maxResales` (ค่าเริ่มต้น 3) | **ไม่จำกัดครั้ง** + **หน่วง 12 ชม. หลังได้ตั๋ว** (ผลข้างเคียง: ตั๋วที่ได้มาใกล้งานน้อยกว่า 13 ชม. ขายต่อไม่ได้) |
+| โครงสร้างผู้จ่ายต่อเที่ยว | `Hop[]` ที่ถูกจำกัดโดย `maxResales` | **mapping ต่อเที่ยว** + ฟังก์ชันต่อเที่ยว gas คงที่ (ไม่ต้องจำกัดจำนวนเที่ยว) |
+| คืนเงินเมื่อยกเลิก | ผู้จ่ายกดรับเอง (pull) | **อัตโนมัติ** (on-chain: `refund` ใครเรียกก็ได้ เงินไป payer; PromptPay: job คืนตาม ledger ถ้ามีบัญชีปลายทาง) |
+| ลำดับตอนสมัคร | Google + สร้าง wallet | + **เก็บบัญชีรับเงินคืน/รับเงิน** ที่ยืนยันชื่อ [ยังไม่ยืนยัน] |
+| สถานะตั๋ว | Valid/Listed/Used/Unavailable/Refunded | + **Locked (รอ 12 ชม.)** |
+
+### จาก v1 (12:35) เป็น v2 (ยังเป็นจริงใน v3)
+
+| เรื่อง | v1 | ปัจจุบัน |
+|---|---|---|
+| โอนตั๋ว | ห้ามโอนใน MVP | โอนผ่านแพลตฟอร์มเท่านั้น; ขายต่อ มีเพดานราคา ปิดโอนก่อนงาน 1 ชม. |
+| ช่องทางจ่าย | Native token | สองโหมด: on-chain (demo) และ PromptPay (ลูกค้าไทย) |
+| "ไม่มีใครถือเงิน" | ใช้ได้ทุกกรณี | ใช้ได้เฉพาะโหมด on-chain |
+| สถานะจอง | ไม่ได้ระบุ | Hold + สถานะสองชั้น |
+| no-show | ไม่ได้ระบุ | ไม่คืนเงิน ร้านได้เงิน ตั๋ว Unavailable |
+| Wallet | Privy/thirdweb | thirdweb |
+| ตลาด | ร้านเล็ก | เพิ่มโจทย์ >1,000 บาท (ยังต้องเลือกกลุ่ม) |
+| โมเดลรายได้ | ค่าธรรมเนียมต่อใบ (เก็บจากร้าน) | + คอมมิชชันขายต่อ; มีโมเดลต้นทุน/จุดคุ้มทุน |
+
+---
+
+## Sources (ที่ค้นในแชต)
+
+- Matichon — ร่าง พ.ร.บ. คุมบัตรคอนเสิร์ต (3 ก.ย. 2569): https://matichon.co.th/politics/news_5873899
+- Thansettakij — สศช. ร้องเรียนอีเวนต์/คอนเสิร์ต: https://www.thansettakij.com/economy/645919
+- Dailynews — ร้องเรียนจ้างกดบัตร BTS: https://www.dailynews.co.th/news/5936460/
+- Thairath — LINE ปลอมหลอกจองโต๊ะ: https://www.thairath.co.th/news/society/2716517
+- Thai PBS — สลิปปลอมหาดใหญ่: https://www.thaipbs.or.th/news/content/504747
+- Bangkok Biznews — ธปท. เตือนสลิปปลอม: https://www.bangkokbiznews.com/news/1018156
+- IQ Magazine — Thailand Ticketing Report 2025: https://www.iqmagazine.com/publications/international-ticketing-report-2025/thailand/
+- ธปท. — ตารางค่าธรรมเนียมพร้อมเพย์: https://www.bot.or.th/th/financial-innovation/digital-finance/digital-payment/promptpay.html
+- ธปท. — พ.ร.บ. ระบบการชำระเงิน: https://www.bot.or.th/th/our-roles/payment-systems/payment-act-oversight.html
+- Omise docs — PromptPay (QR หมดอายุ 24 ชม.): https://docs.omise.co/promptpay/thailand
+- Paymentwall — Thai QR (ไม่มี refund/chargeback): https://docs.paymentwall.com/payment-method/promptpayth
+- Avalanche docs — base fee ต่ำสุด 1 nAVAX: https://docs.avax.network/docs/rpcs/other/guides/txn-fees
+- Crypto Briefing/KuCoin — Avalanche ลด base fee 96%: https://www.kucoin.com/news/flash/avalanche-c-chain-transactions-surge-6x-since-june-2025
+- มิติหุ้น — Bitkub ค่าธรรมเนียมคู่เทรด (ก.ค. 2569): https://www.mitihoon.com/2026/07/16/659155/
+- Marketing Oops — ห้ามใช้สินทรัพย์ดิจิทัลชำระสินค้า-บริการ (2565): https://www.marketingoops.com/?p=286953
+- Hoonvision — ก.ล.ต. เพิ่ม USDT/USDC (16 มี.ค. 2568): https://www.hoonvision.com/investment/%e0%b8%81-%e0%b8%a5-%e0%b8%95-%e0%b8%9b%e0%b8%a3%e0%b8%b1%e0%b8%9a%e0%b8%9b%e0%b8%a3%e0%b8%b8%e0%b8%87%e0%b8%ab%e0%b8%a5%e0%b8%b1%e0%b8%81%e0%b9%80%e0%b8%81%e0%b8%93%e0%b8%91%e0%b9%8c%e0%b8%9a/
+- กรมประชาสัมพันธ์ — TouristDigiPay: https://thailand.prd.go.th/en/content/category/detail/id/2078/iid/421434
+- Reuters/Kitco — USDC หลุด peg (มี.ค. 2023): https://www.kitco.com/news/off-the-wire/2023-03-11/stablecoin-usdc-breaks-dollar-peg-after-revealing-33-bln-silicon
