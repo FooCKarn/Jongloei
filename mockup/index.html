@@ -302,6 +302,13 @@ body{padding:0}
 .tabbar{padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
 .search input::-webkit-search-cancel-button{cursor:pointer}
 .listing .ptag,.mticket .ptag{display:none}
+
+/* ---------- organizer ---------- */
+.field select,.field textarea{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;font:inherit;color:var(--ink);width:100%}
+.field select:focus,.field textarea:focus{border-color:var(--red);outline:none}
+.field [aria-invalid="true"]{border-color:var(--red)}
+.hint.err:empty{display:none}
+.org-progress{display:flex;gap:6px}.org-progress i{flex:1;height:6px;border-radius:9px;background:var(--line)}.org-progress i.on{background:var(--red)}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -833,14 +840,153 @@ function orgTicketStatus(buyerTicket,status){
   const ot=buyerTicket&&buyerTicket.orgTicketId&&S.org.tickets.find(x=>x.ticketId===buyerTicket.orgTicketId);
   if(!ot)return;ot.status=status;if(status==='used'){ot.usedAt=Date.now();ot.checkinMethod='scan'}
 }
+// form field with a label, an error slot wired by aria-describedby and an optional hint
+function fld(id,label,o={}){
+  const {value='',type='text',hint='',err='',attrs='',options=null,tag='input'}=o;
+  const desc=`${id}-err`+(hint?` ${id}-hint`:'');
+  const common=`id="${id}" aria-describedby="${desc}" ${err?'aria-invalid="true"':''} ${attrs}`;
+  const control=options?`<select ${common}>${options.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('')}</select>`
+    :tag==='textarea'?`<textarea ${common} rows="4">${esc(value)}</textarea>`
+    :`<input ${common} type="${type}" value="${esc(value)}">`;
+  return `<div class="field"><label for="${id}">${label}</label>${control}
+    ${hint?`<span class="hint" id="${id}-hint">${hint}</span>`:''}<span class="hint err" id="${id}-err" role="alert">${esc(err)}</span></div>`;
+}
+const val=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
+const SHOP_KINDS=[['bar','บาร์ / ร้านอาหาร'],['workshop','Workshop / คลาสเรียน'],['popup','Pop-up / ตลาด'],['concert','คอนเสิร์ต / แฟนมีต'],['other','อื่น ๆ']];
+const ROLE_LABEL={owner:'เจ้าของ',manager:'ผู้จัดการ',gate:'พนักงานหน้างาน'};
+const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// onboarding: each step reads its own inputs into S.org.onboard.data, then validates
+const OB_STEPS=[null,
+  {read:()=>({name:val('ob-name'),kind:val('ob-kind'),line:val('ob-line'),phone:val('ob-phone').replace(/\D/g,'')}),
+   check:d=>({...(d.name.length<2||d.name.length>60?{name:'ใส่ชื่อร้าน 2-60 ตัวอักษร'}:{}),...(!/^0\d{9}$/.test(d.phone)?{phone:'เบอร์โทร 10 หลัก ขึ้นต้นด้วย 0'}:{})})},
+  {read:()=>({legal:val('ob-legal'),taxId:val('ob-tax').replace(/\D/g,'')}),
+   check:d=>(!/^\d{13}$/.test(d.taxId)?{tax:'เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก'}:{})},
+  {read:()=>({pp:val('ob-pp').replace(/\D/g,'')}),
+   check:d=>(!/^(0\d{9}|\d{13})$/.test(d.pp)?{pp:'ใส่เบอร์มือถือ 10 หลัก หรือเลขบัตร/เลขนิติบุคคล 13 หลัก'}:{})},
+  {read:()=>({}),check:d=>(!d.docName?{doc:'แนบเอกสารยืนยันตัวตนก่อนส่ง'}:{})},
+];
+function obCollect(){const ob=S.org.onboard,st=OB_STEPS[ob.step];Object.assign(ob.data,st.read());ob.err=st.check(ob.data);return !Object.keys(ob.err).length}
+function submitShop(){
+  const d=S.org.onboard.data;
+  const id='shop-'+Date.now();
+  S.org.shop={id,name:d.name,kind:d.kind,legal:d.legal,taxId:d.taxId,contactLine:d.line,phone:d.phone,payoutPromptPay:d.pp,
+    docName:d.docName,verification:'pending',team:[{email:'me',role:'owner'}]};
+  S.org.role='owner';S.org.onboard={step:1,data:{},err:{}};
+  S.stack=['orgDash'];S.tab='orgDash';render();
+  setTimeout(()=>{const sh=S.org.shop;if(!sh||sh.id!==id||sh.verification!=='pending')return;sh.verification='verified';save();
+    if(S.mode==='org'&&['orgDash','orgEvents'].includes(S.stack[S.stack.length-1]))render();if(S.mode==='org')toast('ยืนยันร้านเรียบร้อย เผยแพร่งานได้แล้ว')},3000);
+}
+const useShop=role=>{S.org.shop=JSON.parse(JSON.stringify(S.org.demoShop));S.org.role=role;S.stack=[role==='gate'?'orgGatePick':'orgDash'];S.tab=S.stack[0];render()};
+
 const ORG_ACTIONS={
   buyermode(){setMode('buyer')},
+  useDemoShop(){useShop('owner')},
+  demoGate(){useShop('gate')},
+  startOnboard(){S.org.onboard={step:1,data:{kind:'bar',legal:'individual'},err:{}};go('orgOnboard')},
+  obNext(){if(obCollect())S.org.onboard.step=Math.min(4,S.org.onboard.step+1);render()},
+  obBack(){const ob=S.org.onboard;Object.assign(ob.data,OB_STEPS[ob.step].read());ob.err={};if(ob.step>1){ob.step--;render()}else back()},
+  obSubmit(){if(obCollect())submitShop();else render()},
+  team(){go('orgTeam')},
+  teamInvite(){
+    const email=val('team-email').toLowerCase(),role=val('team-role');const team=S.org.shop.team;
+    S.org.teamErr=!EMAIL_RE.test(email)?'อีเมลไม่ถูกต้อง':team.some(m=>m.email===email)?'อีเมลนี้อยู่ในทีมแล้ว':'';
+    if(!S.org.teamErr){team.push({email,role});toast('ส่งคำเชิญถึง '+email+' แล้ว (จำลอง)')}
+    render();
+  },
+  teamRemove(el){const sh=S.org.shop;sh.team=sh.team.filter(m=>m.email!==el.dataset.email||m.role==='owner');render()},
+  viewAs(el){S.org.role=el.dataset.role;toast('กำลังดูในฐานะ'+ROLE_LABEL[S.org.role]);render()},
+  copyInvite(){const link=location.origin+'/?invite='+encodeURIComponent(S.org.shop.id);
+    try{navigator.clipboard.writeText(link).then(()=>toast('คัดลอกลิงก์เชิญแล้ว'),()=>toast(link))}catch(_){toast(link)}},
 };
 function orgAct(name,el,ev){const f=ORG_ACTIONS[name];if(f)f(el,ev)}
+$('#device').addEventListener('change',e=>{
+  if(e.target.id==='ob-doc'){const f=e.target.files&&e.target.files[0];S.org.onboard.data.docName=f?f.name:'';S.org.onboard.err={};render()}
+});
+
+function orgOnboardStep(ob){
+  const d=ob.data,e=ob.err||{};
+  if(ob.step===1)return `<h2 style="font-size:18px">ข้อมูลร้าน</h2>
+    ${fld('ob-name','ชื่อร้านหรือชื่อผู้จัด',{value:d.name||'',err:e.name,attrs:'autocomplete="organization"'})}
+    ${fld('ob-kind','ประเภท',{value:d.kind||'bar',options:SHOP_KINDS})}
+    ${fld('ob-line','LINE OA (ไม่บังคับ)',{value:d.line||'',hint:'เช่น @rooftop88 ผู้ซื้อจะเห็นในหน้างาน'})}
+    ${fld('ob-phone','เบอร์โทรติดต่อ',{value:d.phone||'',type:'tel',err:e.phone,attrs:'inputmode="tel" autocomplete="tel"'})}`;
+  if(ob.step===2)return `<h2 style="font-size:18px">ผู้ขาย</h2>
+    ${fld('ob-legal','ขายในนาม',{value:d.legal||'individual',options:[['individual','บุคคลธรรมดา'],['company','นิติบุคคล (บริษัท / หจก.)']]})}
+    ${fld('ob-tax','เลขประจำตัวผู้เสียภาษี',{value:d.taxId||'',err:e.tax,hint:'บุคคลธรรมดาใช้เลขบัตรประชาชน 13 หลัก',attrs:'inputmode="numeric" maxlength="17"'})}`;
+  if(ob.step===3)return `<h2 style="font-size:18px">บัญชีรับเงิน</h2>
+    ${fld('ob-pp','พร้อมเพย์สำหรับรับเงินจากการขาย',{value:d.pp||'',err:e.pp,hint:'เบอร์มือถือ 10 หลัก หรือเลข 13 หลัก',attrs:'inputmode="numeric"'})}
+    <div class="card small" style="display:flex;flex-direction:column;gap:6px"><b>ชื่อบัญชีต้องตรงกับชื่อผู้ขายที่ยืนยัน</b>
+      <span class="muted">เงินจากงานจะโอนเข้าบัญชีนี้ 24 ชั่วโมงหลังงานจบ ถ้างานถูกยกเลิก ระบบคืนเงินผู้ซื้อแทนการโอนให้ร้าน</span>
+      <span class="pill warn" style="align-self:flex-start">จำลอง: ยังไม่ตรวจบัญชีจริง</span></div>`;
+  return `<h2 style="font-size:18px">ยืนยันตัวตน</h2>
+    <p class="small muted" style="margin:0">แนบรูปบัตรประชาชน (บุคคลธรรมดา) หรือหนังสือรับรองบริษัท (นิติบุคคล) เพื่อป้องกันร้านปลอม ผู้ซื้อจะเห็นเครื่องหมาย "ยืนยันแล้ว" ที่หน้างานของคุณ</p>
+    <div class="field"><label for="ob-doc">เอกสาร</label><input id="ob-doc" type="file" accept="image/*,.pdf" aria-describedby="ob-doc-err">
+      ${d.docName?`<span class="hint">เลือกแล้ว: ${esc(d.docName)}</span>`:''}<span class="hint err" id="ob-doc-err" role="alert">${esc(e.doc||'')}</span></div>
+    <span class="pill warn" style="align-self:flex-start">จำลอง: ไฟล์ไม่ถูกอัปโหลด ระบบอนุมัติให้ใน 3 วินาที</span>`;
+}
 
 const ORG_VIEWS={
-orgWelcome(){appbar('สำหรับผู้จัดงาน');return `<div class="empty">กำลังพัฒนา</div>`},
-orgDash(){appbar('ภาพรวม');return `<h1 style="font-size:22px">${esc(S.org.shop?S.org.shop.name:'')}</h1>`},
+orgWelcome(){
+  appbar('สำหรับผู้จัดงาน');
+  return `<div class="cols">
+  <div class="col">
+    <span class="eyebrow">JONGLOEI สำหรับผู้จัดงาน</span>
+    <h1 style="font-size:26px">ขายตั๋วโดยไม่ต้องตรวจสลิป ไม่ต้องตามเงินคืนเอง</h1>
+    <p class="muted" style="margin:0">สำหรับบาร์ ร้านอาหาร workshop pop-up และคอนเสิร์ตขนาดเล็ก สร้างงานได้ในไม่กี่นาที ไม่ต้องมีทีมไอที</p>
+    <div class="trust">
+      <div><svg><use href="#i-shield"/></svg>ระบบตรวจยอดกับผู้ให้บริการชำระเงิน ไม่ใช้รูปสลิป</div>
+      <div><svg><use href="#i-check"/></svg>ยกเลิกงาน ระบบคืนเงินผู้ซื้อทุกคนอัตโนมัติ</div>
+      <div><svg><use href="#i-swap"/></svg>ขายต่อได้เฉพาะในระบบ มีเพดานราคา</div>
+    </div>
+  </div>
+  <div class="col side">
+    <div class="card" style="display:flex;flex-direction:column;gap:6px"><b>ค่าบริการ</b>
+      <span style="font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--red)">5 บาท + 3% ต่อใบ</span>
+      <span class="small muted">ตั๋วราคา ฿1,000 เสียค่าบริการ ฿35 · ไม่มีค่ารายเดือน · ไม่ขายก็ไม่เสีย</span></div>
+    <button class="btn" data-o="startOnboard">สมัครเป็นผู้จัดงาน</button>
+    <button class="btn plain" data-o="useDemoShop">ใช้ร้านตัวอย่าง Rooftop 88</button>
+    <button class="linkbtn" data-o="demoGate" style="align-self:center">ดูในฐานะพนักงานหน้างาน (เดโม)</button>
+  </div></div>`;
+},
+orgOnboard(){
+  appbar('สมัครเป็นผู้จัดงาน');
+  const ob=S.org.onboard||(S.org.onboard={step:1,data:{},err:{}});
+  const labels=['ข้อมูลร้าน','ผู้ขาย','บัญชีรับเงิน','ยืนยันตัวตน'];
+  return `<div class="narrow">
+    <div class="org-progress" aria-label="ขั้นที่ ${ob.step} จาก 4">${labels.map((l,i)=>`<i class="${i<ob.step?'on':''}"></i>`).join('')}</div>
+    <span class="small muted">ขั้นที่ ${ob.step} จาก 4 · ${labels[ob.step-1]}</span>
+    ${orgOnboardStep(ob)}
+    <div class="row"><button class="btn plain" data-o="obBack">${ob.step===1?'ยกเลิก':'ย้อนกลับ'}</button>
+      ${ob.step<4?`<button class="btn" data-o="obNext">ถัดไป</button>`:`<button class="btn" data-o="obSubmit">ส่งยืนยันตัวตน</button>`}</div>
+  </div>`;
+},
+orgTeam(){
+  appbar('ทีมงาน');
+  const sh=S.org.shop;
+  return `<div class="cols">
+  <div class="col">
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">${sh.team.map(m=>`
+      <div class="row between"><div style="min-width:0"><b>${esc(m.email==='me'?S.user.email+' (คุณ)':m.email)}</b><div class="small muted">${ROLE_LABEL[m.role]}</div></div>
+        ${m.role==='owner'?'<span class="pill grey">เจ้าของ</span>':`<button class="btn plain" style="width:auto;padding:8px 12px;font-size:13px" data-o="teamRemove" data-email="${esc(m.email)}" aria-label="ลบ ${esc(m.email)}">ลบ</button>`}</div>`).join('<hr class="sep">')}</div>
+    <h2 style="font-size:16px">สิทธิ์ของแต่ละบทบาท</h2>
+    <dl class="kv card small" style="margin:0"><dt>เจ้าของ</dt><dd>ทุกอย่าง รวมการเงินและทีมงาน</dd><dt>ผู้จัดการ</dt><dd>สร้าง/แก้งาน ดูยอดขาย เช็กอิน (ไม่เห็นการเงิน)</dd><dt>พนักงานหน้างาน</dt><dd>สแกนและเช็กอินเท่านั้น</dd></dl>
+  </div>
+  <div class="col side">
+    <h2 style="font-size:16px">เชิญสมาชิก</h2>
+    ${fld('team-email','อีเมล',{type:'email',value:'',err:S.org.teamErr||'',attrs:'autocomplete="off"'})}
+    ${fld('team-role','บทบาท',{value:'gate',options:[['gate','พนักงานหน้างาน'],['manager','ผู้จัดการ']]})}
+    <button class="btn" data-o="teamInvite">ส่งคำเชิญ</button>
+    <button class="btn plain" data-o="copyInvite">คัดลอกลิงก์เชิญ</button>
+    <div class="adv"><b class="small">เดโม: ดูในฐานะ</b><div class="seg three">${['owner','manager','gate'].map(r=>`<button data-o="viewAs" data-role="${r}" class="${S.org.role===r?'on':''}">${ROLE_LABEL[r]}</button>`).join('')}</div></div>
+  </div></div>`;
+},
+orgDash(){appbar('ภาพรวม');
+  const sh=S.org.shop;
+  return `<h1 style="font-size:22px">${esc(sh.name)}</h1>
+  ${sh.verification==='verified'?'<span class="pill ok" style="align-self:flex-start">ยืนยันร้านแล้ว</span>'
+    :'<div class="card small" role="status"><b>รอยืนยันร้าน</b><br><span class="muted">สร้างร่างงานได้เลย เผยแพร่ได้หลังยืนยันร้านเสร็จ (ปกติไม่เกิน 1 วันทำการ)</span></div>'}
+  ${S.org.role==='owner'?'<button class="btn plain" data-o="team">ทีมงาน</button>':''}`},
 orgEvents(){appbar('งานของฉัน');return `<div class="empty">กำลังพัฒนา</div>`},
 orgGatePick(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
 orgFinance(){appbar('การเงิน');return `<div class="empty">กำลังพัฒนา</div>`},
