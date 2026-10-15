@@ -1917,10 +1917,30 @@ $('#device').addEventListener('input',e=>{const id=e.target.id;if(id!=='q'&&id!=
   S.q=e.target.value;S.focus=id;if(S.stack[S.stack.length-1]!=='home'){stopTimers();S.tab='home';S.stack=['home']}render()});
 
 /* ---------- sheets ---------- */
-function sheet(html){closeSheet();const w=document.createElement('div');w.className='sheet-wrap';w.id='sheet';
-  w.innerHTML=`<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
-  w.addEventListener('click',ev=>{if(ev.target===w)closeSheet()});$('#scroll').appendChild(w);$('#scroll').scrollTop=0;$('#scroll').style.overflow='hidden'}
-function closeSheet(){const s=$('#sheet');if(s)s.remove();$('#scroll').style.overflow=''}
+const FOCUSABLE='button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])';
+let sheetOpener=null;
+function sheet(html){
+  // remember what opened the first sheet so focus can go back there (a sheet opened from inside a sheet keeps the original opener)
+  const opener=$('#sheet')&&sheetOpener?sheetOpener:document.activeElement;
+  closeSheet(true);sheetOpener=opener&&opener!==document.body?opener:null;
+  const w=document.createElement('div');w.className='sheet-wrap';w.id='sheet';
+  w.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="grab"></div>${html}</div>`;
+  w.addEventListener('click',ev=>{if(ev.target===w)closeSheet()});$('#scroll').appendChild(w);$('#scroll').scrollTop=0;$('#scroll').style.overflow='hidden';
+  const first=w.querySelector('.sheet '+FOCUSABLE.split(',').join(',.sheet '));(first||w.querySelector('.sheet')).focus();
+}
+function closeSheet(keepOpener){
+  const s=$('#sheet');if(s)s.remove();$('#scroll').style.overflow='';
+  if(!keepOpener){if(sheetOpener&&sheetOpener.isConnected)sheetOpener.focus();sheetOpener=null}
+}
+// keep Tab inside an open sheet
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;const s=$('#sheet');if(!s)return;
+  const f=[...s.querySelectorAll(FOCUSABLE)];if(!f.length)return;
+  const first=f[0],last=f[f.length-1];
+  if(!s.contains(document.activeElement)){e.preventDefault();first.focus()}
+  else if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+});
 
 function openSignup(after){
   S.afterSignup=after||null;
