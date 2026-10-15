@@ -169,7 +169,8 @@ The wallet is held by the platform through thirdweb (users never see a seed phra
 
 The ticket checkout uses a Stripe-hosted Checkout Session. The Worker validates the event, zone, and quantity against its server-side catalog, then redirects the buyer to Stripe. Payment status is recorded only from a signature-verified webhook; the success URL is not used as proof of payment.
 
-1. Apply the D1 migration (`db/migrations/0002_payments.sql`).
+1. Apply the D1 migration (`db/migrations/0002_payments.sql`) to the **remote** database before testing checkout:
+   `npx wrangler d1 migrations apply jongloei-db --remote`
 2. In Stripe, create a test sandbox and a restricted API key with only the permissions required to create Checkout Sessions. Add it in Cloudflare as the secret `STRIPE_SECRET_KEY` (an `rk_` key is preferred).
 3. Add a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.async_payment_failed`. Store its signing secret in Cloudflare as `STRIPE_WEBHOOK_SECRET`.
 4. Set the secrets on the Worker and redeploy. Do not put Stripe keys in `mockup/index.html`, committed files, or client-side code.

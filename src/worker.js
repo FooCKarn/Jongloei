@@ -102,10 +102,15 @@ async function createCheckoutSession(request, env) {
   }
   const session = await response.json();
   if (env.DB) {
-    await env.DB.prepare(
-      `INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, amount, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03)).run();
+    try {
+      await env.DB.prepare(
+        `INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, amount, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03)).run();
+    } catch (err) {
+      console.error('payment order insert failed', err && err.stack || err);
+      return json({ error: 'payment_storage_unavailable' }, 503);
+    }
   }
   return json({ url: session.url }, 200, { 'cache-control': 'no-store' });
 }

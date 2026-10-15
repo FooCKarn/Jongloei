@@ -879,6 +879,7 @@ async function startStripeCheckout(){
         authentication_required:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
         stripe_unconfigured:'ระบบยังไม่ได้ตั้งค่า Stripe Secret Key',
         stripe_request_failed:'Stripe ปฏิเสธคำขอ กรุณาตรวจสอบ API key และบัญชี Stripe',
+        payment_storage_unavailable:'ระบบฐานข้อมูลยังไม่พร้อม กรุณา apply migration 0002_payments.sql บน D1',
       };
       throw new Error(messages[data.error]||data.error||'checkout_failed');
     }
