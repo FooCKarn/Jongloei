@@ -894,7 +894,7 @@ async function readJsonResponse(response,endpoint){
   if(!contentType.includes('application/json')){
     throw new Error(response.status===404
       ?`ไม่พบ ${endpoint} กรุณา deploy Worker เวอร์ชันล่าสุด`
-      :`${endpoint} ส่งข้อมูลไม่ใช่ JSON กรุณาตรวจสอบการ deploy`);
+      :`${endpoint} ส่งข้อมูลไม่ใช่ JSON (HTTP ${response.status}) กรุณาตรวจสอบว่าเปิดจาก Worker URL`);
   }
   try{return await response.json()}catch(_){throw new Error(`${endpoint} ส่ง JSON ไม่ถูกต้อง กรุณาตรวจสอบ Worker`)}
 }

@@ -27,6 +27,9 @@ export default {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/api/me' && request.method === 'GET') return me(request, env);
+      if (url.pathname === '/api/health' && request.method === 'GET') {
+        return json({ ok: true, service: 'jongloei-worker' }, 200, { 'cache-control': 'no-store' });
+      }
       if (url.pathname === '/api/checkout-session' && request.method === 'POST') return createCheckoutSession(request, env);
       if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') return stripeWebhook(request, env);
       if (url.pathname === '/auth/google/start' && request.method === 'GET') return start(request, env);
