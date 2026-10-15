@@ -75,13 +75,22 @@ User เข้า web3 ของเราที่เป็นผู้จัด
 → User สามารถซื้อ-ขาย ตั๋ว NFT (อาจจะภายใน 1 ชม. ก่อนงานเริ่ม)
 → User แสดง QR ของตั๋วที่หน้างานเพื่อเข้างาน
 
-## Tech stack
+## Tech Stack
 
-- **Smart contract:** ERC-721 + OpenZeppelin on an EVM chain (testnet / L2 for low fees). No custom chain or token.
-- **Wallet & login:** thirdweb in-app wallet; guests log in with Google, sponsored gas, no crypto jargon ("Web2.5 UX").
-- **Apps:** web app for shops and guests, QR scanner for the gate.
-- **Payments:** demo pays in stablecoin; PromptPay via a payment gateway is next.
-- **Privacy (PDPA):** only wallet addresses go on-chain; names and IDs stay encrypted off-chain.
+**Frontend & User Interface**
+- **[Next.js](https://nextjs.org/)** - React framework สำหรับสร้างหน้าเว็บที่รวดเร็วและรองรับ SSR
+- **[TypeScript](https://www.typescriptlang.org/)** - สำหรับควบคุม Type ให้โค้ดปลอดภัยและลดข้อผิดพลาด
+- **[Tailwind CSS](https://tailwindcss.com/)** - สำหรับจัดการ UI และ Styling อย่างรวดเร็วใน 24 ชั่วโมง
+- **QR Code Libraries** - `qrcode.react` และ `html5-qrcode` สำหรับสร้างและสแกน Dynamic QR Code หน้างาน
+
+**Web3 & Blockchain Infrastructure**
+- **[thirdweb](https://thirdweb.com/)** - Core Web3 SDK สำหรับระบบ In-App Wallets (ล็อกอินผ่าน Google/Social โดยไม่ต้องใช้ MetaMask) และจัดการ Smart Contract
+- **[Avalanche Fuji Testnet](https://docs.avax.network/build/dapp/smart-contracts/fuji-testnet)** - เครือข่ายบล็อกเชน (Sponsor Network) สำหรับ Deploy ตั๋ว NFT ที่มีความเร็วสูงและค่าแก๊สต่ำ
+- **[Solidity](https://soliditylang.org/)** - ภาษาสำหรับเขียน Smart Contract (มาตรฐาน ERC-721) เพื่อควบคุมสิทธิ์ตั๋วคอนเสิร์ตและเพดานราคาขายต่อ
+
+**Deployment & Version Control**
+- **GitHub** - Source code management
+- **Vercel / Netlify** - (แนะนำ) สำหรับ Deploy หน้าเว็บ Frontend ให้กรรมการทดสอบได้ทันที
 
 **Known limit:** code can't stop a fake event on its own, so shops are verified at sign-up.
 
