@@ -319,6 +319,10 @@ body{padding:0}
 .org-swatch{width:44px;height:44px;border-radius:12px;border:2px solid transparent;cursor:pointer}.org-swatch.on{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
 .org-wiz .field input:disabled,.org-wiz .field select:disabled{opacity:.6}
 .seg.four{grid-template-columns:repeat(4,1fr)}
+/* scan result: fixed colours in both themes so a door scan reads the same everywhere */
+.org-result{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;color:#fff;text-align:center}
+.org-result.ok{background:#1D7A48}.org-result.bad{background:#A00018}
+.org-result svg{color:#fff}
 .org-danger{border-color:var(--red)}.btn.org-danger-btn{background:var(--red-strong);color:#fff}
 .org-progress{display:flex;gap:6px}.org-progress i{flex:1;height:6px;border-radius:9px;background:var(--line)}.org-progress i.on{background:var(--red)}
 </style>
@@ -1294,6 +1298,81 @@ function cancelProgressSheet(e,plan){
   setTimeout(tick,300);
 }
 
+/* ---------- organizer: gate (scan & check-in) ---------- */
+function gateStats(e){const t=evTickets(e.id);return {used:t.filter(x=>x.status==='used').length,total:t.filter(x=>['valid','listed','used'].includes(x.status)).length}}
+const gateWho=()=>S.org.role==='gate'?'door.staff@example.com':S.user.email;
+const SIM_CASES=[[1,'ตั๋วถูกต้อง'],[2,'ตั๋วที่ใช้ไปแล้ว'],[3,'QR เก่า (เกิน 60 วินาที)'],[4,'QR จากอนาคต (เกิน 15 วินาที)'],
+  [5,'ตั๋วของงานอื่น'],[6,'งานที่ถูกยกเลิก'],[7,'ผู้ถือคนเก่าที่ขายต่อไปแล้ว'],[8,'ตั๋วที่กำลังลงขาย (ยังเข้าได้)']];
+function gateScan(){
+  return `<div class="card" style="min-height:170px;display:grid;place-items:center;background:var(--surface-2);text-align:center" aria-label="กล้องสแกน (จำลอง)">
+      <div><svg width="46" height="46" style="color:var(--muted)"><use href="#i-qr"/></svg><div class="small muted">เล็งกล้องไปที่ QR ของผู้เข้าร่วม</div><span class="pill warn" style="margin-top:6px">จำลอง: ไม่เปิดกล้องจริง</span></div></div>
+    <button class="btn" data-o="simOpen">จำลองการสแกน</button>
+    <div class="small muted">QR ของผู้ถือตั๋วเปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอใช้ไม่ได้</div>`;
+}
+function gateResults(e){
+  const q=(S.org.gq||'').trim().toLowerCase(),q4=q.replace(/\D/g,'');
+  if(!q)return '<div class="empty">พิมพ์ชื่อ อีเมล เลขตั๋ว หรือเบอร์โทร 4 ตัวท้าย</div>';
+  const rows=evTickets(e.id).map(t=>({t,p:orgPerson(t.holderId)})).filter(r=>(r.p.name+' '+r.p.email+' '+r.t.ticketId).toLowerCase().includes(q)||(q4.length===4&&String(r.p.phone).endsWith(q4))).slice(0,20);
+  if(!rows.length)return '<div class="empty">ไม่พบตั๋วที่ตรงกับคำค้น</div>';
+  return `<div style="display:flex;flex-direction:column;gap:8px">${rows.map(({t,p})=>`<div class="card row between">
+    <div style="min-width:0"><b>${esc(p.name)}</b><div class="small muted">${esc(maskEmail(p.email||''))} · ${esc((e.zones.find(z=>z.id===t.zoneId)||{}).name||'')}</div><div class="mono small">${esc(t.ticketId)}</div></div>
+    ${t.status==='used'?`<span class="pill grey">เช็กอินแล้ว ${OL.thaiTime(t.usedAt)} น.</span>`
+      :['valid','listed'].includes(t.status)?`<button class="btn" style="width:auto;padding:10px 16px;font-size:15px" data-o="manualIn" data-id="${esc(t.ticketId)}">เช็กอิน</button>`
+      :`<span class="pill">${TICKET_STATUS[t.status]||t.status}</span>`}</div>`).join('')}</div>`;
+}
+function gateSearch(e){
+  return `<div class="field"><label for="gq">ค้นหาผู้เข้าร่วม</label><input id="gq" type="search" autocomplete="off" value="${esc(S.org.gq||'')}" placeholder="ชื่อ · อีเมล · เลขตั๋ว · เบอร์ 4 ตัวท้าย"></div><div id="gate-results" aria-live="polite">${gateResults(e)}</div>`;
+}
+function gateLog(e){
+  const rows=S.org.checkinLog.filter(l=>l.eventId===e.id).slice(0,20);
+  return rows.length?`<div style="overflow-x:auto"><table id="gate-log" class="org-table"><thead><tr><th scope="col">เวลา</th><th scope="col">ผล</th><th scope="col">เหตุผล</th><th scope="col">วิธี</th><th scope="col">ผู้ทำ</th></tr></thead>
+    <tbody>${rows.map(l=>`<tr><th scope="row">${OL.thaiTime(l.at)}</th><td style="text-align:left">${l.valid?'ผ่าน':'ไม่ผ่าน'}</td><td style="text-align:left">${l.valid?'—':esc(OL.reasonText(l.reason))}</td><td style="text-align:left">${l.method==='manual'?'เช็กอินมือ':'สแกน'}</td><td style="text-align:left">${esc(l.by)}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div class="empty">ยังไม่มีการสแกนในรอบนี้</div>';
+}
+// one door decision: ask checkinResult, write the log, and on success mark the ticket used on both sides
+function gateRun(ev,ticket,signerId,ts,method){
+  const now=Date.now(),r=OL.checkinResult({ticket,event:ev,signerId,ts,now});
+  S.org.checkinLog.unshift({at:now,ticketId:ticket?ticket.ticketId:'—',eventId:ev.id,valid:r.valid,reason:r.reason||null,method,by:gateWho()});
+  S.org.checkinLog.length=Math.min(S.org.checkinLog.length,50);
+  if(r.valid){
+    ticket.status='used';ticket.usedAt=now;ticket.checkinMethod=method;
+    S.listings=S.listings.filter(l=>l.orgTicketId!==ticket.ticketId);          // checking in cancels a resale listing (context.md 5.2)
+    for(const bt of S.tickets)if(bt.orgTicketId===ticket.ticketId)bt.status='used';
+  }
+  return r;
+}
+function gateShow(r,ticket,ev){
+  const old=document.getElementById('org-result');if(old)old.remove();
+  const p=ticket?orgPerson(ticket.holderId):null,z=ticket&&ev.zones.find(x=>x.id===ticket.zoneId);
+  const div=document.createElement('div');
+  div.id='org-result';div.className='org-result '+(r.valid?'ok':'bad');div.setAttribute('role','alertdialog');div.setAttribute('aria-live','assertive');
+  div.dataset.valid=String(r.valid);if(r.reason)div.dataset.reason=r.reason;
+  div.innerHTML=`<svg width="88" height="88" aria-hidden="true"><use href="${r.valid?'#i-check':'#i-x'}"/></svg>
+    <h2 style="font-size:28px;color:#fff">${r.valid?'เข้างานได้':'เข้าไม่ได้'}</h2>
+    <p style="margin:0;font-size:19px;max-width:28ch;text-align:center"></p>
+    ${r.valid?'':`<button class="btn" style="background:#fff;color:#A00018;max-width:280px" data-o="callManager">เรียกผู้จัดการ</button><button class="btn" style="background:transparent;color:#fff;border:2px solid #fff;max-width:280px" data-o="resultClose">ปิด</button>`}`;
+  div.querySelector('p').textContent=r.valid?`${p?p.name:''} · ${z?z.name:''}`:OL.reasonText(r.reason);
+  $('#device').appendChild(div);
+  if(r.valid){if(navigator.vibrate)navigator.vibrate(60);setTimeout(()=>{if(div.isConnected)div.remove()},2000)}
+  else if(navigator.vibrate)navigator.vibrate([80,60,80]);
+}
+function simCase(c){
+  const e=orgEv(S.org.oev),T=evTickets(e.id),now=Date.now();
+  const pick=pred=>T.find(pred),other=S.org.tickets.find(t=>t.eventId!==e.id),cx=S.org.events.find(x=>x.status==='cancelled');
+  // plain single-owner ticket for the happy path, so the resold ticket stays available for the old-owner case
+  const v=pick(t=>t.status==='valid'&&t.hops.length===1)||pick(t=>t.status==='valid'),dc={
+    1:()=>v&&[e,v,v.holderId,now-3000],
+    2:()=>{const u=pick(t=>t.status==='used');return u&&[e,u,u.holderId,now-3000]},
+    3:()=>v&&[e,v,v.holderId,now-61000],
+    4:()=>v&&[e,v,v.holderId,now+16000],
+    5:()=>other&&[e,other,other.holderId,now-3000],
+    6:()=>{const t=cx&&S.org.tickets.find(x=>x.eventId===cx.id);return t&&[cx,t,t.holderId,now-3000]},
+    7:()=>{const t=pick(x=>x.status==='valid'&&x.hops.length>1);return t&&[e,t,t.hops[0].payerId,now-3000]},
+    8:()=>{const t=pick(x=>x.status==='listed');return t&&[e,t,t.holderId,now-3000]},
+  };
+  return dc[c]();
+}
+
 const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
 Object.assign(ORG_ACTIONS,{
   wizNext(){
@@ -1370,9 +1449,27 @@ Object.assign(ORG_ACTIONS,{
     const plan=orgCancelEvent(e.id,val('cx-reason'));cancelProgressSheet(e,plan);
   },
   cancelClose(){closeSheet();render()},
+  gtab(el){S.org.gtab=el.dataset.t;render()},
+  simOpen(){sheet(`<h2 style="font-size:19px">จำลองการสแกน</h2><p class="small muted" style="margin:0">เลือกสถานการณ์ ระบบจะหยิบตั๋วจริงของงานนี้มาตรวจ</p>
+    ${SIM_CASES.map(([c,l])=>`<button class="btn plain" data-o="sim" data-c="${c}">${c}. ${l}</button>`).join('')}<button class="btn plain" data-act="close">ปิด</button>`)},
+  sim(el){
+    const args=simCase(+el.dataset.c);closeSheet();
+    if(!args){toast('ไม่มีตั๋วตัวอย่างสำหรับกรณีนี้');return}
+    const [ev,ticket,signer,ts]=args,r=gateRun(ev,ticket,signer,ts,'scan');render();gateShow(r,ticket,ev);
+  },
+  resultClose(){const r=document.getElementById('org-result');if(r)r.remove()},
+  callManager(){toast('จำลอง: แจ้งผู้จัดการให้มาที่ประตูแล้ว')},
+  manualIn(el){const e=orgEv(S.org.oev),t=S.org.tickets.find(x=>x.ticketId===el.dataset.id),p=orgPerson(t.holderId);
+    sheet(`<h2 style="font-size:19px">ยืนยันเช็กอินมือ</h2><dl class="kv card" style="margin:0"><dt>ชื่อ</dt><dd>${esc(p.name)}</dd><dt>โซน</dt><dd>${esc((e.zones.find(z=>z.id===t.zoneId)||{}).name||'')}</dd><dt>เลขตั๋ว</dt><dd class="mono">${esc(t.ticketId)}</dd></dl>
+      <p class="small muted" style="margin:0">การเช็กอินมือถูกบันทึกว่าทำโดย ${esc(gateWho())} ตรวจบัตรประชาชนหรืออีเมลยืนยันก่อนกดยืนยัน</p>
+      <button class="btn" data-o="manualConfirm" data-id="${esc(t.ticketId)}">ยืนยันเช็กอิน</button><button class="btn plain" data-act="close">ยกเลิก</button>`)},
+  manualConfirm(el){const e=orgEv(S.org.oev),t=S.org.tickets.find(x=>x.ticketId===el.dataset.id);
+    const r=gateRun(e,t,t.holderId,Date.now(),'manual');closeSheet();render();if(r.valid)toast('เช็กอินแล้ว');else gateShow(r,t,e)},
 });
 $('#device').addEventListener('input',e=>{
-  const id=e.target.id;if(!['bq','bzone','bstatus'].includes(id)||!S.org)return;
+  const id=e.target.id;
+  if(id==='gq'&&S.org){S.org.gq=e.target.value;const r=document.getElementById('gate-results'),ev=orgEv(S.org.oev);if(r&&ev)r.innerHTML=gateResults(ev);return}
+  if(!['bq','bzone','bstatus'].includes(id)||!S.org)return;
   S.org[id]=e.target.value;const w=document.getElementById('org-buyers-wrap'),ev=orgEv(S.org.oev);
   if(w&&ev)w.innerHTML=buyersTable(ev);
 });
@@ -1501,8 +1598,28 @@ orgEvent(){
       <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน'} · ${esc(e.venue||'')}</div></div>${statusPill(e.status)}</div>
     <div class="seg four" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="etab" data-t="${k}">${v}</button>`).join('')}</div>${body}`;
 },
-orgGate(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
-orgGatePick(){appbar('หน้างาน');return `<div class="empty">กำลังพัฒนา</div>`},
+orgGate(){
+  const e=S.org.oev&&orgEv(S.org.oev);
+  if(!e){S.stack=['orgGatePick'];S.tab='orgGatePick';return VIEWS.orgGatePick()}
+  appbar('หน้างาน · '+e.name);
+  const g=gateStats(e),t=S.org.gtab||'scan',pct=g.total?Math.round(g.used*100/g.total):0;
+  const tabs=[['scan','สแกน QR'],['search','ค้นหาชื่อ'],['log','ประวัติ']];
+  return `<div class="narrow"><div class="card" style="text-align:center"><div class="small muted">${esc(e.name)}</div>
+      <div id="gate-count" class="num" style="font-family:var(--f-display);font-size:30px;font-weight:700;color:var(--ink)">เข้างานแล้ว ${g.used} / ${g.total}</div>
+      <div class="bar" style="margin-top:8px" aria-hidden="true"><i style="width:${pct}%"></i></div></div>
+    <div class="seg three" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="gtab" data-t="${k}">${v}</button>`).join('')}</div>
+    ${t==='scan'?gateScan():t==='search'?gateSearch(e):gateLog(e)}</div>`;
+},
+orgGatePick(){
+  appbar('หน้างาน');
+  const live=S.org.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status));
+  return `<h1 class="d-only" style="font-size:24px">หน้างาน</h1>
+  <p class="small muted" style="margin:0">เลือกงานที่จะเช็กอินผู้เข้าร่วม</p>
+  ${live.length?`<div class="lgrid">${live.map(e=>{const g=gateStats(e);return `<button class="listing" data-o="gate" data-id="${e.id}" style="text-align:left;width:100%">
+    <div class="top">${poster({bg:e.bg,tag:e.category,short:e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase()})}<div><b>${esc(e.name)}</b>
+      <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</div><div class="small num" style="margin-top:4px">เข้างานแล้ว ${g.used} / ${g.total}</div></div></div></button>`}).join('')}</div>`
+  :'<div class="empty">ไม่มีงานที่เปิดขายอยู่</div>'}`;
+},
 orgFinance(){appbar('การเงิน');return `<div class="empty">กำลังพัฒนา</div>`},
 };
 Object.assign(VIEWS,ORG_VIEWS);
