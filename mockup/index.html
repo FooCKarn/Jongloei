@@ -868,8 +868,7 @@ async function startStripeCheckout(){
       headers:{'content-type':'application/json'},
       body:JSON.stringify({eventId,zone,quantity}),
     });
-    const contentType=response.headers.get('content-type')||'';
-    const data=contentType.includes('application/json')?await response.json():null;
+    const data=await readJsonResponse(response,'/api/checkout-session');
     if(!data){
       throw new Error(response.status===404
         ?'ไม่พบ API ของ Worker กรุณา deploy Worker เวอร์ชันล่าสุด'
@@ -890,13 +889,22 @@ async function startStripeCheckout(){
     toast(err.message||'เชื่อมต่อ Stripe ไม่สำเร็จ กรุณาลองใหม่');
   }
 }
+async function readJsonResponse(response,endpoint){
+  const contentType=response.headers.get('content-type')||'';
+  if(!contentType.includes('application/json')){
+    throw new Error(response.status===404
+      ?`ไม่พบ ${endpoint} กรุณา deploy Worker เวอร์ชันล่าสุด`
+      :`${endpoint} ส่งข้อมูลไม่ใช่ JSON กรุณาตรวจสอบการ deploy`);
+  }
+  try{return await response.json()}catch(_){throw new Error(`${endpoint} ส่ง JSON ไม่ถูกต้อง กรุณาตรวจสอบ Worker`)}
+}
 function googleLogin(){
   try{sessionStorage.setItem(AUTH_KEY,JSON.stringify({after:S.afterSignup,ev:S.ev,zone:S.zone,qty:S.qty,lid:S.buyingListing&&S.buyingListing.lid}))}catch(_){}
   location.href='/auth/google/start';
 }
 async function checkAuth(){
   if(!/^https?:$/.test(location.protocol))return;
-  let me;try{const r=await fetch('/api/me',{credentials:'same-origin'});if(!r.ok)return;me=await r.json()}catch(_){return}
+  let me;try{const r=await fetch('/api/me',{credentials:'same-origin'});if(!r.ok)return;me=await readJsonResponse(r,'/api/me')}catch(err){console.error('Auth API failed',err);return}
   if(!me||!me.googleEnabled)return;
   S.auth.google=true;
   S.signedIn=!!me.user;
