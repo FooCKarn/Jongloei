@@ -398,7 +398,13 @@ let BASE_EVENTS=[
 ];
 let EVENTS=BASE_EVENTS;
 // organizer events that left the buyer list (cancelled / ended) still resolve, so tickets for them keep rendering
-const evById=id=>EVENTS.find(e=>e.id===id)||(S.org&&isLocal(id)&&S.org.events.find(e=>e.id===id)?OL.toBuyerEvent(S.org.events.find(e=>e.id===id)):undefined);
+const evById=id=>EVENTS.find(e=>e.id===id)||(S.org&&isLocal(id)&&S.org.events.find(e=>e.id===id)?toBuyerEvent(S.org.events.find(e=>e.id===id)):undefined);
+// buyer screens put event and zone names straight into HTML, so text an organizer typed is escaped here (poster() escapes its own tag/short)
+const escName=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toBuyerEvent(ev){
+  const b=OL.toBuyerEvent(ev);
+  return {...b,name:escName(b.name),venue:escName(b.venue),zones:b.zones.map(z=>({...z,z:escName(z.z)}))};
+}
 const isLocal=id=>String(id||'').startsWith('org-');
 
 /* ---------- state ---------- */
@@ -506,7 +512,7 @@ function ensureOrg(){
   refreshEvents();
 }
 function refreshEvents(){
-  const pub=S.org?S.org.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status)).map(OL.toBuyerEvent):[];
+  const pub=S.org?S.org.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status)).map(e=>toBuyerEvent(e)):[];
   EVENTS=BASE_EVENTS.concat(pub);
 }
 const orgEv=id=>S.org.events.find(e=>e.id===id);
@@ -588,7 +594,7 @@ function render(){
   save();
 }
 
-function poster(ev,cls=''){return `<div class="poster ${cls}" style="--pbg:${ev.bg}"><span class="ptag">${ev.tag}</span><div class="pbig">${ev.short.replace('\n','<br>')}</div></div>`}
+function poster(ev,cls=''){return `<div class="poster ${cls}" style="--pbg:${ev.bg}"><span class="ptag">${esc(ev.tag)}</span><div class="pbig">${esc(ev.short).replace('\n','<br>')}</div></div>`}
 function minPrice(ev){return Math.min(...ev.zones.map(z=>z.p))}
 
 /* ---------- views ---------- */
@@ -684,7 +690,7 @@ checkout(){
   </div>
   <div class="col side">
     <div class="card" style="display:grid;grid-template-columns:64px 1fr;gap:12px">
-      <div class="poster" style="min-height:64px;padding:6px;border-radius:10px;--pbg:${e.bg}"><div class="pbig" style="font-size:10px">${e.short.replace('\n','<br>')}</div></div>
+      <div class="poster" style="min-height:64px;padding:6px;border-radius:10px;--pbg:${e.bg}"><div class="pbig" style="font-size:10px">${esc(e.short).replace('\n','<br>')}</div></div>
       <div style="min-width:0"><b>${e.name}</b><div class="small muted">${e.date} · ${zone} × ${qty}</div>${L?'<span class="pill" style="margin-top:4px">ตั๋วรีเซล · Token #'+L.tid+'</span>':''}</div>
     </div>
     <dl class="kv card num" style="margin:0">
@@ -806,7 +812,7 @@ market(){
   <h1 class="d-only" style="font-size:24px">ตลาดรีเซล</h1>
   <div class="card" style="display:flex;gap:10px;align-items:flex-start"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
     <div class="small"><b>ตั๋วมือสองที่ตรวจสอบได้ทุกใบ</b><br><span class="muted">ผู้ขายต้องเป็นเจ้าของตั๋วบนเชนจริง ราคาไม่เกิน 120% ของหน้าบัตร เงินถึงผู้ขายเมื่อตั๋วโอนสำเร็จเท่านั้น</span></div></div>
-  <div class="chips"><button class="chip ${S.mcat==='all'?'on':''}" data-mcat="all">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip ${S.mcat===e.id?'on':''}" data-mcat="${e.id}">${e.short.replace('\n',' ')}</button>`).join('')}</div>
+  <div class="chips"><button class="chip ${S.mcat==='all'?'on':''}" data-mcat="all">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip ${S.mcat===e.id?'on':''}" data-mcat="${e.id}">${esc(e.short).replace('\n',' ')}</button>`).join('')}</div>
   ${ls.length?`<div class="lgrid">${ls.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.seller===short(S.user.wallet);return `
   <div class="listing">
     <div class="top">${poster(e)}<div><b>${e.name}</b><div class="small muted">${e.date} · ${l.zone}</div><div class="tokenid">Token #${l.tid}</div></div></div>
