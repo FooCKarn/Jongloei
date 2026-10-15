@@ -190,21 +190,35 @@ After every Google login the Worker checks that the user has a ticket wallet. If
 The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
 
 > **Current implementation vs. context v3.3:** this server wallet is what the code does today. Context v3.3 targets a thirdweb **embedded (in-app) wallet** instead, so the ticket owner's own key can sign the entry QR every 60 seconds. With a platform-held server wallet the user cannot sign the QR themselves, so this part still has to move to an embedded wallet.
-### Stripe Checkout
+### Paid flow: Stripe (PromptPay) → 5 checks → mint
 
-The ticket checkout uses a Stripe-hosted Checkout Session. The Worker validates the event, zone, and quantity against its server-side catalog, then redirects the buyer to Stripe. Payment status is recorded only from a signature-verified webhook; the success URL is not used as proof of payment.
+The ticket checkout uses a Stripe-hosted Checkout Session in THB, so the guest can pay with PromptPay (enable it under Stripe Dashboard > Payment methods) or a card. The success URL is never treated as proof of payment.
 
-1. Apply the D1 migration (`db/migrations/0002_payments.sql`) to the **remote** database before testing checkout:
-   `npx wrangler d1 migrations apply jongloei-db --remote`
-2. In Stripe, create a test sandbox and a restricted API key with only the permissions required to create Checkout Sessions. Add it in Cloudflare as the secret `STRIPE_SECRET_KEY` (an `rk_` key is preferred).
-3. Add a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.async_payment_failed`. Store its signing secret in Cloudflare as `STRIPE_WEBHOOK_SECRET`.
-4. Set the secrets on the Worker and redeploy. Do not put Stripe keys in `mockup/index.html`, committed files, or client-side code.
+1. **Seat hold.** `POST /api/checkout-session` creates a `pending` order valid for 10 minutes, only if the zone has enough seats that are neither sold (`event_zones.remaining`) nor held by other pending orders (one SQL statement, so two buyers cannot take the last seat). `remaining` itself is not touched; `/api/events` shows `remaining` minus active holds. Limit 4 tickets per account per event, counting orders still being paid.
+2. **Hold expiry.** A cron trigger runs every minute (`wrangler.jsonc`). It expires the Stripe session of each hold older than 10 minutes, so it can no longer be paid, and closes the order, which frees its seats. Cancelling on the Stripe page frees them right away (`POST /api/checkout-cancel`).
+3. **5 checks** (context 6.1) in `POST /api/stripe/webhook`:
+   1. Stripe signature (HMAC, 5-minute tolerance).
+   2. The session is fetched again from the Stripe API (5 s timeout, 3 tries); the webhook body is not trusted.
+   3. `amount_total` and currency equal the order.
+   4. `client_reference_id` / `metadata.order_id` equal the order, and the hold has not ended.
+   5. Each Stripe event id is handled once (`webhook_events`), and only one caller can move the order from `pending` to `paid`, so it is minted once. That same step decrements `remaining` for the purchased zone (`0004_payment_inventory.sql`, guarded by `inventory_update_token`), so a repeated webhook never decrements twice.
 
-The Stripe button works only when the app is opened from the deployed Worker URL (or `npx wrangler dev`), not by opening `mockup/index.html` with `file://`. The buyer must also use the real Google sign-in flow so the Worker has an authenticated session; the local demo login cannot create a server-side payment order.
+   A payment that fails 3 or 4 becomes `needs_review` (for example paid after the hold ended), and nothing is minted.
+4. **Mint.** The paid order mints `quantity` tickets in one batched thirdweb write from the relayer to the buyer's wallet, using the event's `chain_event_id`. Token ids are read from the receipt's ERC-721 `Transfer` logs (Fuji RPC), and the order becomes `fulfilled`. A failed mint is retried up to 3 times by the cron. A send that may or may not have reached thirdweb goes to `needs_review` instead of being retried, so a ticket is never minted twice.
+5. **My tickets.** `GET /api/tickets` lists the signed-in user's tickets. After returning from Stripe, the page polls `GET /api/checkout-status` until the ticket is minted.
+
+Setup:
+
+1. Apply the migrations to the **remote** database: `npx wrangler d1 migrations apply jongloei-db --remote`.
+2. Add a restricted Stripe key as the secret `STRIPE_SECRET_KEY` (an `rk_` key with write access to Checkout Sessions).
+3. Add a Stripe webhook at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`, and store its signing secret as `STRIPE_WEBHOOK_SECRET`.
+4. `THIRDWEB_SECRET_KEY` must be set for minting. Optional: `FUJI_RPC_URL` overrides the public Fuji RPC.
+
+The checkout works only from the deployed Worker URL (or `npx wrangler dev`) with the real Google sign-in, not with `file://` or the demo login.
 
 ### Event catalog
 
-The home page loads on-sale events from D1 through `GET /api/events`; event names, dates, venues, poster styles, zones, prices, and remaining inventory are no longer required to be edited in the frontend. Apply `db/migrations/0003_events.sql` to seed the current events. Future admin tooling can edit the `events` and `event_zones` rows without adding frontend buttons.
+The home page loads on-sale events from D1 through `GET /api/events`; event names, dates, venues, poster styles, zones, prices, and remaining inventory are no longer required to be edited in the frontend. Apply `db/migrations/0003_events.sql` to seed the current events. `remaining` drops when a payment is verified (`0004_payment_inventory.sql`); pending orders hold seats on top of that for 10 minutes (see the paid flow above). Future admin tooling can edit the `events` and `event_zones` rows without adding frontend buttons.
 
 ```sh
 npx wrangler d1 migrations apply jongloei-db --remote
@@ -212,7 +226,7 @@ npx wrangler d1 migrations apply jongloei-db --remote
 
 ### Test mint (admin only)
 
-`POST /api/dev/test-mint` mints one ticket from the Fuji ticket contract (`contracts/deployments/fuji.json`) into the signed-in user's own wallet, through the relayer server wallet via thirdweb (`/v1/contracts/write`). It proves the mint path before the paid flow exists. Only users with `role = 'admin'` can call it.
+`POST /api/dev/test-mint` mints one ticket from the Fuji ticket contract (`contracts/deployments/fuji.json`) into the signed-in user's own wallet, through the relayer server wallet via thirdweb (`/v1/contracts/write`). Paid orders mint automatically (see the paid flow above); this endpoint stays for testing the relayer. Only users with `role = 'admin'` can call it.
 
 1. Make your account an admin: `UPDATE users SET role = 'admin' WHERE email = '<you>';` in D1.
 2. Sign in on the site, open the browser console and run:
