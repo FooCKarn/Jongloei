@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}</style>
 </head>
 <body>
 <title>JongLoei App Mock-up</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -291,6 +291,17 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .stage.desk .sheet{width:460px;border-radius:20px;padding:22px 24px}
 .stage.desk .grab{display:none}
 .stage.desk .toast{left:auto;right:24px;bottom:24px;width:360px}
+
+/* ---------- full-viewport app (no demo frame) ---------- */
+html,body{height:100%}
+body{padding:0}
+.stage,.stage.desk{display:block;max-width:none;height:100%;margin:0}
+.devwrap,.stage .devwrap,.stage.desk .devwrap{position:static;height:100%;overflow:visible;border-radius:0}
+.device,.stage .device,.stage.desk .device{max-width:none;min-width:0;width:100%;height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
+.appbar,.screen{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+.tabbar{padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
+.search input::-webkit-search-cancel-button{cursor:pointer}
+.listing .ptag,.mticket .ptag{display:none}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -319,22 +330,8 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 </svg>
 
 <div class="stage" id="stage">
-  <section class="intro">
-    <div class="brandrow">
-      <svg aria-hidden="true"><use href="#logo"/></svg>
-      <div>
-        <div class="wordmark">JONGLOEI</div>
-        <div class="small muted">ม็อกอัปหน้าเว็บสำหรับผู้ซื้อตั๋ว · ข้อมูลทั้งหมดเป็นตัวอย่าง</div>
-      </div>
-    </div>
-    <div class="seg mode" id="modeSeg" role="group" aria-label="ขนาดหน้าจอ"><button data-mode="m">มือถือ</button><button data-mode="d">คอมพิวเตอร์</button></div>
-    <p>ตั๋วทุกใบเป็น NFT ที่อยู่ในกระเป๋าของผู้ซื้อ แต่ผู้ใช้ไม่ต้องรู้เรื่อง wallet เลย ล็อกอินด้วย Google จ่ายด้วย PromptPay แล้วตั๋วก็มาอยู่ในแอป กดขั้นตอนด้านล่างเพื่อกระโดดไปหน้าที่ต้องการ หรือกดใช้งานในแอปได้เลย</p>
-    <ol class="flow" id="flow"></ol>
-    <div class="legend">หน้าจอที่ทำเครื่องหมาย “ต่อในอนาคต” เป็นการจำลอง เช่น Payment Gateway ที่ยืนยันยอดแล้ว mint ตั๋วให้อัตโนมัติ</div>
-  </section>
 
   <div class="devwrap"><div class="device" id="device">
-    <div class="browserbar" aria-hidden="true"><i></i><i></i><i></i><span class="url">jongloei.app</span></div>
     <header class="appbar" id="appbar"></header>
     <main class="scroll" id="scroll"></main>
     <nav class="tabbar" id="tabbar">
@@ -368,9 +365,8 @@ const evById=id=>EVENTS.find(e=>e.id===id);
 const S={
   signedIn:false,user:{name:'ชนกานต์',email:'chonnakarn@gmail.com',wallet:'0x4B21c7aE90F3d18b52A6e4c0F7D93a1B2e8C5d07'},
   tab:'home',stack:['home'],ev:'neon',zone:0,qty:1,pay:'promptpay',
-  tickets:[
-    {tid:427,ev:'jazz',zone:'บัตรวันเดียว',price:1800,status:'active',transfers:0,tx:'0x9c1e…a47b'},
-  ],
+  tickets:[],
+  q:'',cat:'ทั้งหมด',mcat:'all',
   listings:[
     {lid:1,ev:'fan',zone:'Zone B',face:4200,price:4600,seller:'0x91aD…3F0c',transfers:1,tid:1182},
     {lid:2,ev:'neon',zone:'VIP Front',face:5500,price:6200,seller:'0x2C77…e19A',transfers:0,tid:66},
@@ -380,40 +376,13 @@ const S={
 };
 const short=a=>a.slice(0,6)+'…'+a.slice(-4);
 
-/* ---------- flow index ---------- */
-const FLOW=[
-  ['signup','สมัคร / เข้าสู่ระบบ','Google หรือ LINE แล้วระบบสร้าง wallet ให้เอง'],
-  ['home','เลือกงาน','งานราคาบัตร 1,000 บาทขึ้นไป'],
-  ['event','เลือกโซนและจำนวน','เห็นชัดว่าได้ตั๋วเป็น NFT'],
-  ['checkout','ชำระด้วย PromptPay','สแกน QR จ่ายเงินแบบคนไทยคุ้นเคย'],
-  ['minting','รอยืนยันและ mint ตั๋ว','Payment Gateway → mint เข้ากระเป๋า (ต่อในอนาคต)'],
-  ['tickets','ตั๋ว NFT ของฉัน','Token ID, เจ้าของ, ประวัติบนเชน'],
-  ['resell','ขายต่อ / โอนตั๋ว','ตั้งราคาได้ไม่เกิน 120% ของราคาหน้าบัตร'],
-  ['market','ตลาดรีเซล','ซื้อตั๋วมือสองที่ตรวจสอบบนเชนได้'],
-  ['qr','QR เข้างาน','เปลี่ยนทุก 60 วินาที แคปหน้าจอใช้ไม่ได้'],
-];
-function renderFlow(cur){
-  $('#flow').innerHTML=FLOW.map(([k,t,d],i)=>`<li><button data-jump="${k}" class="${k===cur?'on':''}"><span class="n">${i+1}</span><span><b>${t}</b><small>${d}</small></span></button></li>`).join('');
-}
-$('#flow').addEventListener('click',e=>{const b=e.target.closest('[data-jump]');if(b)jump(b.dataset.jump)});
-function jump(k){
-  closeSheet();
-  if(k!=='signup'&&!S.signedIn){S.signedIn=true}
-  S.tab={qr:'tickets',resell:'tickets',tickets:'tickets',market:'market'}[k]||'home';
-  switch(k){
-    case 'signup':S.signedIn=false;go('home',true);openSignup();renderFlow('signup');return;
-    case 'home':go('home',true);break;
-    case 'event':S.ev='neon';S.zone=0;S.qty=1;go('event');break;
-    case 'checkout':S.ev='neon';S.zone=0;S.qty=1;S.buyingListing=null;go('checkout');break;
-    case 'minting':S.ev='neon';S.zone=0;S.qty=1;S.buyingListing=null;go('minting');break;
-    case 'tickets':go('tickets',true);break;
-    case 'resell':S.sel=S.tickets.find(t=>t.status==='active')||S.tickets[0];S.ticketView='nft';go('ticket');openResell();break;
-    case 'market':go('market',true);break;
-    case 'qr':S.sel=S.tickets.find(t=>t.status==='active')||S.tickets[0];S.ticketView='qr';go('ticket');break;
-  }
-  renderFlow(k);
-  if(window.matchMedia('(max-width:860px)').matches)$('#device').scrollIntoView({behavior:'smooth',block:'start'});
-}
+/* ---------- saved state (this browser only) ---------- */
+const KEY='jongloei-demo-v1';
+function save(){try{localStorage.setItem(KEY,JSON.stringify({signedIn:S.signedIn,tickets:S.tickets,listings:S.listings,nextTid:S.nextTid,left:EVENTS.map(e=>e.zones.map(z=>z.left))}))}catch(_){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(!d)return;
+  Object.assign(S,{signedIn:!!d.signedIn,tickets:d.tickets||[],listings:d.listings||S.listings,nextTid:d.nextTid||S.nextTid});
+  (d.left||[]).forEach((a,i)=>a.forEach((v,j)=>{if(EVENTS[i]&&EVENTS[i].zones[j])EVENTS[i].zones[j].left=v}))}catch(_){}}
+const esc=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- nav ---------- */
 const TABS=['home','market','tickets','profile'];
@@ -424,7 +393,7 @@ function go(screen,reset){
   render();
 }
 function back(){stopTimers();if(S.stack.length>1)S.stack.pop();render()}
-$('#tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;closeSheet();go(b.dataset.tab,true);renderFlow(b.dataset.tab==='profile'?'':b.dataset.tab)});
+$('#tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;closeSheet();go(b.dataset.tab,true);});
 function stopTimers(){clearInterval(S.qrTimer);clearInterval(S.payTimer);S.qrTimer=S.payTimer=null}
 
 function appbar(title){
@@ -432,7 +401,7 @@ function appbar(title){
   if(S.desk){
     $('#appbar').innerHTML=`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="wordmark" style="font-size:19px">JONGLOEI</span>
     <nav class="dnav d-only">${[['home','หน้าแรก'],['market','ตลาดรีเซล'],['tickets','ตั๋วของฉัน']].map(([k,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${v}</button>`).join('')}</nav>
-    <div class="search dsearch"><svg><use href="#i-search"/></svg><input id="dq" placeholder="ค้นหางาน ศิลปิน สถานที่"></div>`
+    <div class="search dsearch"><svg><use href="#i-search"/></svg><input id="dq" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหางาน ศิลปิน สถานที่"></div>`
     +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button><button class="avatar" data-tab="profile" aria-label="บัญชี">ช</button>`
                 :`<button class="btn" style="width:auto;padding:9px 18px;font-size:14px" data-act="signup">เข้าสู่ระบบ</button>`);
     return;
@@ -443,7 +412,7 @@ function appbar(title){
    +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button>`
                :`<button class="walletchip" data-act="signup">เข้าสู่ระบบ</button>`);
 }
-$('#appbar').addEventListener('click',e=>{const tb=e.target.closest('[data-tab]');if(tb){closeSheet();go(tb.dataset.tab,true);renderFlow(tb.dataset.tab==='profile'?'':tb.dataset.tab);return}
+$('#appbar').addEventListener('click',e=>{const tb=e.target.closest('[data-tab]');if(tb){closeSheet();go(tb.dataset.tab,true);return}
   const a=e.target.closest('[data-act]');if(!a)return;
   if(a.dataset.act==='back')back();if(a.dataset.act==='profile')go('profile',true);if(a.dataset.act==='signup')openSignup()});
 
@@ -457,6 +426,8 @@ function render(){
   $('#scroll').innerHTML=`<div class="screen">${html}</div>`;
   $('#scroll').scrollTop=0;
   (AFTER[cur]||(()=>{}))();
+  if(S.focus){const el=document.getElementById(S.focus);if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(_){}}S.focus=null}
+  save();
 }
 
 function poster(ev,cls=''){return `<div class="poster ${cls}" style="--pbg:${ev.bg}"><span class="ptag">${ev.tag}</span><div class="pbig">${ev.short.replace('\n','<br>')}</div></div>`}
@@ -467,9 +438,15 @@ const VIEWS={
 home(){
   appbar('JongLoei');
   const f=EVENTS[0];
+  const cats=['ทั้งหมด','คอนเสิร์ต','เทศกาล','แฟนมีตติ้ง','สแตนด์อัป'];
+  const q=S.q.trim().toLowerCase();
+  const filtered=!!q||S.cat!=='ทั้งหมด';
+  const found=EVENTS.filter(e=>(S.cat==='ทั้งหมด'||e.tag===S.cat)&&(!q||(e.name+' '+e.venue+' '+e.tag).toLowerCase().includes(q)));
+  const rest=filtered?found:EVENTS.slice(1);
   return `
-  <div class="search m-only"><svg><use href="#i-search"/></svg><input id="q" placeholder="ค้นหาคอนเสิร์ต ศิลปิน สถานที่"></div>
-  <div class="chips"><button class="chip on">ทั้งหมด</button><button class="chip">คอนเสิร์ต</button><button class="chip">เทศกาล</button><button class="chip">แฟนมีตติ้ง</button><button class="chip">สแตนด์อัป</button></div>
+  <div class="search m-only"><svg><use href="#i-search"/></svg><input id="q" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหาคอนเสิร์ต ศิลปิน สถานที่"></div>
+  <div class="chips">${cats.map(c=>`<button class="chip ${S.cat===c?'on':''}" data-cat="${c}">${c}</button>`).join('')}</div>
+  ${filtered?'':`
   <button class="ev feature" data-ev="${f.id}">
     ${poster(f,'lg')}
     <div class="finfo" style="padding:4px 14px 14px">
@@ -478,9 +455,10 @@ home(){
       <div class="meta">${f.date} · ${f.time} น. · ${f.venue}</div>
       <span class="d-only btn" style="width:auto;align-self:flex-start;margin-top:8px">ดูรายละเอียดและซื้อตั๋ว</span>
     </div>
-  </button>
-  <div class="row between"><h2 style="font-size:17px">งานที่กำลังเปิดขาย</h2><span class="small muted">บัตร 1,000 บาทขึ้นไป</span></div>
-  <div class="evlist">${EVENTS.slice(1).map(e=>`
+  </button>`}
+  <div class="row between"><h2 style="font-size:17px">${filtered?'พบ '+found.length+' งาน':'งานที่กำลังเปิดขาย'}</h2>${filtered?'<button class="linkbtn" data-act="clearq">ล้างตัวกรอง</button>':'<span class="small muted">บัตร 1,000 บาทขึ้นไป</span>'}</div>
+  ${rest.length?'':`<div class="empty">ไม่พบงานที่ตรงกับการค้นหา ลองใช้คำอื่น</div>`}
+  <div class="evlist">${rest.map(e=>`
     <button class="ev" data-ev="${e.id}">${poster(e)}
       <div><h3>${e.name}</h3><div class="meta">${e.date} · ${e.time} น.</div><div class="meta">${e.venue}</div>
       <div class="row between" style="margin-top:auto"><span class="price num">เริ่ม ${fmt(minPrice(e))}</span>${e.sold>=95?'<span class="pill warn">ใกล้เต็ม</span>':'<span class="pill grey">ตั๋ว NFT</span>'}</div></div>
@@ -489,6 +467,8 @@ home(){
 event(){
   const e=evById(S.ev);appbar(e.name);
   const z=e.zones[S.zone];
+  const owned=S.tickets.filter(t=>t.ev===e.id).length,cap=Math.max(0,4-owned);
+  if(S.qty>Math.max(1,cap))S.qty=Math.max(1,cap);
   return `<div class="cols">
   <div class="col">
     ${poster(e,'lg')}
@@ -516,13 +496,14 @@ event(){
         <span><b>${zz.z}</b><br><span class="small muted">${zz.left===0?'ขายหมดแล้ว · ดูในตลาดรีเซล':'เหลือ '+zz.left+' ที่'}</span></span>
         <b class="num">${fmt(zz.p)}</b>
       </button>`).join('')}</div>
+    ${e.zones.some(x=>x.left===0)?`<button class="linkbtn" data-act="gomarket" style="align-self:flex-start">บางโซนขายหมดแล้ว ดูตั๋วรีเซลของงานนี้</button>`:''}
     <div class="card row between">
-      <div><b>จำนวน</b><div class="small muted">สูงสุด 4 ใบต่อบัญชี</div></div>
+      <div><b>จำนวน</b><div class="small muted">${owned?'คุณมีตั๋วงานนี้แล้ว '+owned+' ใบ · ':''}ซื้อได้อีก ${cap} ใบ</div></div>
       <div class="qty"><button data-q="-1" aria-label="ลด">−</button><b class="num" style="min-width:16px;text-align:center">${S.qty}</b><button data-q="1" aria-label="เพิ่ม">+</button></div>
     </div>
     <div class="sticky-cta">
       <div class="tot"><span class="small muted">รวม</span><b class="num">${fmt(z.p*S.qty)}</b></div>
-      <button class="btn" data-act="buy">ซื้อตั๋ว</button>
+      <button class="btn" data-act="buy" ${cap===0||z.left===0?'disabled':''}>${cap===0?'ครบ 4 ใบต่อบัญชีแล้ว':z.left===0?'โซนนี้ขายหมด':'ซื้อตั๋ว'}</button>
     </div>
   </div></div>`;
 },
@@ -642,12 +623,13 @@ ticket(){
 },
 market(){
   appbar('ตลาดรีเซล');
+  const ls=S.listings.filter(l=>S.mcat==='all'||l.ev===S.mcat);
   return `
   <h1 class="d-only" style="font-size:24px">ตลาดรีเซล</h1>
   <div class="card" style="display:flex;gap:10px;align-items:flex-start"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
     <div class="small"><b>ตั๋วมือสองที่ตรวจสอบได้ทุกใบ</b><br><span class="muted">ผู้ขายต้องเป็นเจ้าของตั๋วบนเชนจริง ราคาไม่เกิน 120% ของหน้าบัตร เงินถึงผู้ขายเมื่อตั๋วโอนสำเร็จเท่านั้น</span></div></div>
-  <div class="chips"><button class="chip on">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip">${e.short.replace('\n',' ')}</button>`).join('')}</div>
-  ${S.listings.length?`<div class="lgrid">${S.listings.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.seller===short(S.user.wallet);return `
+  <div class="chips"><button class="chip ${S.mcat==='all'?'on':''}" data-mcat="all">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip ${S.mcat===e.id?'on':''}" data-mcat="${e.id}">${e.short.replace('\n',' ')}</button>`).join('')}</div>
+  ${ls.length?`<div class="lgrid">${ls.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.seller===short(S.user.wallet);return `
   <div class="listing">
     <div class="top">${poster(e)}<div><b>${e.name}</b><div class="small muted">${e.date} · ${l.zone}</div><div class="tokenid">Token #${l.tid}</div></div></div>
     <hr class="sep">
@@ -657,7 +639,7 @@ market(){
       ${mine?'<span class="pill grey">ตั๋วของคุณ</span>':`<button class="btn" style="width:auto;padding:10px 18px;font-size:15px" data-buyl="${l.lid}">ซื้อเลย</button>`}
     </div>
     <div class="row small muted" style="flex-wrap:wrap;gap:6px 12px"><span>ผู้ขาย <span class="mono">${l.seller}</span></span><span>โอนมาแล้ว ${l.transfers}/2 ครั้ง</span><span class="pill ok">ยืนยันเจ้าของบนเชน</span></div>
-  </div>`}).join('')}</div>`:'<div class="empty">ยังไม่มีตั๋วลงขาย</div>'}`;
+  </div>`}).join('')}</div>`:`<div class="empty">${S.mcat==='all'?'ยังไม่มีตั๋วลงขาย':'ยังไม่มีตั๋วรีเซลของงานนี้'}</div>`}`;
 },
 profile(){
   appbar('บัญชี');
@@ -679,6 +661,7 @@ profile(){
       <button class="btn plain" data-act="toast" data-msg="ฟีเจอร์นี้อยู่ในแผนพัฒนาถัดไป">เชื่อมต่อ wallet ของฉัน</button>
     </div>
     <button class="btn plain" data-act="logout">ออกจากระบบ</button>
+    <button class="linkbtn" data-act="reset" style="align-self:center">ล้างข้อมูลเดโมทั้งหมด</button>
   </div></div>`;
 },
 };
@@ -707,7 +690,7 @@ function nftCard(t,full){
 const AFTER={
   pay(){
     drawQR($('#payqr'),'pp'+Date.now());
-    let s=599;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0)clearInterval(S.payTimer)},1000);
+    let s=599;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0){clearInterval(S.payTimer);el.textContent='หมดอายุ';const pb=document.querySelector('[data-act="paid"]');if(pb)pb.outerHTML='<button class="btn" data-act="newqr">สร้าง QR ใหม่</button>'}},1000);
   },
   minting(){
     const lis=[...document.querySelectorAll('#mintsteps li')];let i=0;
@@ -737,7 +720,7 @@ function finishMint(){
     for(let k=0;k<S.qty;k++){t={tid:S.nextTid++,ev:e.id,zone:z.z,price:z.p,status:'active',transfers:0,tx:'0x'+rand(4)+'…'+rand(4)};S.tickets.unshift(t)}
     t=S.tickets[S.qty-1];
   }
-  S.sel=t;S.stack=['tickets'];S.tab='tickets';S.mtab='active';go('success');renderFlow('tickets');
+  S.sel=t;S.stack=['tickets'];S.tab='tickets';S.mtab='active';go('success');
 }
 function rand(n){return Array.from({length:n},()=>'0123456789abcdef'[Math.random()*16|0]).join('')}
 
@@ -752,6 +735,10 @@ function drawQR(c,seed){
   [[1,1],[N-8,1],[1,N-8]].forEach(([x,y])=>{ctx.fillRect(x,y,7,7);ctx.fillStyle='#fff';ctx.fillRect(x+1,y+1,5,5);ctx.fillStyle='#1E1416';ctx.fillRect(x+2,y+2,3,3)});
   ctx.fillStyle='#A00018';ctx.fillRect(13,13,3,3);
 }
+
+/* ---------- live search ---------- */
+$('#device').addEventListener('input',e=>{const id=e.target.id;if(id!=='q'&&id!=='dq')return;
+  S.q=e.target.value;S.focus=id;if(S.stack[S.stack.length-1]!=='home'){stopTimers();S.tab='home';S.stack=['home']}render()});
 
 /* ---------- sheets ---------- */
 function sheet(html){closeSheet();const w=document.createElement('div');w.className='sheet-wrap';w.id='sheet';
@@ -808,26 +795,28 @@ function toast(msg){const old=$('.toast');if(old)old.remove();const d=document.c
 /* ---------- actions ---------- */
 $('#device').addEventListener('click',e=>{
   const t=e.target;let b;
-  if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.zone=evById(S.ev).zones.findIndex(z=>z.left>0);S.qty=1;go('event');renderFlow('event');return}
+  if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.zone=Math.max(0,evById(S.ev).zones.findIndex(z=>z.left>0));S.qty=1;go('event');return}
+  if(b=t.closest('[data-cat]')){S.cat=b.dataset.cat;render();return}
+  if(b=t.closest('[data-mcat]')){S.mcat=b.dataset.mcat;render();return}
   if(b=t.closest('[data-zone]')){S.zone=+b.dataset.zone;render();return}
-  if(b=t.closest('[data-q]')){S.qty=Math.min(4,Math.max(1,S.qty+ +b.dataset.q));render();return}
+  if(b=t.closest('[data-q]')){{const cap=4-S.tickets.filter(x=>x.ev===S.ev).length;S.qty=Math.min(Math.max(1,cap),Math.max(1,S.qty+ +b.dataset.q))}render();return}
   if(b=t.closest('[data-pay]')){S.pay=b.dataset.pay;render();return}
   if(b=t.closest('[data-mtab]')){S.mtab=b.dataset.mtab;render();return}
   if(b=t.closest('[data-ticket]')){S.sel=S.tickets.find(x=>x.tid==b.dataset.ticket);S.ticketView='qr';go('ticket');return}
   if(b=t.closest('[data-tv]')){S.ticketView=b.dataset.tv;stopTimers();render();return}
-  if(b=t.closest('[data-buyl]')){S.buyingListing=S.listings.find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');renderFlow('checkout');return}
+  if(b=t.closest('[data-buyl]')){S.buyingListing=S.listings.find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');return}
   if(!(b=t.closest('[data-act]'))||b.closest('#appbar'))return;
   const a=b.dataset.act;
   switch(a){
-    case 'buy':S.buyingListing=null;if(!S.signedIn){openSignup('checkout');return}go('checkout');renderFlow('checkout');break;
+    case 'buy':S.buyingListing=null;if(!S.signedIn){openSignup('checkout');return}go('checkout');break;
     case 'topay':go('pay');break;
-    case 'paid':S.stack.pop();S.stack.pop();go('minting');renderFlow('minting');break;
+    case 'paid':S.stack.pop();S.stack.pop();go('minting');break;
     case 'back':back();break;
-    case 'home':go('home',true);renderFlow('home');break;
-    case 'viewticket':S.ticketView='qr';go('ticket');renderFlow('qr');break;
+    case 'home':go('home',true);break;
+    case 'viewticket':S.ticketView='qr';go('ticket');break;
     case 'signup':openSignup();break;
     case 'google':walletCreating();break;
-    case 'signedin':closeSheet();toast('สร้างกระเป๋าตั๋วเรียบร้อย');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n);renderFlow(n)}else render();break;
+    case 'signedin':closeSheet();toast('สร้างกระเป๋าตั๋วเรียบร้อย');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n);}else render();break;
     case 'resell':openResell();break;
     case 'transfer':openTransfer();break;
     case 'close':closeSheet();break;
@@ -836,26 +825,25 @@ $('#device').addEventListener('click',e=>{
       closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');render();break}
     case 'unlist':{const tk=S.sel;tk.status='active';S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
     case 'dotransfer':{const to=$('#tto').value.trim();if(!to){$('#tto').focus();return}
-      S.tickets=S.tickets.filter(x=>x!==S.sel);closeSheet();toast('โอน Token #'+S.sel.tid+' ให้ '+to+' แล้ว');go('tickets',true);renderFlow('tickets');break}
+      S.tickets=S.tickets.filter(x=>x!==S.sel);closeSheet();toast('โอน Token #'+S.sel.tid+' ให้ '+to+' แล้ว');go('tickets',true);break}
     case 'scan':{S.sel.status='used';stopTimers();toast('สแกนผ่าน เข้างานได้ ตั๋วถูกล็อกแล้ว');render();break}
     case 'copy':{const w=S.user.wallet;try{navigator.clipboard.writeText(w).then(()=>toast('คัดลอกที่อยู่ wallet แล้ว'),()=>toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน'))}catch(_){toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน')}break}
     case 'toast':toast(b.dataset.msg);break;
-    case 'logout':S.signedIn=false;go('home',true);renderFlow('home');break;
+    case 'gomarket':S.mcat=S.ev;go('market',true);break;
+    case 'clearq':S.q='';S.cat='ทั้งหมด';render();break;
+    case 'newqr':render();break;
+    case 'reset':try{localStorage.removeItem(KEY)}catch(_){}location.reload();break;
+    case 'logout':S.signedIn=false;go('home',true);break;
   }
 });
 
-/* screen-size mode: auto by width until the viewer picks one */
-let chosenMode=null;
-function applyMode(){
-  S.desk=chosenMode?chosenMode==='d':window.innerWidth>=1100;
-  $('#stage').classList.toggle('desk',S.desk);
-  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.mode==='d')===S.desk));
-}
-$('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(!b)return;chosenMode=b.dataset.mode;const was=S.desk;applyMode();if(was!==S.desk){closeSheet();stopTimers();render()}});
-window.addEventListener('resize',()=>{if(chosenMode)return;const was=S.desk;applyMode();if(was!==S.desk){closeSheet();stopTimers();render()}});
+/* layout follows the screen width */
+function applyMode(){S.desk=window.innerWidth>=900;$('#stage').classList.toggle('desk',S.desk)}
+window.addEventListener('resize',()=>{const was=S.desk;applyMode();if(was!==S.desk){closeSheet();stopTimers();render()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
 
 /* boot: signed-out home, matching step 1 of the flow */
-applyMode();render();renderFlow('home');
+load();applyMode();render();
 })();
 </script>
 
