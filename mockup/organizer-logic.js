@@ -52,12 +52,12 @@ function settleTicket(ticket, face) {
   return { shopNet, shopFee, commission: comm, totalIn, sellerPayouts };
 }
 
+// Face = what the buyer paid for the first hop (list price, or less when a promo code was used).
 function settleEvent(event, tickets) {
-  const price = new Map((event.zones || []).map(z => [z.id, z.price]));
   const out = { shopNet: 0, shopFee: 0, commission: 0, totalIn: 0, sellerPayouts: [] };
   for (const t of tickets) {
     if (t.eventId !== event.id) continue;
-    const r = settleTicket(t, price.get(t.zoneId) || 0);
+    const r = settleTicket(t, t.hops && t.hops[0] && t.hops[0].paid > 0 ? t.hops[0].paid : 0);
     out.shopNet += r.shopNet; out.shopFee += r.shopFee; out.commission += r.commission; out.totalIn += r.totalIn;
     out.sellerPayouts.push(...r.sellerPayouts);
   }
@@ -204,13 +204,23 @@ function recordPrimarySale(ev, zoneId, qty, buyerId, ownedCount, now) {
 
 /* ---------- dashboard ---------- */
 
-function summarize(ev) {
+// With a tickets list, revenue comes from what buyers actually paid (promo discounts included); without, from list prices.
+function summarize(ev, tickets) {
   const out = { capacity: 0, sold: 0, held: 0, remaining: 0, gross: 0, fees: 0, net: 0, comps: 0 };
   for (const z of ev.zones || []) {
     out.capacity += z.capacity; out.sold += z.sold || 0; out.held += z.held || 0;
     if (z.kind === 'comp') { out.comps += z.sold || 0; continue; }
+    if (tickets) continue;
     out.gross += z.price * (z.sold || 0);
     out.fees += serviceFee(z.price) * (z.sold || 0);
+  }
+  if (tickets) {
+    const comp = new Set((ev.zones || []).filter(z => z.kind === 'comp').map(z => z.id));
+    for (const t of tickets) {
+      const paid = t.hops && t.hops[0] ? t.hops[0].paid : 0;
+      if (t.eventId !== ev.id || comp.has(t.zoneId) || !(paid > 0)) continue;
+      out.gross += paid; out.fees += serviceFee(paid);
+    }
   }
   out.remaining = out.capacity - out.sold - out.held;
   out.net = out.gross - out.fees;
@@ -239,13 +249,24 @@ function salesByDay(tickets, now, days) {
   return out;
 }
 
+function applyPromo(code, promos, zoneId, priceSatang, now) {
+  const fail = reason => ({ ok: false, price: priceSatang, reason });
+  const p = promos.find(x => !x.disabled && String(x.code).toUpperCase() === String(code || '').trim().toUpperCase());
+  if (!p || !String(code || '').trim()) return fail('not_found');
+  if (p.zoneId && p.zoneId !== zoneId) return fail('wrong_zone');
+  if (now < p.startsAt || now > p.endsAt) return fail('expired');
+  if ((p.used || 0) >= p.maxUses) return fail('used_up');
+  const off = p.percentOff ? pctHalfUp(priceSatang, p.percentOff) : p.amountOff || 0;
+  return { ok: true, price: Math.max(0, priceSatang - off) };
+}
+
 // When the shop is paid: event end + dispute window (context.md 5.6). Cancelled events pay nothing.
 function payoutAt(ev) {
   if (ev.status === 'cancelled' || !ev.endAt) return null;
   return ev.endAt + (ev.params?.disputeWindowH ?? 24) * 3600000;
 }
 
-const OrgLogic = { summarize, duplicateEvent, salesByDay, payoutAt, toSatang, fmtBaht, serviceFee, commission, resaleCap, settleTicket, settleEvent,
+const OrgLogic = { applyPromo, summarize, duplicateEvent, salesByDay, payoutAt, toSatang, fmtBaht, serviceFee, commission, resaleCap, settleTicket, settleEvent,
   validateZone, validateEvent, canEditZone, planCancellation, checkinResult, reasonText,
   thaiDate, thaiTime, toBuyerEvent, recordPrimarySale };
 globalThis.OrgLogic = OrgLogic;

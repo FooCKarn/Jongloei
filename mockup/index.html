@@ -319,6 +319,7 @@ body{padding:0}
 .org-swatch{width:44px;height:44px;border-radius:12px;border:2px solid transparent;cursor:pointer}.org-swatch.on{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
 .org-wiz .field input:disabled,.org-wiz .field select:disabled{opacity:.6}
 .seg.four{grid-template-columns:repeat(4,1fr)}
+.seg.five{grid-template-columns:repeat(5,1fr)}.seg.five button{padding:8px 4px;font-size:12.5px}
 @media print{
   html,body{height:auto!important;background:#fff!important}
   #appbar,#tabbar,.no-print,.toast,.sheet-wrap{display:none!important}
@@ -668,7 +669,7 @@ event(){
 checkout(){
   appbar('ชำระเงิน');
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
-  const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:e.zones[S.zone].p;const qty=L?1:S.qty;
+  const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:buyUnit(e);const qty=L?1:S.qty;
   const local=isLocal(e.id);
   const sub=unit*qty,fee=local?0:Math.round(sub*0.03);   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
   return `<div class="cols">
@@ -678,6 +679,7 @@ checkout(){
       ${local?`<button class="pay on" data-pay="promptpay"><span class="logo">QR</span><span><b>PromptPay</b> <span class="pill warn">จำลอง</span><br><span class="small muted">งานจากผู้จัดในเดโม ไม่มีการตัดเงินจริง</span></span><span class="radio"></span></button>`
       :`<button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">รองรับวิธีชำระเงินที่เหมาะกับคุณ</span></span><span class="radio"></span></button>`}
     </div>
+    ${local&&!L?`<div class="field"><label for="promo-input">โค้ดส่วนลด</label><div class="row"><input id="promo-input" value="${esc(S.promo&&S.promo.ev===e.id?S.promo.code:'')}" autocomplete="off" style="flex:1"><button class="btn plain" style="width:auto;padding:10px 14px;font-size:14px" data-o="promoApply">ใช้โค้ด</button></div><span class="hint" id="promo-msg" role="status">${S.promo&&S.promo.ev===e.id?esc(S.promo.msg):''}</span></div>`:''}
     <p class="small muted" style="margin:0">ตั๋วจะถูกส่งเข้ากระเป๋าตั๋วของ ${S.user.name} (<span class="mono">${short(S.user.wallet)}</span>) หลังยืนยันการชำระเงิน</p>
   </div>
   <div class="col side">
@@ -697,7 +699,7 @@ checkout(){
 pay(){
   appbar('สแกนเพื่อชำระ');
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
-  const sub=L?L.price:e.zones[S.zone].p*S.qty;const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
+  const sub=L?L.price:buyUnit(e)*S.qty;const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
   return `<div class="cols even">
   <div class="col">
     <div class="qrbox">
@@ -775,6 +777,7 @@ ticket(){
   const locked=t.status!=='active';
   return `<div class="tgrid">
   <div class="col">
+    ${ticketAnn(t)}
     <div class="seg"><button data-tv="qr" class="${S.ticketView==='qr'?'on':''}">QR เข้างาน</button><button data-tv="nft" class="${S.ticketView==='nft'?'on':''}">ข้อมูล NFT</button></div>
     <div class="col ${S.ticketView==='qr'?'':'tv-hide'}">
       <div class="qrbox">
@@ -868,7 +871,7 @@ function orgTicketStatus(buyerTicket,status){
 const EV_STATUS={draft:['ร่าง','grey'],on_sale:['เปิดขาย','ok'],paused:['พักการขาย','warn'],sold_out:['ขายหมด','warn'],ended:['จบแล้ว','grey'],cancelled:['ยกเลิก','']};
 const statusPill=s=>{const [t,c]=EV_STATUS[s]||[s,''];return `<span class="pill ${c}">${t}</span>`};
 function orgEvCard(e){
-  const s=OL.summarize(e),pct=s.capacity?Math.min(100,Math.round((s.sold+s.held)*100/s.capacity)):0;
+  const s=evSum(e),pct=s.capacity?Math.min(100,Math.round((s.sold+s.held)*100/s.capacity)):0;
   const when=e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน';
   return `<div class="listing org-evcard" data-id="${e.id}">
     <button class="top" data-o="openEvent" data-id="${e.id}" style="background:none;border:0;padding:0;text-align:left;width:100%">${poster({bg:e.bg,tag:e.category,short:e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase()})}
@@ -1185,11 +1188,13 @@ function wizLeaveSheet(){
 /* ---------- organizer: event management ---------- */
 const TICKET_STATUS={valid:'พร้อมใช้',listed:'ลงขายอยู่',used:'ใช้แล้ว',refunded:'คืนเงินแล้ว',unavailable:'ไม่มา'};
 const evTickets=id=>S.org.tickets.filter(t=>t.eventId===id);
+// revenue figures from what buyers actually paid (promo discounts included); drafts have no tickets so use list prices
+const evSum=e=>OL.summarize(e,e.status==='draft'?undefined:evTickets(e.id).filter(t=>t.status!=='refunded'));
 const maskEmail=m=>{const [a,b]=String(m).split('@');return b?a.slice(0,1)+'***@'+b:'***'};
 const csvCell=v=>{let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
 
 function evOverview(e){
-  const s=OL.summarize(e),ro=['ended','cancelled'].includes(e.status);
+  const s=evSum(e),ro=['ended','cancelled'].includes(e.status);
   const act=e.status==='on_sale'?`<button class="btn plain" data-o="pause">พักการขาย</button>`
     :e.status==='paused'?`<button class="btn" data-o="resume">เปิดขายต่อ</button>`
     :e.status==='draft'?`<button class="btn" data-o="editEvent" data-id="${e.id}">แก้ไขและเผยแพร่</button>`:'';
@@ -1418,6 +1423,67 @@ function finPrintDoc(r){
   </div>`;
 }
 
+/* ---------- organizer: comp tickets, promo codes, announcements ---------- */
+const PROMO_WHY={not_found:'ไม่พบโค้ดนี้หรือถูกปิดใช้งาน',expired:'โค้ดหมดอายุหรือยังไม่เริ่มใช้',used_up:'โค้ดถูกใช้ครบจำนวนแล้ว',wrong_zone:'โค้ดนี้ใช้กับโซนนี้ไม่ได้'};
+const AN_TEMPLATES={time:'เวลาเริ่มงานเปลี่ยนเป็น __:__ น. ตั๋วใบเดิมใช้ได้ตามปกติ ไม่ต้องทำอะไรเพิ่ม',
+  place:'สถานที่จัดงานเปลี่ยนเป็น ________ ตั๋วใบเดิมใช้ได้ตามปกติ ขออภัยในความไม่สะดวก',
+  weather:'เนื่องจากสภาพอากาศ งานอาจเลื่อนหรือย้ายเข้าในร่ม เราจะแจ้งอีกครั้งภายใน __ ชม. ตั๋วยังใช้ได้'};
+function evExtras(e){
+  const x=S.org.xtab||'comp',subs=[['comp','บัตรเชิญ'],['promo','โค้ดส่วนลด'],['ann','ประกาศ']];
+  const body={comp:xComp,promo:xPromo,ann:xAnn}[x](e);
+  return `<div class="org-extras" style="display:flex;flex-direction:column;gap:14px"><div class="chips" role="tablist">${subs.map(([k,v])=>`<button role="tab" aria-selected="${x===k}" class="chip ${x===k?'on':''}" data-o="xtab" data-t="${k}">${v}</button>`).join('')}</div>${body}</div>`;
+}
+function xComp(e){
+  const cz=e.zones.filter(z=>z.kind==='comp');
+  if(!cz.length)return `<div id="comp-list" class="card small"><b>งานนี้ยังไม่มีโซนบัตรเชิญ</b><br><span class="muted">เพิ่มโซนประเภท "บัตรเชิญ (ฟรี)" ในหน้าแก้ไขงาน แล้วกลับมาออกบัตรได้</span></div>
+    <button class="btn plain" data-o="editEvent" data-id="${e.id}">แก้ไขงาน</button>`;
+  const tk=evTickets(e.id).filter(t=>cz.some(z=>z.id===t.zoneId));
+  return `<div class="card small"><b>บัตรเชิญไม่ผ่านการจ่ายเงิน</b><br><span class="muted">ไม่มีเงินเข้า-ออก ไม่คิดค่าบริการ และขายต่อไม่ได้ ผู้รับจะได้ตั๋วในอีเมลที่ระบุ</span></div>
+    ${fld('cp-name','ชื่อผู้รับ',{value:''})}${fld('cp-email','อีเมลผู้รับ',{value:'',type:'email',attrs:'autocomplete="off"'})}
+    ${fld('cp-zone','โซนบัตรเชิญ',{value:cz[0].id,options:cz.map(z=>[z.id,`${z.name} (ออกแล้ว ${z.sold}/${z.capacity})`])})}
+    <button class="btn" data-o="compIssue">ออกบัตรเชิญ</button>
+    <h2 style="font-size:16px">รายชื่อผู้ได้รับบัตรเชิญ (${tk.length})</h2>
+    <div id="comp-list" style="display:flex;flex-direction:column;gap:8px">${tk.length?tk.map(t=>{const p=orgPerson(t.holderId);return `<div class="card row between"><div style="min-width:0"><b>${esc(p.name)}</b><div class="small muted">${esc(maskEmail(p.email||''))} · ขายต่อไม่ได้</div></div><span class="pill ${t.status==='used'?'grey':'ok'}">${t.status==='used'?'ใช้แล้ว':'ส่งแล้ว'}</span></div>`}).join(''):'<div class="empty">ยังไม่ได้ออกบัตรเชิญ</div>'}</div>`;
+}
+function xPromo(e){
+  const B=OL.fmtBaht,paid=e.zones.filter(z=>z.kind!=='comp'),pr=S.org.promos.filter(p=>!p.eventId||p.eventId===e.id);
+  const when=ms=>OL.thaiDate(ms);
+  return `${fld('pm-code','โค้ด',{value:'',hint:'ตัวอักษรอังกฤษหรือตัวเลข 3-20 ตัว เช่น EARLY10',attrs:'autocapitalize="characters" autocomplete="off"'})}
+    <div class="row"><div style="flex:1">${fld('pm-kind','ลดแบบ',{value:'percent',options:[['percent','เปอร์เซ็นต์ (%)'],['amount','จำนวนเงิน (บาท)']]})}</div><div style="flex:1">${fld('pm-value','ลดเท่าไร',{value:'',attrs:'inputmode="decimal"'})}</div></div>
+    ${fld('pm-zone','ใช้กับโซน',{value:'all',options:[['all','ทุกโซน'],...paid.map(z=>[z.id,z.name])]})}
+    ${fld('pm-start','เริ่มใช้ได้',{value:'',type:'datetime-local'})}${fld('pm-end','หมดอายุ',{value:'',type:'datetime-local'})}
+    ${fld('pm-max','ใช้ได้กี่ครั้ง',{value:'50',attrs:'inputmode="numeric"'})}
+    <button class="btn" data-o="promoCreate">สร้างโค้ด</button>
+    <h2 style="font-size:16px">โค้ดทั้งหมด (${pr.length})</h2>
+    <div id="promo-list" style="display:flex;flex-direction:column;gap:8px">${pr.length?pr.map(p=>`<div class="card" style="display:flex;flex-direction:column;gap:4px"><div class="row between"><b class="mono">${esc(p.code)}</b><span class="pill ${p.disabled?'grey':'ok'}">${p.disabled?'ปิดอยู่':'ใช้งานได้'}</span></div>
+      <div class="small muted">ลด ${p.percentOff?p.percentOff+'%':B(p.amountOff)} · ${p.zoneId?esc((e.zones.find(z=>z.id===p.zoneId)||{name:'—'}).name):'ทุกโซน'} · ${when(p.startsAt)}–${when(p.endsAt)} · ใช้แล้ว ${p.used||0}/${p.maxUses}</div>
+      <button class="btn plain" style="padding:8px;font-size:14px;min-height:44px" data-o="promoToggle" data-code="${esc(p.code)}">${p.disabled?'เปิดใช้งาน':'ปิดโค้ด'}</button></div>`).join(''):'<div class="empty">ยังไม่มีโค้ดส่วนลด</div>'}</div>
+    <div class="card" style="display:flex;flex-direction:column;gap:8px"><b>ลองกรอกโค้ด</b>
+      ${fld('pt-code','โค้ด',{value:''})}${fld('pt-zone','โซน',{value:paid[0]?paid[0].id:'',options:paid.map(z=>[z.id,`${z.name} · ${B(z.price)}`])})}
+      <button class="btn plain" data-o="promoTest">ดูราคาหลังลด</button><span class="hint" id="promo-test-result" role="status"></span></div>`;
+}
+function xAnn(e){
+  const hist=S.org.announcements.filter(a=>a.eventId===e.id).slice().reverse(),zn=id=>id==='all'?'ทุกโซน':(e.zones.find(z=>z.id===id)||{name:id}).name;
+  return `${fld('an-zone','ส่งถึง',{value:'all',options:[['all','ผู้ถือตั๋วทุกคน'],...e.zones.filter(z=>z.kind!=='comp').map(z=>[z.id,'เฉพาะโซน '+z.name])]})}
+    <div class="chips" role="group" aria-label="เทมเพลต"><button class="chip" data-o="anTpl" data-t="time">เปลี่ยนเวลา</button><button class="chip" data-o="anTpl" data-t="place">เปลี่ยนสถานที่</button><button class="chip" data-o="anTpl" data-t="weather">สภาพอากาศ</button></div>
+    ${fld('an-text','ข้อความ',{value:'',tag:'textarea',hint:'ผู้ซื้อเห็นข้อความนี้ในหน้าตั๋ว'})}
+    <button class="btn" data-o="annSend">ส่งประกาศ</button>
+    <h2 style="font-size:16px">ประวัติการส่ง (${hist.length})</h2>
+    <div id="ann-list" style="display:flex;flex-direction:column;gap:8px">${hist.length?hist.map(a=>`<div class="card small"><div class="row between"><b>${zn(a.zone)}</b><span class="muted num">ถึง ${a.recipients} คน · ${OL.thaiTime(a.at)} น.</span></div><div>${esc(a.text)}</div></div>`).join(''):'<div class="empty">ยังไม่เคยส่งประกาศ</div>'}</div>`;
+}
+// announcements a buyer should see on a ticket: whole event, or their own zone
+function ticketAnn(bt){
+  if(!bt||!isLocal(bt.ev)||!S.org)return '';
+  const ot=S.org.tickets.find(x=>x.ticketId===bt.orgTicketId),list=S.org.announcements.filter(a=>a.eventId===bt.ev&&(a.zone==='all'||(ot&&a.zone===ot.zoneId))).slice(-2).reverse();
+  return list.length?`<div class="card" style="display:flex;flex-direction:column;gap:6px" role="status"><b>ประกาศจากผู้จัด</b>${list.map(a=>`<div class="small">${esc(a.text)}<div class="muted">${OL.thaiDate(a.at)} · ${OL.thaiTime(a.at)} น.</div></div>`).join('')}</div>`:'';
+}
+// price a buyer pays per ticket for an organizer event, with an applied promo code (baht)
+function buyUnit(e){
+  const z=e.zones[S.zone];
+  if(isLocal(e.id)&&S.promo&&S.promo.ev===e.id){const r=OL.applyPromo(S.promo.code,S.org.promos,z.zoneId,Math.round(z.p*100),Date.now());if(r.ok)return r.price/100}
+  return z.p;
+}
+
 const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
 Object.assign(ORG_ACTIONS,{
   wizNext(){
@@ -1494,6 +1560,60 @@ Object.assign(ORG_ACTIONS,{
     const plan=orgCancelEvent(e.id,val('cx-reason'));cancelProgressSheet(e,plan);
   },
   cancelClose(){closeSheet();render()},
+  xtab(el){S.org.xtab=el.dataset.t;render()},
+  compIssue(){
+    const e=orgEv(S.org.oev),g=id=>document.getElementById(id),set=(id,m)=>{g(id).textContent=m};
+    const name=val('cp-name'),email=val('cp-email').toLowerCase(),zone=e.zones.find(z=>z.id===val('cp-zone'));
+    ['cp-name-err','cp-email-err','cp-zone-err'].forEach(id=>set(id,''));
+    if(!name){set('cp-name-err','ใส่ชื่อผู้รับ');return}
+    if(!EMAIL_RE.test(email)){set('cp-email-err','อีเมลไม่ถูกต้อง');return}
+    if(zone.sold+zone.held>=zone.capacity){set('cp-zone-err','บัตรเชิญโซนนี้เต็มแล้ว ('+zone.sold+'/'+zone.capacity+') เพิ่มจำนวนในหน้าแก้ไขงาน');return}
+    const gid='guest-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    S.org.buyers[gid]={name,email,phone:''};
+    S.org.tickets.push({ticketId:e.id+'-'+zone.id+'-'+(zone.sold+1),eventId:e.id,zoneId:zone.id,holderId:gid,status:'valid',usedAt:null,checkinMethod:null,
+      hops:[{idx:0,payerId:gid,paid:0,at:Date.now()}],invite:true});
+    replaceOrgEvent({...e,zones:e.zones.map(z=>z===zone?{...z,sold:z.sold+1}:z)});
+    toast('จำลอง: ส่งบัตรเชิญถึง '+email+' แล้ว');render();
+  },
+  promoCreate(){
+    const e=orgEv(S.org.oev),g=id=>document.getElementById(id),errs={};
+    const code=val('pm-code').toUpperCase(),kind=val('pm-kind'),raw=val('pm-value'),start=fromLocalInput(val('pm-start')),end=fromLocalInput(val('pm-end')),max=Number(val('pm-max'));
+    if(!/^[A-Z0-9]{3,20}$/.test(code))errs['pm-code']='โค้ดต้องเป็นอังกฤษหรือตัวเลข 3-20 ตัว';
+    else if(S.org.promos.some(p=>p.code===code))errs['pm-code']='มีโค้ดนี้อยู่แล้ว';
+    let value=Number(raw);
+    if(kind==='percent'){if(!Number.isInteger(value)||value<1||value>100)errs['pm-value']='เปอร์เซ็นต์ต้องเป็นจำนวนเต็ม 1-100'}
+    else{value=OL.toSatang(raw);if(Number.isNaN(value)||value<100)errs['pm-value']='ใส่จำนวนเงินอย่างน้อย ฿1'}
+    if(!start)errs['pm-start']='ใส่วันเวลาเริ่มใช้';
+    if(!end)errs['pm-end']='ใส่วันเวลาหมดอายุ';else if(start&&end<=start)errs['pm-end']='หมดอายุต้องหลังวันเริ่มใช้';
+    if(!Number.isInteger(max)||max<1)errs['pm-max']='จำนวนครั้งต้องเป็นจำนวนเต็มอย่างน้อย 1';
+    for(const id of ['pm-code','pm-value','pm-start','pm-end','pm-max'])g(id+'-err').textContent=errs[id]||'';
+    if(Object.keys(errs).length)return;
+    const zid=val('pm-zone');
+    S.org.promos.push({code,eventId:e.id,...(kind==='percent'?{percentOff:value}:{amountOff:value}),...(zid!=='all'?{zoneId:zid}:{}),startsAt:start,endsAt:end,maxUses:max,used:0,disabled:false});
+    toast('สร้างโค้ด '+code+' แล้ว');render();
+  },
+  promoToggle(el){const p=S.org.promos.find(x=>x.code===el.dataset.code);if(p){p.disabled=!p.disabled;render()}},
+  promoTest(){
+    const e=orgEv(S.org.oev),z=e.zones.find(x=>x.id===val('pt-zone')),out=document.getElementById('promo-test-result');
+    if(!z){out.textContent='เลือกโซนก่อน';return}
+    const r=OL.applyPromo(val('pt-code'),S.org.promos.filter(p=>!p.eventId||p.eventId===e.id),z.id,z.price,Date.now());
+    out.textContent=r.ok?'ราคาหลังลด '+OL.fmtBaht(r.price)+' (จาก '+OL.fmtBaht(z.price)+')':PROMO_WHY[r.reason];
+  },
+  promoApply(){
+    const e=evById(S.ev),z=e.zones[S.zone],out=document.getElementById('promo-msg'),code=val('promo-input');
+    const r=OL.applyPromo(code,S.org.promos.filter(p=>!p.eventId||p.eventId===e.id),z.zoneId,Math.round(z.p*100),Date.now());
+    if(!r.ok){S.promo=null;out.textContent=PROMO_WHY[r.reason];return}
+    S.promo={ev:e.id,code:code.toUpperCase(),msg:'ใช้โค้ด '+code.toUpperCase()+' แล้ว ลดเหลือ '+fmt(r.price/100)+' ต่อใบ'};render();
+  },
+  anTpl(el){document.getElementById('an-text').value=AN_TEMPLATES[el.dataset.t]},
+  annSend(){
+    const e=orgEv(S.org.oev),text=document.getElementById('an-text').value.trim(),zone=val('an-zone');
+    document.getElementById('an-text-err').textContent='';
+    if(!text){document.getElementById('an-text-err').textContent='เขียนข้อความก่อนส่ง';return}
+    const n=new Set(evTickets(e.id).filter(t=>['valid','listed'].includes(t.status)&&(zone==='all'||t.zoneId===zone)).map(t=>t.holderId)).size;
+    S.org.announcements.push({id:'an-'+Date.now(),eventId:e.id,at:Date.now(),text,recipients:n,zone});
+    toast('จำลอง: ส่งประกาศถึง '+n+' คนแล้ว');render();
+  },
   finToggle(el){const o=S.org;o.finOpen=o.finOpen||{};o.finOpen[el.dataset.id]=!o.finOpen[el.dataset.id];render()},
   finPrint(el){S.org.printEv=el.dataset.id;render()},
   finPrintClose(){S.org.printEv=null;render()},
@@ -1582,8 +1702,8 @@ orgDash(){
   appbar('ภาพรวม');
   const sh=S.org.shop,now=Date.now(),B=OL.fmtBaht;
   const evs=S.org.events,counted=evs.filter(e=>['on_sale','sold_out','paused','ended'].includes(e.status));
-  const sums=counted.map(e=>OL.summarize(e));
-  const net=sums.reduce((a,s)=>a+s.net,0),held=evs.reduce((a,e)=>a+OL.summarize(e).held,0);
+  const sums=counted.map(e=>evSum(e));
+  const net=sums.reduce((a,s)=>a+s.net,0),held=evs.reduce((a,e)=>a+evSum(e).held,0);
   const days=OL.salesByDay(S.org.tickets.filter(t=>counted.some(e=>e.id===t.eventId)),now,14),today=days[days.length-1];
   const nextPay=counted.map(e=>({e,at:OL.payoutAt(e)})).filter(x=>x.at&&x.at>now).sort((a,b)=>a.at-b.at)[0];
   const stat=(k,label,v,sub)=>`<div class="card org-stat"><span class="small muted">${label}</span><b class="num" ${k?`data-stat="${k}"`:''}>${v}</b>${sub?`<span class="small muted">${sub}</span>`:''}</div>`;
@@ -1591,7 +1711,7 @@ orgDash(){
   if(sh.verification!=='verified')todo.push(`<li><b>รอยืนยันร้าน</b><span class="small muted"> · เผยแพร่งานได้หลังยืนยันเสร็จ</span></li>`);
   for(const e of evs.filter(x=>x.status==='draft'))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · ร่างที่ยังไม่เผยแพร่</span> <button class="linkbtn" data-o="editEvent" data-id="${e.id}">แก้ไข</button></li>`);
   for(const e of evs.filter(x=>x.status==='on_sale'&&x.startAt-now<DAY&&x.endAt>now))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · เริ่ม${e.startAt<=now?'แล้ว':'ภายใน 24 ชม.'}</span> <button class="linkbtn" data-o="gate" data-id="${e.id}">เปิดหน้างาน</button></li>`);
-  for(const e of evs.filter(x=>x.status==='on_sale')){const s=OL.summarize(e);const paid=e.zones.filter(z=>z.kind!=='comp');
+  for(const e of evs.filter(x=>x.status==='on_sale')){const s=evSum(e);const paid=e.zones.filter(z=>z.kind!=='comp');
     const pc=paid.reduce((a,z)=>a+z.capacity,0),pt=paid.reduce((a,z)=>a+z.sold+z.held,0);
     if(pc&&pt/pc>=.9)todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · ตั๋วเหลือ ${s.remaining} ที่ ใกล้เต็ม</span></li>`)}
   return `<div class="row between"><div><h1 style="font-size:22px">${esc(sh.name)}</h1>
@@ -1601,7 +1721,7 @@ orgDash(){
   <div class="org-stats">
     ${stat('today','ตั๋วที่ขายวันนี้',today.count+' ใบ',B(today.amount))}
     ${stat('net','รายรับสุทธิรวม',B(net),'หลังหักค่าบริการ')}
-    ${stat('next','เงินที่จะได้รับครั้งถัดไป',nextPay?B(OL.summarize(nextPay.e).net):'—',nextPay?OL.thaiDate(nextPay.at):'ยังไม่มีงานรอจ่าย')}
+    ${stat('next','เงินที่จะได้รับครั้งถัดไป',nextPay?B(evSum(nextPay.e).net):'—',nextPay?OL.thaiDate(nextPay.at):'ยังไม่มีงานรอจ่าย')}
     ${stat('held','ที่นั่งที่กำลังถูก Hold',String(held),'ผู้ซื้อกำลังชำระเงิน (10 นาที)')}
   </div>
   <button class="btn" data-o="newEvent"><svg width="18" height="18"><use href="#i-plus"/></svg>สร้างงานใหม่</button>
@@ -1641,11 +1761,11 @@ orgEvent(){
   const e=S.org.oev&&orgEv(S.org.oev);
   if(!e){S.stack=['orgEvents'];S.tab='orgEvents';return VIEWS.orgEvents()}
   appbar(e.name);
-  const tabs=[['overview','ภาพรวม'],['buyers','ผู้ซื้อ'],['resale','ขายต่อ'],['settings','ตั้งค่า']],t=S.org.etab||'overview';
-  const body={overview:evOverview,buyers:evBuyers,resale:evResale,settings:evSettings}[t](e);
+  const tabs=[['overview','ภาพรวม'],['buyers','ผู้ซื้อ'],['resale','ขายต่อ'],['extras','โปรโมชัน'],['settings','ตั้งค่า']],t=S.org.etab||'overview';
+  const body={overview:evOverview,buyers:evBuyers,resale:evResale,extras:evExtras,settings:evSettings}[t](e);
   return `<div class="row between" style="align-items:flex-start"><div><h1 style="font-size:22px">${esc(e.name)}</h1>
       <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน'} · ${esc(e.venue||'')}</div></div>${statusPill(e.status)}</div>
-    <div class="seg four" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="etab" data-t="${k}">${v}</button>`).join('')}</div>${body}`;
+    <div class="seg five" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="etab" data-t="${k}">${v}</button>`).join('')}</div>${body}`;
 },
 orgGate(){
   const e=S.org.oev&&orgEv(S.org.oev);
@@ -1767,8 +1887,11 @@ function finishMint(){
     if(isLocal(e.id)){
       const r=OL.recordPrimarySale(orgEv(e.id),z.zoneId,S.qty,'me',S.tickets.filter(x=>x.ev===e.id).length,Date.now());
       if(!r.ok){toast({sold_out:'ที่นั่งโซนนี้ไม่พอแล้ว',over_limit:'ซื้อได้ไม่เกิน 4 ใบต่อบัญชี',not_on_sale:'งานนี้ปิดรับชั่วคราว',invalid_qty:'จำนวนตั๋วไม่ถูกต้อง'}[r.reason]);S.stack=['home','event'];S.tab='home';render();return}
+      if(S.promo&&S.promo.ev===e.id)for(const ot of r.tickets){const res=OL.applyPromo(S.promo.code,S.org.promos,ot.zoneId,ot.hops[0].paid,Date.now());
+        if(res.ok){ot.hops[0].paid=res.price;const p=S.org.promos.find(x=>x.code===S.promo.code);if(p)p.used=(p.used||0)+1}}
+      S.promo=null;
       replaceOrgEvent(r.event);S.org.tickets.push(...r.tickets);sold=r.tickets;
-      for(const ot of r.tickets)ledgerAdd({type:'PAYMENT_IN',eventId:e.id,ticketId:ot.ticketId,amount:ot.hops[0].paid,party:'me',idempotencyKey:'in:'+ot.ticketId+':0'});
+      for(const ot of r.tickets)if(ot.hops[0].paid>0)ledgerAdd({type:'PAYMENT_IN',eventId:e.id,ticketId:ot.ticketId,amount:ot.hops[0].paid,party:'me',idempotencyKey:'in:'+ot.ticketId+':0'});
     }else z.left=Math.max(0,z.left-S.qty);
     for(let k=0;k<S.qty;k++){t={tid:S.nextTid++,ev:e.id,zone:z.z,price:z.p,status:'active',transfers:0,tx:'0x'+rand(4)+'…'+rand(4),orgTicketId:sold?sold[k].ticketId:undefined};S.tickets.unshift(t)}
     t=S.tickets[S.qty-1];
@@ -1848,7 +1971,7 @@ function toast(msg){const old=$('.toast');if(old)old.remove();const d=document.c
 $('#device').addEventListener('click',e=>{
   const t=e.target;let b;
   if(b=t.closest('[data-o]')){orgAct(b.dataset.o,b,e);return}
-  if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.zone=Math.max(0,evById(S.ev).zones.findIndex(z=>z.left>0));S.qty=1;go('event');return}
+  if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.promo=null;S.zone=Math.max(0,evById(S.ev).zones.findIndex(z=>z.left>0));S.qty=1;go('event');return}
   if(b=t.closest('[data-cat]')){S.cat=b.dataset.cat;render();return}
   if(b=t.closest('[data-mcat]')){S.mcat=b.dataset.mcat;render();return}
   if(b=t.closest('[data-zone]')){S.zone=+b.dataset.zone;render();return}

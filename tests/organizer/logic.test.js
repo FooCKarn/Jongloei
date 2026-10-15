@@ -262,6 +262,44 @@ test('payoutAt is event end plus the dispute window, null when cancelled', () =>
   assert.equal(L.payoutAt({ ...e, endAt: null }), null);
 });
 
+/* ---------- promo codes & discounts ---------- */
+
+const promo = over => ({ code: 'EARLY10', percentOff: 10, startsAt: NOW - DAY, endsAt: NOW + DAY, maxUses: 5, used: 0, ...over });
+
+test('applyPromo takes a percentage or a fixed amount off, never below zero', () => {
+  assert.deepEqual(L.applyPromo('EARLY10', [promo()], 'z1', 100000, NOW), { ok: true, price: 90000 });
+  assert.deepEqual(L.applyPromo('FIX', [promo({ code: 'FIX', percentOff: undefined, amountOff: 50000 })], 'z1', 30000, NOW), { ok: true, price: 0 });
+  assert.equal(L.applyPromo('FULL', [promo({ code: 'FULL', percentOff: 100 })], 'z1', 100000, NOW).price, 0);
+});
+
+test('applyPromo is case-insensitive and reports why a code fails', () => {
+  assert.equal(L.applyPromo('early10', [promo()], 'z1', 100000, NOW).ok, true);
+  assert.deepEqual(L.applyPromo('NOPE', [promo()], 'z1', 100000, NOW), { ok: false, price: 100000, reason: 'not_found' });
+  assert.equal(L.applyPromo('EARLY10', [promo({ endsAt: NOW - 1 })], 'z1', 100000, NOW).reason, 'expired');
+  assert.equal(L.applyPromo('EARLY10', [promo({ startsAt: NOW + 1 })], 'z1', 100000, NOW).reason, 'expired');
+  assert.equal(L.applyPromo('EARLY10', [promo({ used: 5 })], 'z1', 100000, NOW).reason, 'used_up');
+  assert.equal(L.applyPromo('EARLY10', [promo({ zoneId: 'z2' })], 'z1', 100000, NOW).reason, 'wrong_zone');
+  assert.equal(L.applyPromo('EARLY10', [promo({ disabled: true })], 'z1', 100000, NOW).reason, 'not_found');
+  assert.equal(L.applyPromo('', [promo()], 'z1', 100000, NOW).reason, 'not_found');
+});
+
+test('summarize with tickets uses what buyers actually paid, so discounts show up', () => {
+  const ev = event({ zones: [zone({ price: 100000, capacity: 100, sold: 2 })] });
+  const tk = [ticket('t1', [{ payerId: 'A', paid: 100000 }]), ticket('t2', [{ payerId: 'B', paid: 90000 }])];
+  const s = L.summarize(ev, tk);
+  assert.equal(s.gross, 190000);
+  assert.equal(s.fees, 3500 + L.serviceFee(90000));
+  assert.equal(s.net, s.gross - s.fees);
+  assert.equal(L.summarize(ev).gross, 200000, 'without tickets it still uses list prices');
+});
+
+test('settleEvent charges the service fee on the discounted price', () => {
+  const ev = event({ zones: [zone({ price: 100000 })] });
+  const r = L.settleEvent(ev, [ticket('t2', [{ payerId: 'B', paid: 90000 }])]);
+  assert.equal(r.shopFee, L.serviceFee(90000));
+  assert.equal(r.shopNet, 90000 - L.serviceFee(90000));
+});
+
 /* ---------- buyer bridge ---------- */
 
 test('thaiDate and thaiTime match the buyer EVENTS format', () => {
