@@ -202,7 +202,50 @@ function recordPrimarySale(ev, zoneId, qty, buyerId, ownedCount, now) {
   return { ok: true, event: next, tickets };
 }
 
-const OrgLogic = { toSatang, fmtBaht, serviceFee, commission, resaleCap, settleTicket, settleEvent,
+/* ---------- dashboard ---------- */
+
+function summarize(ev) {
+  const out = { capacity: 0, sold: 0, held: 0, remaining: 0, gross: 0, fees: 0, net: 0, comps: 0 };
+  for (const z of ev.zones || []) {
+    out.capacity += z.capacity; out.sold += z.sold || 0; out.held += z.held || 0;
+    if (z.kind === 'comp') { out.comps += z.sold || 0; continue; }
+    out.gross += z.price * (z.sold || 0);
+    out.fees += serviceFee(z.price) * (z.sold || 0);
+  }
+  out.remaining = out.capacity - out.sold - out.held;
+  out.net = out.gross - out.fees;
+  return out;
+}
+
+function duplicateEvent(ev, newId) {
+  const c = JSON.parse(JSON.stringify(ev));
+  c.id = newId; c.status = 'draft'; c.name = ev.name + ' (สำเนา)';
+  c.startAt = c.endAt = c.doorsAt = null; c.cancelReason = '';
+  c.zones = c.zones.map(z => ({ ...z, sold: 0, held: 0 }));
+  return c;
+}
+
+// First-hop (primary) paid sales per Bangkok calendar day, oldest first. `day` is the day number since epoch.
+function salesByDay(tickets, now, days) {
+  const OFFSET = 7 * 3600000, DAY = 86400000;
+  const last = Math.floor((now + OFFSET) / DAY);
+  const out = Array.from({ length: days }, (_, i) => ({ day: last - (days - 1) + i, count: 0, amount: 0 }));
+  for (const t of tickets) {
+    const h = t.hops && t.hops[0];
+    if (!h || !(h.paid > 0)) continue;
+    const slot = out[Math.floor((h.at + OFFSET) / DAY) - (last - (days - 1))];
+    if (slot) { slot.count++; slot.amount += h.paid; }
+  }
+  return out;
+}
+
+// When the shop is paid: event end + dispute window (context.md 5.6). Cancelled events pay nothing.
+function payoutAt(ev) {
+  if (ev.status === 'cancelled' || !ev.endAt) return null;
+  return ev.endAt + (ev.params?.disputeWindowH ?? 24) * 3600000;
+}
+
+const OrgLogic = { summarize, duplicateEvent, salesByDay, payoutAt, toSatang, fmtBaht, serviceFee, commission, resaleCap, settleTicket, settleEvent,
   validateZone, validateEvent, canEditZone, planCancellation, checkinResult, reasonText,
   thaiDate, thaiTime, toBuyerEvent, recordPrimarySale };
 globalThis.OrgLogic = OrgLogic;

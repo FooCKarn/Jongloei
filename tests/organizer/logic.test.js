@@ -204,6 +204,64 @@ test('checkinResult lets a listed ticket in', () => {
   assert.equal(L.checkinResult({ ...s, ticket: { ...s.ticket, status: 'listed' } }).valid, true);
 });
 
+/* ---------- dashboard ---------- */
+
+test('summarize counts seats, revenue and fees; comp seats earn nothing', () => {
+  const ev = event({ zones: [
+    zone({ price: 100000, capacity: 100, sold: 40, held: 5 }),
+    zone({ id: 'z9', kind: 'comp', price: 0, capacity: 10, sold: 3 }),
+  ] });
+  const s = L.summarize(ev);
+  assert.equal(s.capacity, 110);
+  assert.equal(s.sold, 43);
+  assert.equal(s.held, 5);
+  assert.equal(s.remaining, 62);
+  assert.equal(s.gross, 4000000);
+  assert.equal(s.fees, 140000);
+  assert.equal(s.net, 3860000);
+  assert.equal(s.comps, 3);
+});
+
+test('summarize of an event with no zones is all zero', () => {
+  assert.deepEqual(L.summarize(event({ zones: [] })), { capacity: 0, sold: 0, held: 0, remaining: 0, gross: 0, fees: 0, net: 0, comps: 0 });
+});
+
+test('duplicateEvent makes a clean draft keeping zones and rules', () => {
+  const src = event({ status: 'on_sale', doorsAt: 5, zones: [zone({ sold: 40, held: 3 })] });
+  const d = L.duplicateEvent(src, 'org-new');
+  assert.equal(d.id, 'org-new');
+  assert.equal(d.status, 'draft');
+  assert.equal(d.name, 'Friday Rooftop Session (สำเนา)');
+  assert.equal(d.startAt, null); assert.equal(d.endAt, null); assert.equal(d.doorsAt, null);
+  assert.equal(d.zones[0].sold, 0); assert.equal(d.zones[0].held, 0);
+  assert.equal(d.zones[0].price, 100000);
+  assert.deepEqual(d.params, src.params);
+  assert.equal(src.zones[0].sold, 40, 'source untouched');
+});
+
+test('salesByDay buckets first-hop purchases by Bangkok day, oldest first', () => {
+  const day = 86400000, now = Date.UTC(2026, 9, 15, 5); // 12:00 Bangkok on 15 Oct
+  const mk = (id, at, paid) => ({ ticketId: id, eventId: 'org-1', hops: [{ idx: 0, payerId: 'a', paid, at }] });
+  const r = L.salesByDay([
+    mk('a', now - 1000, 100000), mk('b', now - 2000, 100000),
+    mk('c', now - day, 50000),
+    mk('d', now - 30 * day, 100000),          // outside window
+    { ticketId: 'e', eventId: 'org-1', hops: [{ idx: 0, payerId: 'a', paid: 0, at: now }] }, // comp
+  ], now, 14);
+  assert.equal(r.length, 14);
+  assert.deepEqual(r[13], { day: r[13].day, count: 2, amount: 200000 });
+  assert.deepEqual([r[12].count, r[12].amount], [1, 50000]);
+  assert.equal(r.reduce((s, x) => s + x.count, 0), 3);
+  assert.ok(r[0].day < r[13].day);
+});
+
+test('payoutAt is event end plus the dispute window, null when cancelled', () => {
+  const e = event({ endAt: Date.UTC(2026, 10, 21, 16, 0) });
+  assert.equal(L.payoutAt(e), Date.UTC(2026, 10, 22, 16, 0));
+  assert.equal(L.payoutAt({ ...e, status: 'cancelled' }), null);
+  assert.equal(L.payoutAt({ ...e, endAt: null }), null);
+});
+
 /* ---------- buyer bridge ---------- */
 
 test('thaiDate and thaiTime match the buyer EVENTS format', () => {
