@@ -868,7 +868,13 @@ async function startStripeCheckout(){
       headers:{'content-type':'application/json'},
       body:JSON.stringify({eventId,zone,quantity}),
     });
-    const data=await response.json();
+    const contentType=response.headers.get('content-type')||'';
+    const data=contentType.includes('application/json')?await response.json():null;
+    if(!data){
+      throw new Error(response.status===404
+        ?'ไม่พบ API ของ Worker กรุณา deploy Worker เวอร์ชันล่าสุด'
+        :'Worker ส่งข้อมูลไม่ใช่ JSON กรุณาตรวจสอบการ deploy');
+    }
     if(!response.ok||!data.url){
       const messages={
         authentication_required:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',

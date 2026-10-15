@@ -134,7 +134,7 @@ async function stripeWebhook(request, env) {
 async function stripeRequest(secret, path, body) {
   return fetch(`https://api.stripe.com${path}`, {
     method: 'POST',
-    headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': '2026-09-30.endive' },
+    headers: { authorization: 'Bearer ' + secret, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': '2026-09-30.endive' },
     body,
   });
 }
