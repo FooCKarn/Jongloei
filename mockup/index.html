@@ -517,9 +517,7 @@ checkout(){
   <div class="col">
     <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
     <div class="zones">
-      <button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">Prompt<br>Pay</span><span><b>PromptPay</b><br><span class="small muted">สแกนจ่ายผ่านแอปธนาคาร</span></span><span class="radio"></span></button>
-      <button class="pay" disabled style="opacity:.55"><span class="logo" style="background:#5A4A4D">CARD</span><span><b>บัตรเครดิต / เดบิต</b><br><span class="small muted">เร็ว ๆ นี้</span></span><span class="radio"></span></button>
-      <button class="pay" disabled style="opacity:.55"><span class="logo" style="background:#2E3A8C">USDC</span><span><b>จ่ายด้วยคริปโต</b><br><span class="small muted">สำหรับผู้ที่มี wallet อยู่แล้ว · เร็ว ๆ นี้</span></span><span class="radio"></span></button>
+      <button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">รองรับวิธีชำระเงินที่เหมาะกับคุณ</span></span><span class="radio"></span></button>
     </div>
     <p class="small muted" style="margin:0">ตั๋วจะถูกส่งเข้ากระเป๋าตั๋วของ ${S.user.name} (<span class="mono">${short(S.user.wallet)}</span>) หลังยืนยันการชำระเงิน</p>
   </div>
@@ -534,7 +532,7 @@ checkout(){
       <dt>ค่าแก๊ส (ค่าธรรมเนียมบล็อกเชน)</dt><dd><span class="pill ok">ฟรี ระบบออกให้</span></dd>
       <dt style="font-weight:600;color:var(--ink)">ยอดชำระ</dt><dd style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--red)">${fmt(sub+fee)}</dd>
     </dl>
-    <div class="sticky-cta"><button class="btn" data-act="topay">ชำระ ${fmt(sub+fee)} ด้วย PromptPay</button></div>
+    <div class="sticky-cta"><button class="btn" data-act="topay">ชำระ ${fmt(sub+fee)} ด้วย Stripe</button></div>
   </div></div>`;
 },
 pay(){
@@ -555,18 +553,18 @@ pay(){
     <ol class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
       <li>เปิดแอปธนาคาร แล้วเลือกสแกนจ่าย</li><li>สแกน QR นี้ ยอดเงินจะขึ้นให้อัตโนมัติ</li><li>ไม่ต้องส่งสลิป ระบบตรวจยอดกับธนาคารให้เอง</li>
     </ol>
-    <button class="btn" data-act="paid">จำลองว่าชำระเงินแล้ว</button>
+    <button class="btn" data-act="paid">ไปชำระเงินด้วย Stripe</button>
     <button class="btn plain" data-act="back">ยกเลิก</button>
   </div></div>`;
 },
 minting(){
   appbar('กำลังออกตั๋ว');
   return `<div class="narrow">
-  <div class="hero-ok" style="padding-top:10px"><span class="pill warn">ต่อในอนาคต: Payment Gateway</span>
+  <div class="hero-ok" style="padding-top:10px"><span class="pill ok">Stripe ยืนยันการชำระเงินแล้ว</span>
     <h1 style="font-size:20px">กำลังสร้างตั๋ว NFT ของคุณ</h1><p class="small muted" style="margin:0">ห้ามปิดหน้านี้ ใช้เวลาไม่เกิน 1 นาที</p></div>
   <ol class="steps" id="mintsteps">
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ได้รับเงินผ่าน PromptPay</b><small>ธนาคารแจ้งยอดเข้า เลขอ้างอิง PP2569111501842</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Payment Gateway ยืนยันยอด</b><small>ตรวจว่ายอดตรงและไม่ซ้ำ ไม่ต้องใช้สลิป</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ได้รับเงินผ่าน Stripe</b><small>ระบบได้รับ event จาก Stripe webhook</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Stripe webhook ยืนยันยอด</b><small>ตรวจ event ที่เซ็นรับรองแล้วและไม่ซ้ำ</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Mint ตั๋วบนบล็อกเชน</b><small>สร้าง NFT ERC-721 และล็อกที่นั่งให้คุณ</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ส่งเข้ากระเป๋าตั๋วของคุณ</b><small class="mono">${short(S.user.wallet)}</small></span></li>
   </ol></div>`;
@@ -809,8 +807,8 @@ $('#device').addEventListener('click',e=>{
   const a=b.dataset.act;
   switch(a){
     case 'buy':S.buyingListing=null;if(!S.signedIn){openSignup('checkout');return}go('checkout');break;
-    case 'topay':go('pay');break;
-    case 'paid':S.stack.pop();S.stack.pop();go('minting');break;
+    case 'topay':startStripeCheckout();break;
+    case 'paid':startStripeCheckout();break;
     case 'back':back();break;
     case 'home':go('home',true);break;
     case 'viewticket':S.ticketView='qr';go('ticket');break;
@@ -847,6 +845,45 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
    /api/me says whether the Worker has Google secrets. Without them (or when the
    page is opened as a file) the demo login above stays as it is. */
 const AUTH_KEY='jongloei-auth-after';
+async function startStripeCheckout(){
+  if(!/^https?:$/.test(location.protocol)){
+    toast('กรุณาเปิดเว็บผ่าน URL ของ Cloudflare Worker ไม่ใช่ไฟล์ในเครื่อง');
+    return;
+  }
+  if(!S.auth.google){
+    toast('กรุณาเข้าสู่ระบบ Google ก่อนชำระเงิน');
+    openSignup('checkout');
+    return;
+  }
+  const listing=S.buyingListing;
+  const eventId=listing?listing.ev:S.ev;
+  const zone=listing?listing.zone:evById(S.ev).zones[S.zone].z;
+  const quantity=listing?1:S.qty;
+  const button=document.querySelector('[data-act="topay"],[data-act="paid"]');
+  if(button){button.disabled=true;button.textContent='กำลังเชื่อมต่อ Stripe…'}
+  try{
+    const response=await fetch('/api/checkout-session',{
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({eventId,zone,quantity}),
+    });
+    const data=await response.json();
+    if(!response.ok||!data.url){
+      const messages={
+        authentication_required:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
+        stripe_unconfigured:'ระบบยังไม่ได้ตั้งค่า Stripe Secret Key',
+        stripe_request_failed:'Stripe ปฏิเสธคำขอ กรุณาตรวจสอบ API key และบัญชี Stripe',
+      };
+      throw new Error(messages[data.error]||data.error||'checkout_failed');
+    }
+    location.href=data.url;
+  }catch(err){
+    console.error('Stripe checkout failed',err);
+    if(button){button.disabled=false;button.textContent='ลองใหม่อีกครั้ง'}
+    toast(err.message||'เชื่อมต่อ Stripe ไม่สำเร็จ กรุณาลองใหม่');
+  }
+}
 function googleLogin(){
   try{sessionStorage.setItem(AUTH_KEY,JSON.stringify({after:S.afterSignup,ev:S.ev,zone:S.zone,qty:S.qty,lid:S.buyingListing&&S.buyingListing.lid}))}catch(_){}
   location.href='/auth/google/start';

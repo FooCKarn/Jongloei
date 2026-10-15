@@ -2,14 +2,18 @@
 //
 // Routes (everything else is served from ./mockup as static assets):
 //   GET  /api/me                 -> { googleEnabled, user }
+//   POST /api/checkout-session   -> create a Stripe Checkout Session
+//   POST /api/stripe/webhook     -> verify and record Stripe payment events
 //   GET  /auth/google/start      -> redirect to Google's account chooser
 //   GET  /auth/google/callback   -> verify ID token, upsert user in D1, make sure the user
 //                                   has a ticket wallet, set session cookie
 //   POST /auth/logout            -> revoke the session
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-// THIRDWEB_SECRET_KEY. Without the Google ones /api/me reports googleEnabled=false and the
-// mock-up keeps its demo login. Without THIRDWEB_SECRET_KEY login works but no wallet is made.
+// THIRDWEB_SECRET_KEY, STRIPE_SECRET_KEY (prefer an rk_ restricted key), and
+// STRIPE_WEBHOOK_SECRET. Without the Google ones /api/me reports googleEnabled=false and
+// the mock-up keeps its demo login. Without THIRDWEB_SECRET_KEY login works but no wallet
+// is made.
 
 const SESSION_COOKIE = 'jl_session';
 const STATE_COOKIE = 'jl_oauth';
@@ -23,6 +27,8 @@ export default {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/api/me' && request.method === 'GET') return me(request, env);
+      if (url.pathname === '/api/checkout-session' && request.method === 'POST') return createCheckoutSession(request, env);
+      if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') return stripeWebhook(request, env);
       if (url.pathname === '/auth/google/start' && request.method === 'GET') return start(request, env);
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
       if (url.pathname === '/auth/logout' && request.method === 'POST') return logout(request, env);
@@ -45,6 +51,109 @@ const googleEnabled = env => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_S
 async function me(request, env) {
   const user = googleEnabled(env) ? await currentUser(request, env) : null;
   return json({ googleEnabled: googleEnabled(env), user }, 200, { 'cache-control': 'no-store' });
+}
+
+const TICKET_CATALOG = {
+  neon: { name: 'BKK Neon Nights 2026', venue: 'อิมแพ็ค อารีนา เมืองทองธานี', zones: { 'Standing A': 2500, 'Seat B': 3800, 'VIP Front': 5500 } },
+  jazz: { name: 'Siam River Jazz Festival', venue: 'ลานริมน้ำ เจริญกรุง', zones: { 'บัตรวันเดียว': 1800, 'บัตร 2 วัน': 3200 } },
+  fan: { name: 'Starlight Fan Meeting in Bangkok', venue: 'ธันเดอร์โดม เมืองทองธานี', zones: { 'Zone C': 2900, 'Zone B': 4200, 'Hi-Touch A': 6900 } },
+  standup: { name: 'Late Night Stand-up Special', venue: 'สามย่านมิตรทาวน์ ฮอลล์', zones: { Regular: 1500, 'Front Row': 2600 } },
+};
+
+async function createCheckoutSession(request, env) {
+  if (!env.STRIPE_SECRET_KEY) return json({ error: 'stripe_unconfigured' }, 503);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'authentication_required' }, 401);
+  let body;
+  try { body = await request.json(); } catch (_) { return json({ error: 'invalid_json' }, 400); }
+  const event = TICKET_CATALOG[body?.eventId];
+  const zone = event?.zones?.[body?.zone];
+  const quantity = Number(body?.quantity);
+  if (!event || !zone || !Number.isInteger(quantity) || quantity < 1 || quantity > 4) {
+    return json({ error: 'invalid_ticket' }, 400);
+  }
+
+  const origin = new URL(request.url).origin;
+  const orderId = crypto.randomUUID();
+  const params = new URLSearchParams({
+    mode: 'payment',
+    'line_items[0][price_data][currency]': 'thb',
+    'line_items[0][price_data][product_data][name]': `${event.name} · ${body.zone}`,
+    'line_items[0][price_data][product_data][description]': event.venue,
+    'line_items[0][price_data][unit_amount]': String(Math.round(zone * 1.03)),
+    'line_items[0][quantity]': String(quantity),
+    'success_url': `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    'cancel_url': `${origin}/?checkout=cancelled`,
+    'client_reference_id': orderId,
+    'metadata[order_id]': orderId,
+    'metadata[event_id]': body.eventId,
+    'metadata[zone]': body.zone,
+    'metadata[quantity]': String(quantity),
+    'integration_identifier': `jongloei_checkout_${randomToken(6).toLowerCase()}`,
+  });
+  if (user.email) params.set('customer_email', user.email);
+  const response = await stripeRequest(env.STRIPE_SECRET_KEY, '/v1/checkout/sessions', params);
+  if (!response.ok) {
+    console.error('stripe checkout session failed', response.status, await response.text());
+    return json({ error: 'stripe_request_failed' }, 502);
+  }
+  const session = await response.json();
+  if (env.DB) {
+    await env.DB.prepare(
+      `INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, amount, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03)).run();
+  }
+  return json({ url: session.url }, 200, { 'cache-control': 'no-store' });
+}
+
+async function stripeWebhook(request, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: 'stripe_webhook_unconfigured' }, 503);
+  const signature = request.headers.get('stripe-signature');
+  const payload = await request.text();
+  if (!signature || !(await verifyStripeSignature(payload, signature, env.STRIPE_WEBHOOK_SECRET))) {
+    return json({ error: 'invalid_signature' }, 400);
+  }
+  const event = JSON.parse(payload);
+  const session = event.type.startsWith('checkout.session.') ? event.data?.object : null;
+  if (session?.id && env.DB) {
+    if ((event.type === 'checkout.session.completed' && session.payment_status !== 'unpaid')
+      || event.type === 'checkout.session.async_payment_succeeded') {
+      await env.DB.prepare(
+        `UPDATE payment_orders SET status = 'paid', stripe_payment_intent = ?, paid_at = ?
+         WHERE stripe_session_id = ? AND status != 'paid'`,
+      ).bind(session.payment_intent || null, Date.now(), session.id).run();
+    } else if (event.type === 'checkout.session.async_payment_failed') {
+      await env.DB.prepare(`UPDATE payment_orders SET status = 'failed' WHERE stripe_session_id = ? AND status = 'pending'`)
+        .bind(session.id).run();
+    }
+  }
+  return json({ received: true });
+}
+
+async function stripeRequest(secret, path, body) {
+  return fetch(`https://api.stripe.com${path}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': '2026-09-30.endive' },
+    body,
+  });
+}
+
+async function verifyStripeSignature(payload, header, secret) {
+  const fields = Object.fromEntries(header.split(',').map(part => part.split('=')));
+  const timestamp = Number(fields.t);
+  if (!timestamp || Math.abs(Date.now() / 1000 - timestamp) > 300 || !fields.v1) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const digest = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${timestamp}.${payload}`)));
+  const expected = [...digest].map(b => b.toString(16).padStart(2, '0')).join('');
+  return timingSafeEqual(expected, fields.v1);
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return result === 0;
 }
 
 async function start(request, env) {
