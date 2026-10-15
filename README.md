@@ -164,7 +164,7 @@ After every Google login the Worker checks that the user has a ticket wallet. If
 
 The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
 
-> **Current implementation vs. context v3.3:** this server wallet is what the code does today. Context v3.3 targets a thirdweb **embedded (in-app) wallet** instead, so the ticket owner's own key can sign the entry QR every 60 seconds. With a platform-held server wallet the user cannot sign the QR themselves, so this part still has to move to an embedded wallet.
+> **Entry QR signing (context v3.4):** the user does not hold the key, so the Worker asks thirdweb to sign the 60-second entry QR with the ticket owner's server wallet. The scanner still checks the signature against `ownerOf`. Do not say in the pitch that users sign the QR themselves.
 
 ## Database
 

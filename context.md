@@ -1,7 +1,7 @@
-# JONGLOEI — Project Context (v3.3)
+# JONGLOEI — Project Context (v3.4)
 
 > ไฟล์นี้คือ "สมองกลาง" ของโปรเจกต์ ให้ทุกคนในทีม และ AI agent (Cursor / Claude / ChatGPT) อ่านก่อนเริ่มงาน
-> อัปเดตล่าสุด: พฤ. 15 ต.ค. 2026, 19:40 (v3.3 แทน v3.2; เวอร์ชันก่อนหน้ายังอยู่เป็นประวัติ) — **ส่งงานภายใน 14:00 วันศุกร์**
+> อัปเดตล่าสุด: พฤ. 15 ต.ค. 2026, 19:55 (v3.4 แทน v3.3: ปรับให้ตรงกับโค้ดที่ทำแล้ว; เวอร์ชันก่อนหน้ายังอยู่เป็นประวัติ) — **ส่งงานภายใน 14:00 วันศุกร์**
 > **ชื่อโปรเจกต์: JONGLOEI** (เดิม FairTicket ใน v1-v2)
 >
 > **อ่านก่อน: ไฟล์นี้มี 2 ระดับ** (1) **ขอบเขต MVP 24 ชม.** อยู่ในหัวข้อ 0 และ 10 — **Core (A):** PromptPay + ขายต่อ + **mint NFT เข้า thirdweb wallet (contract ขั้นต่ำ)** + QR/สแกน; **กลุ่ม B:** ยกเลิกแล้วคืนเงินอัตโนมัติ + จ่ายตอนงานจบ; **Future work:** จัดการ mint ล้มเหลวอัตโนมัติ และ contract ที่ถือเงิน/บังคับกติกาเอง (เงินอยู่ใน ledger ของแพลตฟอร์ม) (2) หัวข้อ 5-8 อธิบาย **สถาปัตยกรรมเป้าหมายเต็มรูปแบบ** ถ้าเนื้อหาขัดกัน ให้ยึดหัวข้อ 10>
@@ -9,6 +9,18 @@
 > - **[ตัดสินแล้ว]** ทีมตกลงแล้ว
 > - **[สมมติ]** ตัวเลขหรือค่าที่ AI เสนอ ทีมยังไม่ยืนยัน ปรับได้
 > - **[ยังไม่ยืนยัน]** ต้องตรวจกับผู้รู้/ผู้ให้บริการ หรือ AI ตีความข้อความของทีมเอง ต้องให้ทีมยืนยันก่อนนำไปใช้
+
+## สิ่งที่ทำเสร็จแล้วในโค้ด (repo FooCKarn/Jongloei, branch main)
+
+| งาน | สถานะ | อยู่ที่ไหน |
+|---|---|---|
+| Mock-up หน้าเว็บ (ภาษาไทย, มือถือ/เดสก์ท็อป) | เสร็จ, deploy บน Cloudflare Workers | `mockup/index.html` |
+| ฐานข้อมูลบัญชี (Cloudflare D1 `jongloei-db`) | เสร็จ | `db/migrations/0001_accounts.sql` (ตาราง `users`, `auth_identities`, `wallets`, `sessions`, `host_profiles`, `account_events`) |
+| **A1 Login** | เสร็จ: Google OAuth ของเราเอง (ไม่ผ่าน thirdweb) ที่ Worker, session cookie, `/api/me` | `src/worker.js` |
+| **A1 Wallet** | เสร็จ: ตอน login ครั้งแรก Worker สร้าง **thirdweb server wallet** ให้ (`POST /v1/wallets/server`, identifier `jongloei-user-<users.id>` ได้ wallet เดิมเสมอ) บันทึกใน `wallets` (kind `inapp`, primary, chain 43113) | `ensureWallet` ใน `src/worker.js`; secret `THIRDWEB_SECRET_KEY` |
+| A2-A8, กลุ่ม B | ยังไม่เริ่ม | ขั้นถัดไป: contract ตั๋วขั้นต่ำบน Fuji (A5) ดูหัวข้อ 10.1 |
+
+**ข้อควรรู้จากที่ทำแล้ว:** wallet เป็นแบบ platform-custodial ผ่าน thirdweb (key อยู่ที่ thirdweb ใต้ secret key ของเรา ผู้ใช้ไม่ถือ key เอง) ดังนั้นการเซ็นใด ๆ ในนามผู้ใช้ (เช่น QR ใน A6) Worker เป็นผู้ขอลายเซ็นผ่าน API ของ thirdweb — ห้ามพูดใน pitch ว่า "ผู้ใช้เซ็นเอง"
 
 ---
 
@@ -21,7 +33,7 @@
 - [ ] ตลาด >1,000 บาท: ยังไม่ได้เลือกกลุ่มเป้าหมาย (หัวข้อ 3.3)
 - [ ] เรื่องกฎหมาย/ภาษี/ผู้ให้บริการชำระเงินที่ต้องตรวจก่อนเปิดจริง (หัวข้อ 12) — ไม่ขวาง MVP
 
-**ตัดสินแล้วและตั้งเป็นสมมติฐานการทำงาน:** ขอบเขต mint (หัวข้อ 10.3), chain = Avalanche Fuji, ไม่มี U-Pay/SDK ของ U-topia ให้เชื่อ (ไม่มี session mentor แล้ว — เล่า U-Pay เป็น roadmap เท่านั้น), เริ่มเขียนโค้ดศุกร์ 10:00 และคืนนี้ทำเฉพาะงานที่ไม่ใช่โค้ดโปรเจกต์ (หัวข้อ 10.1), parameter ทั้งหมดใช้ค่าตั้งต้นหัวข้อ 10.2 ปรับจูนทีหลังได้
+**ตัดสินแล้วและตั้งเป็นสมมติฐานการทำงาน:** ขอบเขต mint (หัวข้อ 10.3), chain = Avalanche Fuji, ไม่มี U-Pay/SDK ของ U-topia ให้เชื่อ (ไม่มี session mentor แล้ว — เล่า U-Pay เป็น roadmap เท่านั้น), login + wallet + ฐานข้อมูลบัญชีทำเสร็จแล้ว งานที่เหลือเริ่มจาก contract ตั๋ว (หัวข้อ 10.1), parameter ทั้งหมดใช้ค่าตั้งต้นหัวข้อ 10.2 ปรับจูนทีหลังได้
 
 ---
 
@@ -101,7 +113,7 @@
 
 ## 4. User Flow (เวอร์ชันล่าสุด)
 
-1. User เข้าเว็บ JONGLOEI (ผู้จัดจำหน่ายตั๋ว) → sign up (Google) → **thirdweb สร้าง embedded wallet ให้อัตโนมัติ** user ไม่เห็นคำว่า wallet / NFT / gas (+ **เก็บบัญชีรับเงินคืน/รับเงิน (เลขพร้อมเพย์)** เพื่อรองรับคืนเงินอัตโนมัติและจ่ายผู้ขาย; MVP เป็นฟอร์มที่ไม่ตรวจจริง)
+1. User เข้าเว็บ JONGLOEI (ผู้จัดจำหน่ายตั๋ว) → sign up (Google, OAuth ของเราเอง) → **backend สร้าง thirdweb server wallet ให้อัตโนมัติ** user ไม่เห็นคำว่า wallet / NFT / gas (+ **เก็บบัญชีรับเงินคืน/รับเงิน (เลขพร้อมเพย์)** เพื่อรองรับคืนเงินอัตโนมัติและจ่ายผู้ขาย; MVP เป็นฟอร์มที่ไม่ตรวจจริง)
 2. User เลือกงาน/ที่นั่ง → ระบบสร้าง order และ **HOLD ที่นั่ง 10 นาที** → ออก PromptPay QR ที่ผูก reference กับ order
 3. User จ่ายผ่าน PromptPay → Payment Gateway ส่ง webhook → backend ตรวจ 5 ข้อ (หัวข้อ 6.1)
 4. verify ผ่าน → สถานะ **"ชำระเงินแล้ว กำลังออกตั๋ว"** (ที่นั่งการันตีแล้ว)
@@ -309,8 +321,8 @@
 | เงิน (ลูกค้าไทย) | PromptPay ผ่าน Payment Gateway + พาร์ทเนอร์ที่มีใบอนุญาต (MVP: sandbox หรือ mock PSP) | [ตัดสินแล้ว]; **Core A4** |
 | จ่ายร้านและผู้ขาย | **ตอนงานจบ** (`endTime + DISPUTE_WINDOW`; ค่าตั้งต้น 24 ชม., demo 60 วิ) | [ตัดสินแล้ว]; กลุ่ม B2 |
 | คืนเงินเมื่อยกเลิก | **อัตโนมัติ** (MVP/PromptPay: job คืนตาม ledger; Future on-chain: `refund` ใครเรียกก็ได้ เงินไป payer) | [ตัดสินแล้ว]; **กลุ่ม B1**; PSP refund จริง [ยังไม่ยืนยัน] |
-| QR | EIP-712 `{tokenId, ts}` เซ็นโดยเจ้าของ อายุ 60 วิ ตรวจ `ownerOf` ทุกครั้ง | [ตัดสินแล้ว]; **Core A6** |
-| Wallet | thirdweb embedded wallet | [ตัดสินแล้ว]; ใครถือ key จริง [ยังไม่ยืนยัน] |
+| QR | EIP-712 `{tokenId, ts}` เซ็นด้วย wallet ของเจ้าของ (Worker ขอลายเซ็นผ่าน thirdweb server wallet) อายุ 60 วิ ตรวจ `ownerOf` ทุกครั้ง | [ตัดสินแล้ว]; **Core A6** |
+| Wallet | thirdweb **server wallet** ต่อผู้ใช้ สร้างตอน login (platform-custodial: key อยู่ที่ thirdweb ใต้ secret key ของเรา) | [ตัดสินแล้ว, ทำแล้ว]; ทางเลือกให้ผู้ใช้ถือ key เอง = Future work |
 | PDPA | on-chain เก็บแค่ address และ hash ของ reference (มี salt) | [ตัดสินแล้ว] |
 | สถานะจอง | สองชั้น (ชำระแล้ว กำลังออกตั๋ว → ได้รับตั๋วแล้ว) | [ตัดสินแล้ว]; **Core A5** |
 | Hold | เริ่มกดซื้อ จนยืนยันเงิน; **10 นาที**; ใครได้ hold ก่อนมีสิทธิ์ก่อน | [ตัดสินแล้ว] |
@@ -323,13 +335,15 @@
 | ยืนยันตัวผู้ขายต่อ | KYC + บัญชีรับเงินชื่อตรง | MVP: ฟอร์มจำลอง; ของจริง = Future work |
 | mint | backend (relayer) เป็นผู้ส่งธุรกรรมและจ่าย gas; contract จำกัดสิทธิ์ minter | **Core A5** (กรณีปกติ; จัดการล้มเหลวอัตโนมัติ = Future) |
 
-### ทะเบียนฝั่ง backend ของ MVP — โครงข้อมูลที่ต้องตกลงคืนนี้
+### ทะเบียนฝั่ง backend ของ MVP (Cloudflare D1)
 ความเป็นเจ้าของตั๋ว = NFT (`ownerOf`); **เงินและกติกาเวลา/ราคา = ledger ในฐานข้อมูล** เก็บเงินเป็นสตางค์ (จำนวนเต็ม)
+
+ตารางบัญชีมีแล้วใน `0001_accounts.sql` (ห้ามแก้ไฟล์นี้ เพิ่ม `0002_*.sql` ขึ้นไป) ตารางอื่นด้านล่างยังไม่สร้าง อ้างถึงผู้ใช้ด้วย `users.id` และหา address ผู้รับ NFT จาก `wallets` (primary)
 
 | ตาราง | ฟิลด์หลัก |
 |---|---|
 | `events` | id, shop_id, name, price, capacity, start_at, end_at, status (ACTIVE/CANCELLED/ENDED), พารามิเตอร์ต่อ event (`hold_ttl`, `resale_delay`, `transfer_cutoff`, `cap_multiplier`, `commission_bps`, `dispute_window`) |
-| `users` | id, google_id, wallet_address (thirdweb), payout_account (เลขพร้อมเพย์, จำลอง) |
+| `users` + `auth_identities` + `wallets` **(มีแล้ว)** | `users.id`; Google อยู่ใน `auth_identities` (provider `google`); address อยู่ใน `wallets` (kind `inapp`, `is_primary`, chain 43113); ยังขาด `payout_account` (เลขพร้อมเพย์, จำลอง) เพิ่มใน 0002 |
 | `orders` | id, kind (PRIMARY/RESALE), event_id, buyer_id, listing_id (ถ้า RESALE), amount, status (HOLD/PAID/MINTING/COMPLETED/MINT_FAILED/EXPIRED/CANCELLED), expires_at, psp_ref, paid_at |
 | `payment_events` | psp_event_id (unique), order_id, raw, verified_at — กัน webhook ซ้ำ |
 | `tickets` | id, event_id, token_id, mint_tx, holder_user_id, acquired_at, face_price, status (VALID/LISTED/USED/UNAVAILABLE/REFUNDED), used_at |
@@ -379,7 +393,7 @@
 | คืนเงิน/ซัพพอร์ต | 0.5 | 1.0 | 2.0 | สมมติ |
 | **รวม** | **2.1** | **4.5** | **11.0** | |
 
-ต้นทุนคงที่ **8,000 บาท/เดือน [สมมติ]** (เซิร์ฟเวอร์, RPC, embedded wallet, มอนิเตอร์, เครื่องมือซัพพอร์ต ไม่รวมเงินเดือนทีม) ค่า embedded wallet ของ thirdweb ยังไม่ทราบว่าคิดต่อ wallet หรือต่อเดือน **[ยังไม่ยืนยัน]**
+ต้นทุนคงที่ **8,000 บาท/เดือน [สมมติ]** (เซิร์ฟเวอร์, RPC, server wallet, มอนิเตอร์, เครื่องมือซัพพอร์ต ไม่รวมเงินเดือนทีม) ค่า server wallet ของ thirdweb ยังไม่ทราบว่าคิดต่อ wallet หรือต่อเดือน **[ยังไม่ยืนยัน]**
 
 ### ปริมาณคุ้มทุน (ตั๋วต่อเดือน) ที่ต้นทุนแปรผันกลาง (4.5 บาท)
 
@@ -398,12 +412,13 @@
 
 ### 10.1 กรอบเวลา [ตัดสินแล้ว: กำหนดส่ง 14:00; ตารางย่อยเป็นข้อเสนอ]
 
-เวลาเขียนโค้ดที่แน่ ๆ คือ **ศุกร์ 10:00-14:00 = 4 ชม.** โดยนับเริ่มเขียนโค้ดตั้งแต่ศุกร์เช้า (กติกาห้ามโปรเจกต์ที่ทำไว้ก่อน) งานคืนนี้จึงจำกัดที่ไม่ใช่โค้ดโปรเจกต์ตามแถวแรกของตาราง จึงต้องสั้นและตัดแรง
+login + wallet + ฐานข้อมูลบัญชี + mock-up ทำเสร็จแล้ว (แถวแรก) เวลาที่เหลือก่อนส่ง 14:00 ศุกร์ต้องสั้นและตัดแรง **[ยังไม่ยืนยัน]** ว่ากติกา "ห้ามใช้โปรเจกต์ที่ทำไว้ก่อน" นับโค้ดที่เขียนนอกเวลา hack วันพฤหัสอย่างไร ถามผู้จัดถ้าไม่แน่ใจ
 
 | ช่วง | เป้าหมาย | หมุดหมาย |
 |---|---|---|
-| คืนนี้ (ไม่ใช่โค้ดโปรเจกต์) | สมัคร sandbox PSP, สร้าง thirdweb project, สร้าง relayer wallet + เติม test-AVAX จาก faucet, ตกลง schema/API (หัวข้อ 8), เขียนสคริปต์ demo, แก้ deck (ชื่อ JONGLOEI) | พร้อมเริ่ม 10:00 |
-| 10:00-11:00 | repo + ฐานข้อมูล + seed งาน; **คนที่ 1 deploy contract ตั๋วขั้นต่ำบน Fuji ให้ได้ภายใน 11:00** (ถ้าไม่ทัน ใช้ contract สำเร็จรูปของ thirdweb แล้วปิดการโอนทั่วไป — **[ยังไม่ยืนยัน]** ว่ารองรับ) | contract + ABI พร้อมใช้ |
+| พฤ. (ทำแล้ว) | repo, mock-up, D1 บัญชี, Google login, thirdweb server wallet ต่อผู้ใช้, thirdweb project | เสร็จ |
+| คืนนี้ | สมัคร sandbox PSP, สร้าง relayer wallet (server wallet อีกตัวของ thirdweb) + เติม test-AVAX จาก faucet, **เริ่ม contract ตั๋วขั้นต่ำ (A5)**, เขียนสคริปต์ demo, แก้ deck (ชื่อ JONGLOEI) | พร้อมเริ่ม 10:00 |
+| 10:00-11:00 | D1 migration 0002 (events/orders/payment_events/tickets/listings/hops/ledger_entries) + seed งาน; **คนที่ 1 deploy contract ตั๋วขั้นต่ำบน Fuji ให้ได้ภายใน 11:00** (ถ้าไม่ทัน ใช้ contract สำเร็จรูปของ thirdweb แล้วปิดการโอนทั่วไป — **[ยังไม่ยืนยัน]** ว่ารองรับ) | contract + ABI พร้อมใช้ |
 | 11:00-12:00 | **M1:** login → ซื้อ → hold 10 นาที → จ่าย PromptPay (sandbox/จำลอง) → verify → **mint NFT เข้า wallet** → QR → สแกน Valid/Invalid | ซื้อจนสแกนผ่านครบวงจร |
 | 12:00-13:00 | **M2:** ขายต่อ (ลงขาย, เพดานราคา, หน่วง 6 ชม., ผู้ซื้อจ่าย PromptPay, relayer โอน NFT, QR เก่า Invalid/ใหม่ Valid, ตาราง hop) | ขายต่อ 2 เที่ยวได้ `ownerOf` เปลี่ยนบน explorer |
 | 13:00-13:40 | **กลุ่ม B:** ยกเลิกงาน → คืนเงินอัตโนมัติ, จ่ายร้าน/ผู้ขายตอนงานจบ | M3: ยกเลิกแล้วทุกคนได้คืนตามที่จ่าย |
@@ -446,12 +461,12 @@
 
 | # | งาน | ต้องมี |
 |---|---|---|
-| A1 | Login + wallet | Google login ผ่าน thirdweb สร้าง embedded wallet ให้ (เป็นที่รับ NFT และกุญแจเซ็น QR; ผู้ใช้ไม่จ่าย gas) |
+| A1 | Login + wallet **(เสร็จแล้ว)** | Google login (OAuth ของเราเองที่ Worker) แล้ว backend สร้าง thirdweb server wallet ให้ (เป็นที่รับ NFT และใช้เซ็น QR ผ่าน API; ผู้ใช้ไม่จ่าย gas) |
 | A2 | หน้างาน | รายละเอียดงาน, ที่นั่งเหลือ = `capacity − sold − held` |
 | A3 | Order + Hold | กดซื้อ → หักที่นั่งแบบอะตอมมิก (คำสั่งเดียวมีเงื่อนไข) → Hold 10 นาที → หมดเวลาคืนที่นั่ง (ถามสถานะซ้ำจาก PSP ก่อนปล่อย) |
 | A4 | จ่าย PromptPay | สร้างรายการเก็บเงิน/QR ผูก reference กับ order → webhook เซ็นลายเซ็น → **verify 5 ข้อ** (หัวข้อ 6.1) → บันทึก ledger; callback ซ้ำไม่ออกตั๋วซ้ำ |
 | A5 | **Contract ตั๋วขั้นต่ำ + Mint** | ERC-721 บน Fuji: `mint(to, eventId)` เฉพาะ minter (relayer), `operatorTransfer(tokenId, to)` เฉพาะ operator (ปิดการโอนทั่วไปของเจ้าของ), `markUsed(tokenId)`; **ไม่มี escrow/refund/settle**; backend mint เข้า wallet ผู้ซื้อหลัง verify (relayer จ่าย gas) → สถานะสองชั้น "ชำระเงินแล้ว กำลังออกตั๋ว" → "ได้รับตั๋วแล้ว" (แสดง QR หลัง mint ยืนยันเท่านั้น); mint ล้มเหลวทำตามแถว "mint ล้มเหลว" ในหัวข้อ 10.2 |
-| A6 | QR + สแกน | QR เซ็นด้วย wallet ทุก 60 วิ (EIP-712 `{tokenId, ts}`), หน้าสแกนตรวจกับ `ownerOf` + ทะเบียน (ใช้แล้ว/งานยกเลิก) แสดง Valid/Invalid + เหตุผล (หัวข้อ 8), เรียก `markUsed` |
+| A6 | QR + สแกน | QR เซ็นด้วย wallet ของเจ้าของทุก 60 วิ (Worker ขอลายเซ็นผ่าน thirdweb server wallet) (EIP-712 `{tokenId, ts}`), หน้าสแกนตรวจกับ `ownerOf` + ทะเบียน (ใช้แล้ว/งานยกเลิก) แสดง Valid/Invalid + เหตุผล (หัวข้อ 8), เรียก `markUsed` |
 | A7 | **ขายต่อด้วย PromptPay** | ลงขาย (backend ตรวจเพดาน 1.25×, ครบ `resaleDelay` จาก `acquired_at` ในทะเบียน, ก่อน `transferCutoff`, ตั๋วยังไม่ใช้, 1 รายการต่อใบ) → ผู้ซื้อ Hold 10 นาที → จ่าย PromptPay → verify 5 ข้อ → relayer เรียก `operatorTransfer` → ตั้ง `acquired_at` ใหม่, บันทึก hop (ผู้จ่าย, ยอดที่จ่าย), บันทึกคอมมิชชันใน ledger → QR เจ้าของเก่า Invalid / ใหม่ Valid; ขายต่อไม่จำกัดครั้ง |
 | A8 | Pitch | deck ชื่อ JONGLOEI ที่ไม่อ้างเกินกว่า MVP (หัวข้อ 7, 16), สคริปต์ 3 นาที, คำตอบกรรมการ, video สำรอง |
 
@@ -526,7 +541,7 @@
 
 ## 11. Future work
 
-1. **ใช้ wallet ที่มีอยู่แล้วได้ไหม:** ได้ในหลักการ (mint ไปที่ address ที่ระบุ เซ็น QR ผ่าน wallet นั้น) แต่ QR ต้องเซ็นทุก 60 วินาที จะมี popup ทุกครั้ง → ตัวเลือกขั้นสูง; **[ยังไม่ยืนยัน]** ว่า thirdweb รองรับ wallet ภายนอกในโปรเจกต์นี้อย่างไร
+1. **ใช้ wallet ที่มีอยู่แล้วได้ไหม:** ได้ในหลักการ (mint ไปที่ address ที่ระบุ เซ็น QR ผ่าน wallet นั้น) แต่ QR ต้องเซ็นทุก 60 วินาที จะมี popup ทุกครั้ง → ตัวเลือกขั้นสูง; ตาราง `wallets` รองรับ kind `external` ไว้แล้ว; อีกทางคือปุ่ม "ย้ายตั๋วไป wallet ของฉันเอง"
 2. **Reinforce payment pipeline กรณีมาพร้อมกัน:** ตัวนับที่นั่งแหล่งความจริงเดียว, hold ก่อนมีสิทธิ์ก่อน, ย้ายตัวนับ `held` ขึ้น contract
 3. **จ่ายผ่าน crypto ได้ไหม และถ้าจ่ายพร้อม PromptPay ใครได้ก่อน:** ใช้ inventory เดียวกัน ผู้ชนะคือคนที่ได้ hold ก่อน (ทางเลือกง่ายกว่า: แบ่งโควตาแยก) ติดข้อจำกัดเกณฑ์ปี 2565 (หัวข้อ 6.3)
 4. **Fair Draw** กันบอท และระบบยืนยันตัวตนผู้ถือบัตร
@@ -561,7 +576,7 @@
 - [ ] เกณฑ์ห้ามใช้คริปโตชำระสินค้า/บริการปี 2565 ยังใช้อยู่ในรูปเดิมหรือไม่ (ไม่พบประกาศยกเลิก)
 - [ ] ภาษี: VAT 7% ของค่าบริการ/ค่าคอมมิชชัน และการรายงานธุรกรรมผู้ขายตามกฎหมาย e-Payment (ถามผู้ทำบัญชี; ไม่ยืนยันเกณฑ์ปัจจุบัน)
 - [ ] ร่าง พ.ร.บ. ของกลุ่ม Fair Ticket: อ่านตัวร่างว่ามีเพดานราคาขายต่อเป็นตัวเลขไหม
-- [ ] ค่า gas จริง (`gasUsed` บน Fuji), ค่า embedded wallet (thirdweb), อัตรา PromptPay จริง, ค่าโอนออกของบัญชีนิติบุคคล
+- [ ] ค่า gas จริง (`gasUsed` บน Fuji), ค่า server wallet (thirdweb), อัตรา PromptPay จริง, ค่าโอนออกของบัญชีนิติบุคคล
 - [ ] ผู้ให้บริการชำระเงิน: marketplace payout/split payment, refund ไปบัญชีต้นทาง, QR expiry, test mode
 - [ ] ข้อกล่าวอ้างเรื่อง Eventpop "ถือเงินแทน ลูกค้าต้องเชื่อผู้จัดเรื่องคืนเงิน" ยังไม่มีแหล่งอ้างอิง ต้องตรวจก่อนใช้
 
@@ -628,6 +643,17 @@
 ---
 
 ## 17. สิ่งที่เปลี่ยน
+
+### จาก v3.3 เป็น v3.4 (ปรับตามโค้ดที่ทำแล้ว)
+
+| เรื่อง | v3.3 | v3.4 |
+|---|---|---|
+| Login | Google ผ่าน thirdweb | **Google OAuth ของเราเองที่ Worker** (ทำแล้ว) |
+| Wallet | thirdweb embedded wallet, ใครถือ key [ยังไม่ยืนยัน] | **thirdweb server wallet ต่อผู้ใช้** สร้างตอน login, platform-custodial (ทำแล้ว) |
+| เซ็น QR | ผู้ใช้เซ็นเอง | Worker ขอลายเซ็นผ่าน thirdweb server wallet ของเจ้าของ |
+| ตาราง `users` | มี google_id, wallet_address ในตัว | แยกเป็น `users` / `auth_identities` / `wallets` (มีแล้วใน 0001); ตารางที่เหลือเพิ่มใน 0002 |
+| กรอบเวลา | เริ่มโค้ดศุกร์ 10:00 | login/wallet/D1 เสร็จแล้ว, คืนนี้เริ่ม contract ตั๋ว; เรื่องกติกาโค้ดที่ทำไว้ก่อน [ยังไม่ยืนยัน] |
+| สถานะโค้ด | ไม่มี | เพิ่มหัวข้อ "สิ่งที่ทำเสร็จแล้วในโค้ด" ต้นไฟล์ |
 
 ### จาก v3.2 เป็น v3.3
 
