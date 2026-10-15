@@ -126,6 +126,10 @@ Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a ph
 - Page: `mockup/index.html` (open it directly in a browser)
 - Hosting: `wrangler.jsonc` serves `mockup/` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo, leave the build command empty and use `npx wrangler deploy` as the deploy command.
 
+## Database
+
+Account system schema (Cloudflare D1) and setup steps: [`db/README.md`](db/README.md).
+
 ## Demo
 
 Live demo on testnet: *(add demo link)*
