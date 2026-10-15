@@ -1,11 +1,11 @@
-# FairTicket
+# JONGLOEI (จองเลย)
 
-**Scam-proof event booking for small venues.**
-U-Hackathon 2026 · Web3 Track · by team **Caffeine Commit**
+**ตั๋วที่ตรวจสอบได้ ซื้อง่ายด้วย PromptPay ขายต่อได้อย่างแฟร์**
+U-Hackathon 2026 · Web3 Track · by team **Caffeine Commit** · *(เดิมชื่อ FairTicket)*
 
-FairTicket is a booking engine that acts as the middleman between small venues and their guests. Shops create an event in minutes. Guests pay into escrow and receive an NFT ticket on-chain. The smart contract pays the shop after the event, or refunds guests automatically if the event is cancelled.
+JONGLOEI is a ticketing platform for small and mid-size organizers. Shops create an event in minutes. Guests sign in with Google, pay with PromptPay and get an NFT ticket in their own wallet. If an event is cancelled, everyone is refunded automatically, exactly what they paid. Next: moving escrow and payouts into the smart contract, so you don't have to trust us.
 
-> *Escrow: your payment is held safely and released automatically by fixed rules, not by a person.*
+> **MVP status:** the ticket is a real NFT (ERC-721) on Avalanche Fuji in the user's thirdweb wallet. The money is **not** held by a contract yet: baht is recorded in the platform's ledger, and the time and price rules are enforced by the backend. On-chain escrow, refund and settlement are future work. The full project context is in [`context.md`](context.md); if this README and `context.md` disagree, `context.md` wins.
 
 ---
 
@@ -18,8 +18,6 @@ Bars, pop-ups and workshops sell tickets through chat (LINE / IG / FB) and bank 
 - **No staff:** nobody has time to verify every slip at the door.
 - **No protection for guests:** deposits are lost if the event flops.
 
-Small shops need a trusted middleman they can run without a tech team.
-
 ## Current solutions and the gap
 
 | Option | How it works | Weakness |
@@ -29,51 +27,70 @@ Small shops need a trusted middleman they can run without a tech team.
 | Ticket platforms | Eventpop, Ticketmelon | Built for organizers; guests still have to trust the host |
 | NFT ticketing | Fansland, WeloveNFT | Targets organizers and large events |
 
-None protect both shop and guest. **Open gap: escrow booking**, where code holds the money and both sides are protected.
+None of them both verify payment without slips and guarantee a refund if the event is cancelled.
 
-## Key features
+## Key features (MVP)
 
-- Escrow payment, no slips
-- On-chain auto refund if cancelled
-- Wallet-signed dynamic QR for entry
-- Shop setup in minutes, no tech team
+- PromptPay payment verified with the payment gateway, never by a slip
+- NFT ticket minted into the user's wallet after payment is confirmed
+- Wallet-signed dynamic QR for entry, Valid / Invalid with a reason
+- Resale on the platform in baht, with a price cap and a holding period
+- Automatic refund if the event is cancelled; shop and sellers paid after the event (group B, from the ledger)
 
-## How it works
+## How it works (MVP)
 
-1. **Shop creates event on-chain:** price, seats, date.
-2. **Guest pays into escrow;** an NFT ticket is minted in the same transaction.
-3. **Gate checks the QR against the chain:** owner, expiry, not used.
-4. **Contract pays the shop,** or refunds guests if the event is cancelled.
+1. **Shop creates an event:** price, seats, date.
+2. **Guest picks a seat:** the system creates an order and **holds the seat for 10 minutes**, then shows a PromptPay QR tied to that order.
+3. **Guest pays with PromptPay:** the gateway sends a webhook and the backend runs **5 checks** before minting: webhook signature, re-query the status from the gateway API, amount and currency, reference and expiry, and that the order has never been minted.
+4. **Two-step status:** "ชำระเงินแล้ว กำลังออกตั๋ว" (seat guaranteed) → the backend relayer mints the ERC-721 into the guest's wallet and pays the gas → "ได้รับตั๋วแล้ว" and the QR appears.
+5. **Gate checks the QR** against `ownerOf` and the registry, then calls `markUsed`.
+6. **After the event:** the shop and each reseller are paid from the ledger. If the event is cancelled, each payer is refunded exactly what they paid. No-shows are not refunded.
 
-No person holds the money. The contract verifies payment, mints the ticket and releases funds by fixed, public rules.
+### Minimal contract (MVP)
+
+ERC-721 (OpenZeppelin) + AccessControl on Avalanche Fuji: `mint(to, eventId)` for the minter (relayer), `operatorTransfer(tokenId, to)` for the operator (relayer), and `markUsed(tokenId)`. Owners cannot transfer tickets themselves; every transfer goes through the platform. No escrow, `settle` or `refund` in the contract yet.
 
 ### Dynamic QR entry (screenshots are useless)
 
 | Step | What happens |
 |---|---|
-| 1 · Sign | The owner's wallet signs ticket ID + time, every 60 seconds |
-| 2 · Owner check | Signer must match the on-chain owner |
-| 3 · Freshness + nonce | Older than 60 s or reused is rejected |
-| 4 · Check in + lock | Ticket marked used; no transfers after entry |
+| 1 · Sign | The owner's wallet signs EIP-712 `{tokenId, ts}` every 60 seconds |
+| 2 · Owner check | Signer must match the current `ownerOf(tokenId)` |
+| 3 · Freshness | Rejected if older than 60 s or more than 15 s in the future |
+| 4 · Check in | Ticket marked used; the scan page shows Valid or Invalid with the reason |
+
+### Resale rules
+
+| Rule | Value |
+|---|---|
+| Number of resales | Unlimited |
+| Price cap | 1.25 × the original face price (default, tunable) |
+| Holding period | Listable only 6 hours after the ticket was received (`resaleDelay`) |
+| Transfer cutoff | 1 hour before the event starts |
+| Commission | 6% of the resale price (default, tunable) |
+
+Resale is paid with PromptPay like a first sale. After the 5 checks pass, the relayer calls `operatorTransfer`; the old owner's QR becomes Invalid and the new owner's becomes Valid.
 
 ### Scams blocked
 
 | Scam | Rule that blocks it |
 |---|---|
-| Fake slip | Payment is confirmed by the contract, not a picture |
-| Event flops | Money waits in escrow; auto refund if cancelled |
-| Screenshot reuse | QR expires in 60 s; nonce + used flag, so each ticket enters once |
-| Overbooking | Atomic mint stops sales at seat capacity |
+| Fake slip | Payment is confirmed with the gateway (5 checks), never by a picture |
+| Event flops | Automatic refund to every payer from the ledger |
+| Screenshot reuse | QR expires in 60 s and is signed by the current owner; used tickets are rejected |
+| Overbooking | Seats are taken with one conditional update (`capacity − sold − held`) |
+| Scalping | Price cap + 6-hour holding period on resale |
 
 ## User flow
 
-User เข้า web3 ของเราที่เป็นผู้จัดจำหน่ายตั๋ว
-→ User sign up เข้าระบบ + รอระบบ thirdweb สร้าง wallet ให้
-→ User เลือกซื้อและจ่ายค่าตั๋วผ่าน PromptPay
-→ Payment Gateway ขึ้นเพื่อรอประมวลผลและ mint บัตรให้กับ User *(future work)*
-→ System mint ticket เข้า wallet user
-→ User สามารถซื้อ-ขาย ตั๋ว NFT (อาจจะภายใน 1 ชม. ก่อนงานเริ่ม)
-→ User แสดง QR ของตั๋วที่หน้างานเพื่อเข้างาน
+1. User เข้าเว็บ JONGLOEI → sign up ด้วย Google → thirdweb สร้าง wallet ให้อัตโนมัติ (user ไม่เห็นคำว่า wallet / NFT / gas) + กรอกเลขพร้อมเพย์สำหรับรับเงินคืน/รับเงิน (MVP เป็นฟอร์มที่ไม่ตรวจจริง)
+2. User เลือกงาน/ที่นั่ง → ระบบสร้าง order และ HOLD ที่นั่ง 10 นาที → ออก PromptPay QR ที่ผูก reference กับ order
+3. User จ่ายผ่าน PromptPay → Payment Gateway ส่ง webhook → backend ตรวจ 5 ข้อ
+4. verify ผ่าน → สถานะ "ชำระเงินแล้ว กำลังออกตั๋ว" (ที่นั่งการันตีแล้ว)
+5. System mint ตั๋ว (ERC-721) เข้า wallet ของ user → สถานะ "ได้รับตั๋วแล้ว" แล้วจึงแสดง QR
+6. User ซื้อ-ขายตั๋วต่อบนแพลตฟอร์มด้วยเงินบาท: ลงขายได้หลังได้ตั๋วครบ 6 ชม. และก่อนงานเริ่ม 1 ชม. (ขายต่อได้ไม่จำกัดครั้ง)
+7. หน้างาน: User แสดง QR → ระบบ verify → Valid / Invalid พร้อมเหตุผล → mark `used`
+8. หลังงาน: จ่ายร้านและผู้ขายทุกเที่ยวตอนงานจบ / ถ้ายกเลิก → คืนเงินอัตโนมัติ / no-show ไม่คืน
 
 ## Tech Stack
 
@@ -92,8 +109,9 @@ User เข้า web3 ของเราที่เป็นผู้จัด
 - **GitHub** - Source code management
 - **Cloudfare workers** - (แนะนำ) สำหรับ Deploy หน้าเว็บ Frontend ให้กรรมการทดสอบได้ทันที
   
-** Payment & Fiat Gateway **
-- ** [Stripe](https://stripe.com/) ** - สำหรับประมวลผลการชำระเงินด้วยบัตรเครดิต/เดบิต และระบบ PromptPay Integration เพื่อรับชำระเงิน Fiat Fiat-to-Crypto On-ramp
+**Payment Gateway**
+- **PromptPay ผ่าน Payment Gateway** - ใช้ sandbox ของผู้ให้บริการที่มี test mode PromptPay (Opn/Omise, 2C2P หรือ GB Prime Pay; ยังไม่ยืนยันว่ารายไหนมี) ถ้าไม่ได้ใช้ mock PSP ที่ส่ง webhook เซ็น HMAC เข้า endpoint จริง ตรรกะ verify 5 ข้อเขียนจริงทั้งสองแบบ
+- เงินบาทใน MVP บันทึกอยู่ใน ledger ของแพลตฟอร์ม (D1) ไม่ใช้ USDC/คริปโตในการจ่าย
 
 **Known limit:** code can't stop a fake event on its own, so shops are verified at sign-up.
 
@@ -114,10 +132,10 @@ User เข้า web3 ของเราที่เป็นผู้จัด
 
 | Phase | Target | Scope |
 |---|---|---|
-| 1 · Now | Prototype | Escrow booking + auto refund, owner-signed dynamic QR, atomic seat mint with transfers off, shop setup in minutes |
-| 2 · Next | Small venues | Bars, pop-ups and workshops; LINE OA booking link; PromptPay on-ramp; U-Pay for tourist guests |
-| 3 · Then | Mid-size | Festivals and fan meetings; safe resale (price cap, 2-transfer limit, lock window); organizer dashboard |
-| 4 · Later | Big events | Fair Draw lottery vs bots; offline gate for stadiums; pitch with proven traction |
+| 1 · Now | Prototype (Friday 14:00) | PromptPay (sandbox or mock) + 10-minute hold and two-step status + NFT mint into the thirdweb wallet on Fuji + dynamic QR Valid/Invalid + resale in baht with price cap and 6-hour delay + (group B) automatic refund on cancel and payout after the event. Money in the ledger, no escrow contract yet |
+| 2 · Next | Small to mid organizers (tickets or deposits >1,000 THB) | Real payment provider; **move escrow, refund and settlement into the contract** + automatic handling of failed mints; LINE OA booking link; bars, pop-ups, workshops |
+| 3 · Then | Mid-size events | Festivals and fan meetings; organizer dashboard; full secondary market |
+| 4 · Later | Big events | Fair Draw against bots + ticket-holder identity; offline gate for stadiums; pitch with real traction |
 
 ## Front-end mock-up
 
@@ -145,6 +163,8 @@ After every Google login the Worker checks that the user has a ticket wallet. If
 2. Cloudflare dashboard > Workers & Pages > jongloei > Settings > Variables and Secrets: add `THIRDWEB_SECRET_KEY` as type **Secret**, then redeploy.
 
 The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
+
+> **Current implementation vs. context v3.3:** this server wallet is what the code does today. Context v3.3 targets a thirdweb **embedded (in-app) wallet** instead, so the ticket owner's own key can sign the entry QR every 60 seconds. With a platform-held server wallet the user cannot sign the QR themselves, so this part still has to move to an embedded wallet.
 
 ## Database
 
