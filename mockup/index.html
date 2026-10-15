@@ -759,7 +759,7 @@ function walletCreating(){
   sheet(`<h2 style="font-size:19px;text-align:center">กำลังเตรียมบัญชีของคุณ</h2>
   <ol class="steps" id="wsteps">
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ยืนยันตัวตนกับ Google</b><small>${esc(S.user.email)}</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>สร้างกระเป๋าตั๋ว (wallet) ให้อัตโนมัติ</b><small>ผ่าน thirdweb in-app wallet ไม่ต้องจำ seed phrase</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>สร้างกระเป๋าตั๋ว (wallet) ให้อัตโนมัติ</b><small>ผ่าน thirdweb ไม่ต้องจำ seed phrase</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>พร้อมใช้งาน</b><small class="mono">${short(S.user.wallet)}</small></span></li>
   </ol><div id="wdone"></div>`);
   const lis=[...document.querySelectorAll('#wsteps li')];let i=0;lis[0].classList.add('active');
@@ -857,7 +857,7 @@ async function checkAuth(){
   if(!me||!me.googleEnabled)return;
   S.auth.google=true;
   S.signedIn=!!me.user;
-  if(me.user)Object.assign(S.user,{name:me.user.name||me.user.email,email:me.user.email||''});
+  if(me.user)Object.assign(S.user,{name:me.user.name||me.user.email,email:me.user.email||''},me.user.wallet?{wallet:me.user.wallet}:{});
   const q=new URLSearchParams(location.search),result=q.get('login');
   if(result){q.delete('login');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
   let back=null;try{back=JSON.parse(sessionStorage.getItem(AUTH_KEY)||'null');sessionStorage.removeItem(AUTH_KEY)}catch(_){}
