@@ -69,3 +69,143 @@ test('settleEvent sums tickets using the zone price as face', () => {
   assert.equal(r.totalIn, 430000);
   assert.equal(r.sellerPayouts.length, 2);
 });
+
+/* ---------- rules ---------- */
+
+const zone = over => ({ id: 'z1', name: 'Standing', kind: 'standing', price: 100000, capacity: 100, sold: 0, held: 0, ...over });
+
+test('validateZone rejects bad prices', () => {
+  assert.ok(L.validateZone(zone({ price: 0 })).errors.price);
+  assert.ok(L.validateZone(zone({ price: -100 })).errors.price);
+  assert.ok(L.validateZone(zone({ price: NaN })).errors.price);
+  assert.ok(L.validateZone(zone({ price: 12345.5 })).errors.price);
+  assert.equal(L.validateZone(zone()).ok, true);
+});
+
+test('validateZone allows only price 0 for comp zones', () => {
+  assert.equal(L.validateZone(zone({ kind: 'comp', price: 0 })).ok, true);
+  assert.ok(L.validateZone(zone({ kind: 'comp', price: 100 })).errors.price);
+});
+
+test('validateZone checks capacity, name and table size', () => {
+  assert.ok(L.validateZone(zone({ capacity: 0 })).errors.capacity);
+  assert.ok(L.validateZone(zone({ capacity: 2.5 })).errors.capacity);
+  assert.ok(L.validateZone(zone({ name: 'x'.repeat(41) })).errors.name);
+  assert.ok(L.validateZone(zone({ name: '  ' })).errors.name);
+  assert.ok(L.validateZone(zone({ kind: 'table' })).errors.seatsPerUnit);
+  assert.equal(L.validateZone(zone({ kind: 'table', seatsPerUnit: 4 })).ok, true);
+  assert.ok(L.validateZone(zone({ saleStartAt: 2000, saleEndAt: 1000 })).errors.saleEndAt);
+});
+
+const NOW = Date.UTC(2026, 9, 15, 12);
+const DAY = 86400000;
+const event = over => ({
+  id: 'org-1', name: 'Friday Rooftop Session', status: 'draft', startAt: NOW + 7 * DAY, endAt: NOW + 7 * DAY + 4 * 3600000,
+  params: { resaleEnabled: true, capMultiplier: 1.25, resaleDelayH: 6, transferCutoffH: 1, disputeWindowH: 24, perUserLimit: 4 },
+  zones: [zone()], ...over,
+});
+
+test('validateEvent accepts a complete event', () => {
+  assert.equal(L.validateEvent(event(), NOW).ok, true);
+});
+
+test('validateEvent rejects bad dates', () => {
+  const e = event();
+  assert.ok(L.validateEvent({ ...e, endAt: e.startAt }, NOW).errors.endAt);
+  assert.ok(L.validateEvent({ ...e, startAt: NOW, endAt: NOW + 1000 }, NOW).errors.startAt);
+});
+
+test('validateEvent rejects missing or bad zones', () => {
+  assert.ok(L.validateEvent(event({ zones: [] }), NOW).errors.zones);
+  assert.ok(L.validateEvent(event({ zones: [zone({ price: 0 })] }), NOW).errors['zones.0.price']);
+  const e = event();
+  assert.ok(L.validateEvent({ ...e, zones: [zone({ saleStartAt: e.startAt })] }, NOW).errors['zones.0.saleStartAt']);
+});
+
+test('validateEvent checks name length and cap multiplier', () => {
+  assert.ok(L.validateEvent(event({ name: 'ab' }), NOW).errors.name);
+  const e = event(); e.params = { ...e.params, capMultiplier: 1.3 };
+  assert.ok(L.validateEvent(e, NOW).errors.capMultiplier);
+});
+
+test('canEditZone locks price once tickets are sold or held', () => {
+  assert.equal(L.canEditZone(zone({ sold: 5 }), { price: 90000 }).ok, false);
+  assert.ok(L.canEditZone(zone({ sold: 5 }), { price: 90000 }).reason);
+  assert.equal(L.canEditZone(zone({ held: 1 }), { kind: 'seated' }).ok, false);
+  assert.equal(L.canEditZone(zone(), { price: 90000 }).ok, true);
+});
+
+test('canEditZone never lets capacity drop below sold + held', () => {
+  assert.equal(L.canEditZone(zone({ sold: 5, held: 2 }), { capacity: 6 }).ok, false);
+  assert.equal(L.canEditZone(zone({ sold: 5, held: 2 }), { capacity: 7 }).ok, true);
+  assert.equal(L.canEditZone(zone({ sold: 5, held: 2 }), { capacity: 500 }).ok, true);
+});
+
+const ticket = (id, hops, over) => ({ ticketId: id, eventId: 'org-1', zoneId: 'z1', holderId: hops[hops.length - 1].payerId,
+  status: 'valid', hops: hops.map((h, idx) => ({ idx, ...h })), ...over });
+
+test('planCancellation refunds each payer what they paid', () => {
+  const r = L.planCancellation(event(), [ticket('t1', [{ payerId: 'A', paid: 100000 }]), ticket('t2', [{ payerId: 'B', paid: 100000 }])], new Set());
+  assert.equal(r.total, 200000);
+  assert.equal(r.refunds.length, 2);
+});
+
+test('planCancellation refunds every hop of a resold ticket without commission', () => {
+  const t = ticket('t1', [{ payerId: 'A', paid: 100000 }, { payerId: 'B', paid: 110000 }, { payerId: 'C', paid: 120000 }]);
+  const r = L.planCancellation(event(), [t], new Set());
+  assert.deepEqual(r.refunds.map(x => x.amount), [100000, 110000, 120000]);
+  assert.deepEqual(r.refunds.map(x => x.payerId), ['A', 'B', 'C']);
+  assert.deepEqual(r.refunds.map(x => x.key), ['t1:0', 't1:1', 't1:2']);
+  assert.equal(r.total, 330000);
+});
+
+test('planCancellation is idempotent and handles empty events', () => {
+  const t = ticket('t1', [{ payerId: 'A', paid: 100000 }, { payerId: 'B', paid: 110000 }, { payerId: 'C', paid: 120000 }]);
+  const r = L.planCancellation(event(), [t], new Set(['t1:0', 't1:1', 't1:2']));
+  assert.equal(r.refunds.length, 0);
+  assert.equal(r.skipped, 3);
+  assert.equal(L.planCancellation(event(), [], new Set()).total, 0);
+});
+
+test('planCancellation skips comp hops and other events', () => {
+  const comp = ticket('t9', [{ payerId: 'X', paid: 0 }]);
+  const other = ticket('t8', [{ payerId: 'Y', paid: 100000 }], { eventId: 'org-2' });
+  assert.equal(L.planCancellation(event(), [comp, other], new Set()).refunds.length, 0);
+});
+
+const scan = over => {
+  const t = ticket('t1', [{ payerId: 'u1', paid: 100000 }]);
+  return { ticket: t, event: event({ status: 'on_sale' }), signerId: 'u1', ts: NOW - 5000, now: NOW, ...over };
+};
+
+test('checkinResult accepts a fresh QR signed by the holder', () => {
+  assert.deepEqual(L.checkinResult(scan()), { valid: true });
+  assert.equal(L.checkinResult(scan({ ts: NOW + 14000 })).valid, true);
+});
+
+test('checkinResult rejects QR codes outside the time window', () => {
+  assert.equal(L.checkinResult(scan({ ts: NOW - 61000 })).reason, 'expired_qr');
+  assert.equal(L.checkinResult(scan({ ts: NOW + 16000 })).reason, 'future_qr');
+});
+
+test('checkinResult gives a specific reason for each invalid ticket', () => {
+  const s = scan();
+  assert.equal(L.checkinResult({ ...s, ticket: undefined }).reason, 'unknown_ticket');
+  assert.equal(L.checkinResult({ ...s, ticket: { ...s.ticket, eventId: 'org-2' } }).reason, 'wrong_event');
+  assert.equal(L.checkinResult({ ...s, event: { ...s.event, status: 'cancelled' } }).reason, 'cancelled');
+  assert.equal(L.checkinResult({ ...s, event: { ...s.event, status: 'ended' } }).reason, 'event_ended');
+  assert.equal(L.checkinResult({ ...s, ticket: { ...s.ticket, status: 'used' } }).reason, 'used');
+  assert.equal(L.checkinResult({ ...s, ticket: { ...s.ticket, status: 'refunded' } }).reason, 'refunded');
+  assert.equal(L.checkinResult({ ...s, signerId: 'u2' }).reason, 'not_owner');
+});
+
+test('checkinResult lets a listed ticket in', () => {
+  const s = scan();
+  assert.equal(L.checkinResult({ ...s, ticket: { ...s.ticket, status: 'listed' } }).valid, true);
+});
+
+test('reasonText has Thai text for every reason', () => {
+  for (const r of ['unknown_ticket', 'wrong_event', 'cancelled', 'event_ended', 'used', 'refunded', 'not_owner', 'expired_qr', 'future_qr']) {
+    assert.match(L.reasonText(r), /[ก-๙]/);
+  }
+});
