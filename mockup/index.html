@@ -532,6 +532,7 @@ checkout(){
       <button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">รองรับวิธีชำระเงินที่เหมาะกับคุณ</span></span><span class="radio"></span></button>
     </div>
     <p class="small muted" style="margin:0">ตั๋วจะถูกส่งเข้ากระเป๋าตั๋วของ ${S.user.name} (<span class="mono">${short(S.user.wallet)}</span>) หลังยืนยันการชำระเงิน</p>
+    <p class="small muted" style="margin:0">ระบบจะกันที่นั่งไว้ให้ 10 นาทีระหว่างชำระเงิน จ่ายด้วย PromptPay หรือบัตรในหน้า Stripe ได้เลย ไม่ต้องส่งสลิป</p>
   </div>
   <div class="col side">
     <div class="card" style="display:grid;grid-template-columns:64px 1fr;gap:12px">
@@ -592,16 +593,25 @@ success(){
   <button class="btn plain" data-act="home">กลับหน้าแรก</button></div></div>`;
 },
 paymentSuccess(){
-  appbar('ชำระเงินสำเร็จ');
+  appbar('สถานะการชำระเงิน');
+  const ORDER_TEXT={
+    pending:{title:'กำลังยืนยันการชำระเงิน',sub:'รอ Stripe แจ้งผลการชำระเงิน',pill:'warn',label:'รอยืนยัน',note:'ระบบตรวจยอดกับ Stripe โดยตรง ไม่ต้องส่งสลิป'},
+    paid:{title:'ชำระเงินสำเร็จ',sub:'ตรวจยอดกับ Stripe ครบแล้ว',pill:'ok',label:'กำลังออกตั๋ว',note:'กำลัง mint ตั๋ว NFT เข้ากระเป๋าของคุณบน Avalanche Fuji ใช้เวลาประมาณ 1 นาที'},
+    fulfilled:{title:'ได้ตั๋วแล้ว',sub:'ตั๋ว NFT อยู่ในกระเป๋าของคุณแล้ว',pill:'ok',label:'ออกตั๋วแล้ว',note:'ดูตั๋วและ QR เข้างานได้ที่ตั๋วของฉัน'},
+    needs_review:{title:'ทีมงานกำลังตรวจสอบรายการ',sub:'ได้รับการชำระเงินแล้ว แต่รายการนี้ต้องตรวจเพิ่ม',pill:'warn',label:'รอตรวจสอบ',note:'เช่น ชำระหลังหมดเวลากันที่นั่ง ทีมงานจะออกตั๋วหรือคืนเงินให้'},
+    expired:{title:'หมดเวลากันที่นั่ง',sub:'ยังไม่ได้ตัดเงิน',pill:'grey',label:'หมดเวลา',note:'ที่นั่งถูกคืนเข้าระบบแล้ว ลองซื้อใหม่ได้'},
+    failed:{title:'ชำระเงินไม่สำเร็จ',sub:'ยังไม่ได้ตัดเงิน',pill:'grey',label:'ไม่สำเร็จ',note:'ที่นั่งถูกคืนเข้าระบบแล้ว ลองซื้อใหม่ได้'},
+  };
+  const st=ORDER_TEXT[S.order&&S.order.status]||ORDER_TEXT.pending;
   return `<div class="narrow">
     <div class="hero-ok" style="padding-top:24px">
       <div class="big"><svg><use href="#i-check"/></svg></div>
-      <h1 style="font-size:22px">ทำรายการสำเร็จ</h1>
-      <p class="small muted" style="margin:0;text-align:center">Stripe ยืนยันการชำระเงินของคุณแล้ว</p>
+      <h1 style="font-size:22px">${st.title}</h1>
+      <p class="small muted" style="margin:0;text-align:center">${st.sub}</p>
     </div>
     <div class="card">
-      <div class="row between"><span>สถานะการชำระเงิน</span><span class="pill ok">ชำระเงินแล้ว</span></div>
-      <p class="small muted" style="margin:10px 0 0">ระบบกำลังเตรียมตั๋วของคุณ ตั๋วจะปรากฏในกระเป๋าหลังการออกตั๋วเสร็จสมบูรณ์</p>
+      <div class="row between"><span>สถานะคำสั่งซื้อ</span><span class="pill ${st.pill}">${st.label}</span></div>
+      <p class="small muted" style="margin:10px 0 0">${st.note}</p>
     </div>
     <button class="btn" data-act="tickets">ดูตั๋วของฉัน</button>
     <button class="btn plain" data-act="home">กลับหน้าแรก</button>
@@ -616,22 +626,22 @@ tickets(){
   <h1 class="d-only" style="font-size:24px">ตั๋วของฉัน</h1>
   <div class="seg three">${Object.entries(groups).map(([k,v])=>`<button data-mtab="${k}" class="${S.mtab===k?'on':''}">${v} (${S.tickets.filter(t=>t.status===k).length})</button>`).join('')}</div>
   ${list.length?`<div class="tlist">${list.map(t=>{const e=evById(t.ev);return `
-    <button class="mticket" data-ticket="${t.tid}">${poster(e)}
+    <button class="mticket" data-ticket="${t.key||t.tid}">${poster(e)}
       <div><h3>${e.name}</h3><div class="small muted">${e.date} · ${t.zone}</div><div class="tokenid">Token #${t.tid}</div></div>
-      ${t.status==='listed'?`<span class="pill warn">${fmt(t.listPrice)}</span>`:t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':'<span class="pill ok">พร้อมใช้</span>'}
+      ${t.minting?'<span class="pill warn">กำลังออกตั๋ว</span>':t.failed?'<span class="pill grey">รอทีมงานตรวจ</span>':t.status==='listed'?`<span class="pill warn">${fmt(t.listPrice)}</span>`:t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':'<span class="pill ok">พร้อมใช้</span>'}
     </button>`}).join('')}</div>`:`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ลองดูงานที่หน้าแรก':'ไม่มีตั๋วในหมวดนี้'}</div>`}
   <div class="card small muted">ตั๋วทุกใบเก็บอยู่ใน wallet ที่ระบบสร้างให้ตอนสมัคร คุณไม่ต้องจำ seed phrase หรือจ่ายค่าแก๊สเอง</div>`;
 },
 ticket(){
   const t=S.sel,e=evById(t.ev);appbar('Token #'+t.tid);
-  const locked=t.status!=='active';
+  const locked=t.status!=='active'||t.real;
   return `<div class="tgrid">
   <div class="col">
     <div class="seg"><button data-tv="qr" class="${S.ticketView==='qr'?'on':''}">QR เข้างาน</button><button data-tv="nft" class="${S.ticketView==='nft'?'on':''}">ข้อมูล NFT</button></div>
     <div class="col ${S.ticketView==='qr'?'':'tv-hide'}">
       <div class="qrbox">
         <div style="text-align:center;line-height:1.35"><b style="font-family:var(--f-display)">${e.name}</b><div style="font-size:13px;color:#6E6265">${e.date} · ${t.zone}</div></div>
-        ${t.status==='listed'?`<div style="padding:40px 10px;text-align:center;color:#6E6265">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`:t.status==='used'?`<div style="padding:40px 10px;text-align:center;color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`:`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
+        ${t.minting||t.failed?`<div style="padding:40px 10px;text-align:center;color:#6E6265">${t.minting?'กำลังออกตั๋วบนบล็อกเชน<br>QR จะขึ้นเมื่อ mint เสร็จ':'การออกตั๋วมีปัญหา<br>ทีมงานกำลังตรวจสอบ'}</div>`:t.status==='listed'?`<div style="padding:40px 10px;text-align:center;color:#6E6265">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`:t.status==='used'?`<div style="padding:40px 10px;text-align:center;color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`:`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
         <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" stroke-width="4"/><circle id="ringfg" cx="18" cy="18" r="15" fill="none" stroke="#A00018" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="0" stroke-linecap="round"/></svg>QR ใหม่ใน <b id="qrcd" class="num">60</b> วินาที</div>`}
       </div>
       <div class="card small" style="display:flex;gap:10px"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
@@ -645,7 +655,7 @@ ticket(){
       <button class="btn ghost" data-act="transfer" ${locked||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button>
     </div>
     ${t.status==='listed'?`<button class="btn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
-    <button class="btn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>
+    ${t.real?'<p class="small muted" style="margin:0">ขายต่อและโอนตั๋วจริงจะเปิดในเวอร์ชันถัดไป</p>':`<button class="btn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>`}
   </div></div>`;
 },
 market(){
@@ -705,7 +715,7 @@ function nftCard(t,full){
         <dt>ราคาหน้าบัตร</dt><dd class="num">${fmt(t.price)}</dd>
         <dt>เจ้าของ</dt><dd class="mono">${short(S.user.wallet)} (คุณ)</dd>
         ${full?`<dt>สัญญา</dt><dd class="mono">${short(CONTRACT)}</dd>
-        <dt>ธุรกรรม mint</dt><dd class="mono">${t.tx}</dd>
+        <dt>ธุรกรรม mint</dt><dd class="mono">${t.explorer?`<a href="${esc(t.explorer)}" target="_blank" rel="noopener">${esc(t.tx)}</a>`:esc(t.tx)}</dd>
         <dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd>
         <dt>โอนแล้ว</dt><dd class="num">${t.transfers}/2 ครั้ง</dd>`:''}
       </dl>
@@ -828,7 +838,7 @@ $('#device').addEventListener('click',e=>{
   if(b=t.closest('[data-q]')){{const cap=4-S.tickets.filter(x=>x.ev===S.ev).length;S.qty=Math.min(Math.max(1,cap),Math.max(1,S.qty+ +b.dataset.q))}render();return}
   if(b=t.closest('[data-pay]')){S.pay=b.dataset.pay;render();return}
   if(b=t.closest('[data-mtab]')){S.mtab=b.dataset.mtab;render();return}
-  if(b=t.closest('[data-ticket]')){S.sel=S.tickets.find(x=>x.tid==b.dataset.ticket);S.ticketView='qr';go('ticket');return}
+  if(b=t.closest('[data-ticket]')){S.sel=S.tickets.find(x=>(x.key||x.tid)==b.dataset.ticket);S.ticketView='qr';go('ticket');return}
   if(b=t.closest('[data-tv]')){S.ticketView=b.dataset.tv;stopTimers();render();return}
   if(b=t.closest('[data-buyl]')){S.buyingListing=S.listings.find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');return}
   if(!(b=t.closest('[data-act]'))||b.closest('#appbar'))return;
@@ -906,6 +916,9 @@ async function startStripeCheckout(){
     if(!response.ok||!data.url){
       const messages={
         authentication_required:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
+        sold_out:'ที่นั่งโซนนี้หมดแล้ว หรือมีคนกำลังชำระอยู่ ลองโซนอื่นหรือรอสักครู่',
+        ticket_limit:'ซื้อได้สูงสุด 4 ใบต่อบัญชีต่องาน (รวมรายการที่กำลังชำระ)',
+        invalid_ticket:'ข้อมูลตั๋วไม่ถูกต้อง กรุณาเลือกใหม่',
         stripe_unconfigured:'ระบบยังไม่ได้ตั้งค่า Stripe Secret Key',
         stripe_request_failed:'Stripe ปฏิเสธคำขอ กรุณาตรวจสอบ API key และบัญชี Stripe',
         payment_storage_unavailable:'ระบบฐานข้อมูลยังไม่พร้อม กรุณา apply migration 0002_payments.sql บน D1',
@@ -946,29 +959,61 @@ async function checkAuth(){
   if(back&&me.user){if(back.ev&&evById(back.ev)){S.ev=back.ev;S.zone=back.zone||0;S.qty=back.qty||1}
     S.buyingListing=back.lid?S.listings.find(l=>l.lid==back.lid)||null:null;S.afterSignup=back.after||null}
   render();
+  loadMyTickets();
   handleCheckoutReturn();
   if(result==='new'&&me.user)walletCreating();
   else if(result==='ok'&&me.user){toast('เข้าสู่ระบบแล้ว');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n)}}
   else if(result==='error')toast('เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง');
 }
 
+/* tickets minted by the Worker after a verified payment (GET /api/tickets) */
+function realTicket(t){
+  return {key:t.id,tid:t.tokenId??'…',ev:t.eventId,zone:t.zone,price:t.price,
+    status:t.status==='minting'||t.status==='mint_failed'?'active':t.status,
+    minting:t.status==='minting',failed:t.status==='mint_failed',transfers:t.transfers,
+    tx:t.txHash?short(t.txHash):'กำลังส่งธุรกรรม',explorer:t.explorer,real:true};
+}
+async function loadMyTickets(){
+  if(!S.auth.google||!S.signedIn)return;
+  try{
+    const response=await fetch('/api/tickets',{credentials:'same-origin'});
+    const data=await readJsonResponse(response,'/api/tickets');
+    if(!response.ok||!Array.isArray(data.tickets))return;
+    S.tickets=data.tickets.map(realTicket);render();
+    if(S.tickets.some(t=>t.minting))setTimeout(loadMyTickets,5000);
+  }catch(err){console.error('Ticket API failed',err)}
+}
 async function handleCheckoutReturn(){
   const q=new URLSearchParams(location.search);
-  const sessionId=q.get('session_id');
-  if(q.get('checkout')!=='success'||!sessionId||!S.signedIn)return;
-  q.delete('checkout');q.delete('session_id');
+  const sessionId=q.get('session_id'),cancelled=q.get('checkout')==='cancelled',orderId=q.get('order');
+  if(!q.get('checkout'))return;
+  q.delete('checkout');q.delete('session_id');q.delete('order');
   history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
-  S.stack=['paymentSuccess'];S.tab='tickets';render();
-  for(let attempt=0;attempt<10;attempt++){
+  if(cancelled){
+    if(orderId&&S.signedIn)fetch('/api/checkout-cancel',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({orderId})})
+      .then(()=>loadEvents()).then(render).catch(err=>console.error('Cancel failed',err));
+    toast('ยกเลิกการชำระเงินแล้ว คืนที่นั่งให้ระบบ');return;
+  }
+  if(!sessionId||!S.signedIn)return;
+  S.order={status:'pending'};S.stack=['paymentSuccess'];S.tab='tickets';render();
+  for(let attempt=0;attempt<40;attempt++){
     try{
       const response=await fetch('/api/checkout-status?session_id='+encodeURIComponent(sessionId),{credentials:'same-origin'});
       const data=await readJsonResponse(response,'/api/checkout-status');
-      if(data.status==='paid'){render();return}
-      if(data.status==='failed'){toast('การชำระเงินไม่สำเร็จ');return}
+      if(!response.ok)throw new Error(data.error||'status_failed');
+      const changed=data.status!==S.order.status;S.order=data;
+      if(data.status==='fulfilled'){
+        await loadMyTickets();
+        const first=S.tickets.find(t=>t.key===(data.tickets[0]&&data.tickets[0].id));
+        if(first){S.sel=first;S.stack=['tickets'];S.mtab='active';go('success')}else if(changed)render();
+        return;
+      }
+      if(changed&&S.stack[S.stack.length-1]==='paymentSuccess')render();
+      if(['needs_review','expired','failed'].includes(data.status))return;
     }catch(err){console.error('Checkout status failed',err);return}
-    await new Promise(resolve=>setTimeout(resolve,1500));
+    await new Promise(resolve=>setTimeout(resolve,3000));
   }
-  toast('กำลังรอ Stripe ยืนยันการชำระเงิน กรุณาตรวจสอบตั๋วของฉันอีกครั้ง');
+  toast('ตั๋วยังออกไม่เสร็จ ระบบจะออกให้อัตโนมัติ ดูได้ที่ตั๋วของฉัน');
 }
 
 /* boot: signed-out home, matching step 1 of the flow */
