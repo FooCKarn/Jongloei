@@ -3,11 +3,16 @@
 // Routes (everything else is served from ./mockup as static assets):
 //   GET  /api/me                 -> { googleEnabled, user }
 //   POST /api/checkout-session   -> create a Stripe Checkout Session
-//   POST /api/stripe/webhook     -> verify and record Stripe payment events
+//   GET  /api/checkout-status    -> order status and its tickets after returning from Stripe
+//   POST /api/checkout-cancel    -> give held seats back when the guest cancels at Stripe
+//   GET  /api/tickets            -> the signed-in user's tickets
+//   POST /api/stripe/webhook     -> 5 payment checks (context 6.1), then mint the tickets
+//   cron (every minute)          -> release expired seat holds, finish paid orders
 //   GET  /auth/google/start      -> redirect to Google's account chooser
 //   GET  /auth/google/callback   -> verify ID token, upsert user in D1, make sure the user
 //                                   has a ticket wallet, set session cookie
 //   POST /auth/logout            -> revoke the session
+//   POST /api/dev/test-mint      -> admin only: mint one test ticket to the caller's wallet
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 // THIRDWEB_SECRET_KEY, STRIPE_SECRET_KEY (prefer an rk_ restricted key), and
@@ -21,17 +26,44 @@ const SESSION_DAYS = 30;
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 const WALLET_CHAIN_ID = 43113; // Avalanche Fuji testnet, matches wallets.chain_id default
 const THIRDWEB_API = 'https://api.thirdweb.com';
+// JongloeiTicket on Avalanche Fuji (contracts/deployments/fuji.json). Ticket writes are sent from
+// the ERC-4337 smart account of the thirdweb server wallet jongloei-relayer (signer 0xDb5C...B260):
+// Fuji has no EIP-7702, so sending from the signer address fails with "Chain does not support
+// EIP-7702". The smart account holds MINTER_ROLE and OPERATOR_ROLE; thirdweb sponsors its gas.
+const TICKET_CONTRACT = '0xef36fcbdED316dEd4367636a6c85d73bFD5e2735';
+const RELAYER_ADDRESS = '0x8f79c4dE47287b129E2B7279Ae34c779D1eFA952';
+const FUJI_EXPLORER = 'https://testnet.snowtrace.io';
+const FUJI_RPC = 'https://api.avax-test.network/ext/bc/C/rpc';
+const ERC721_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const STRIPE_VERSION = '2026-09-30.endive';
+const HOLD_MS = 10 * 60000; // seat hold while the guest pays (context: 10 minutes)
+const SERVICE_FEE = 0.03;
+const MAX_TICKETS_PER_EVENT = 4;
+const MAX_MINT_ATTEMPTS = 3;
+// Seats a buyer can still take in zone z: not sold (remaining, reduced on verified payment by
+// 0004) and not held by a pending order (the 10-minute hold).
+const AVAILABLE_SEATS = `(z.remaining - (SELECT COALESCE(SUM(o.quantity), 0) FROM payment_orders o
+  WHERE o.event_id = z.event_id AND o.zone = z.zone_name AND o.status = 'pending'))`;
 
 export default {
-  async fetch(request, env) {
+  scheduled,
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/api/me' && request.method === 'GET') return me(request, env);
-      if (url.pathname === '/api/checkout-session' && request.method === 'POST') return createCheckoutSession(request, env);
-      if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') return stripeWebhook(request, env);
+      if (url.pathname === '/api/health' && request.method === 'GET') {
+        return json({ ok: true, service: 'jongloei-worker' }, 200, { 'cache-control': 'no-store' });
+      }
+      if (url.pathname === '/api/events' && request.method === 'GET') return events(request, env);
+      if (url.pathname === '/api/checkout-session' && request.method === 'POST') return createCheckoutSession(request, env, ctx);
+      if (url.pathname === '/api/checkout-status' && request.method === 'GET') return checkoutStatus(request, env, ctx);
+      if (url.pathname === '/api/checkout-cancel' && request.method === 'POST') return cancelCheckout(request, env, ctx);
+      if (url.pathname === '/api/tickets' && request.method === 'GET') return myTickets(request, env, ctx);
+      if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') return stripeWebhook(request, env, ctx);
       if (url.pathname === '/auth/google/start' && request.method === 'GET') return start(request, env);
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
       if (url.pathname === '/auth/logout' && request.method === 'POST') return logout(request, env);
+      if (url.pathname === '/api/dev/test-mint' && request.method === 'POST') return testMint(request, env);
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
         return json({ error: 'not_found' }, 404);
       }
@@ -53,90 +85,542 @@ async function me(request, env) {
   return json({ googleEnabled: googleEnabled(env), user }, 200, { 'cache-control': 'no-store' });
 }
 
-const TICKET_CATALOG = {
-  neon: { name: 'BKK Neon Nights 2026', venue: 'อิมแพ็ค อารีนา เมืองทองธานี', zones: { 'Standing A': 2500, 'Seat B': 3800, 'VIP Front': 5500 } },
-  jazz: { name: 'Siam River Jazz Festival', venue: 'ลานริมน้ำ เจริญกรุง', zones: { 'บัตรวันเดียว': 1800, 'บัตร 2 วัน': 3200 } },
-  fan: { name: 'Starlight Fan Meeting in Bangkok', venue: 'ธันเดอร์โดม เมืองทองธานี', zones: { 'Zone C': 2900, 'Zone B': 4200, 'Hi-Touch A': 6900 } },
-  standup: { name: 'Late Night Stand-up Special', venue: 'สามย่านมิตรทาวน์ ฮอลล์', zones: { Regular: 1500, 'Front Row': 2600 } },
-};
+async function events(request, env) {
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT e.id, e.name, e.short_name AS short, e.category AS tag, e.event_date AS date,
+              e.event_time AS time, e.venue, e.poster_background AS bg, e.sold_percent AS sold,
+              z.zone_name AS zone, z.price, z.color, ${AVAILABLE_SEATS} AS remaining
+       FROM events e JOIN event_zones z ON z.event_id = e.id
+       WHERE e.status = 'on_sale' ORDER BY e.event_date, e.id, z.sort_order`,
+    ).all();
+    const byId = new Map();
+    for (const row of rows.results || []) {
+      let event = byId.get(row.id);
+      if (!event) {
+        event = { id: row.id, name: row.name, short: row.short, tag: row.tag, date: row.date,
+          time: row.time, venue: row.venue, bg: row.bg, sold: row.sold, zones: [] };
+        byId.set(row.id, event);
+      }
+      event.zones.push({ z: row.zone, p: row.price, left: row.remaining, c: row.color });
+    }
+    return json([...byId.values()], 200, { 'cache-control': 'no-store' });
+  } catch (err) {
+    console.error('event list failed', err && err.stack || err);
+    return json({ error: 'event_storage_unavailable' }, 503);
+  }
+}
 
-async function createCheckoutSession(request, env) {
+/* ---------- paid flow: hold -> Stripe (PromptPay) -> 5 checks -> mint (context 6.1) ---------- */
+
+async function createCheckoutSession(request, env, ctx) {
   if (!env.STRIPE_SECRET_KEY) return json({ error: 'stripe_unconfigured' }, 503);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'authentication_required' }, 401);
   let body;
   try { body = await request.json(); } catch (_) { return json({ error: 'invalid_json' }, 400); }
-  const event = TICKET_CATALOG[body?.eventId];
-  const zone = event?.zones?.[body?.zone];
   const quantity = Number(body?.quantity);
-  if (!event || !zone || !Number.isInteger(quantity) || quantity < 1 || quantity > 4) {
+  let zone;
+  try {
+    zone = body?.eventId && typeof body?.zone === 'string' ? await env.DB.prepare(
+      `SELECT e.id AS event_id, e.name, e.venue, z.zone_name, z.price
+       FROM events e JOIN event_zones z ON z.event_id = e.id
+       WHERE e.id = ? AND z.zone_name = ? AND e.status = 'on_sale'`,
+    ).bind(body.eventId, body.zone).first() : null;
+  } catch (err) {
+    console.error('event lookup failed', err && err.stack || err);
+    return json({ error: 'event_storage_unavailable' }, 503);
+  }
+  if (!zone || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_TICKETS_PER_EVENT) {
     return json({ error: 'invalid_ticket' }, 400);
   }
+  const held = await env.DB.prepare(
+    `SELECT COALESCE(SUM(quantity), 0) AS n FROM payment_orders
+     WHERE user_id = ? AND event_id = ? AND status IN ('pending', 'paid', 'fulfilled', 'needs_review')`,
+  ).bind(user.id, zone.event_id).first();
+  if (held.n + quantity > MAX_TICKETS_PER_EVENT) return json({ error: 'ticket_limit' }, 409);
+
+  // Seat hold: the order is created only if the zone still has enough seats that are neither
+  // sold (remaining) nor held by another pending order. One statement, so two buyers cannot
+  // both take the last seat. remaining itself drops only when the payment is verified (0004).
+  const unitAmount = Math.round(zone.price * (1 + SERVICE_FEE) * 100); // satang, fee included
+  const orderId = crypto.randomUUID();
+  const now = Date.now();
+  const insert = await env.DB.prepare(
+    `INSERT INTO payment_orders (id, user_id, event_id, zone, quantity, unit_amount, amount, status, expires_at)
+     SELECT ?, ?, z.event_id, z.zone_name, ?, ?, ?, 'pending', ?
+     FROM event_zones z WHERE z.event_id = ? AND z.zone_name = ? AND ${AVAILABLE_SEATS} >= ?`,
+  ).bind(orderId, user.id, quantity, unitAmount, unitAmount * quantity, now + HOLD_MS,
+    zone.event_id, zone.zone_name, quantity).run();
+  if (!insert.meta.changes) return json({ error: 'sold_out' }, 409);
 
   const origin = new URL(request.url).origin;
-  const orderId = crypto.randomUUID();
   const params = new URLSearchParams({
     mode: 'payment',
     'line_items[0][price_data][currency]': 'thb',
-    'line_items[0][price_data][product_data][name]': `${event.name} · ${body.zone}`,
-    'line_items[0][price_data][product_data][description]': event.venue,
-    'line_items[0][price_data][unit_amount]': String(Math.round(zone * 1.03)),
+    'line_items[0][price_data][product_data][name]': `${zone.name} · ${zone.zone_name}`,
+    'line_items[0][price_data][product_data][description]': zone.venue,
+    'line_items[0][price_data][unit_amount]': String(unitAmount),
     'line_items[0][quantity]': String(quantity),
-    'success_url': `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    'cancel_url': `${origin}/?checkout=cancelled`,
-    'client_reference_id': orderId,
+    // Stripe accepts 30 minutes at the earliest. Our own 10-minute hold is enforced by
+    // expireHolds(), which expires this session when the hold runs out.
+    expires_at: String(Math.floor(now / 1000) + 1800),
+    success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/?checkout=cancelled&order=${orderId}`,
+    client_reference_id: orderId,
     'metadata[order_id]': orderId,
-    'metadata[event_id]': body.eventId,
-    'metadata[zone]': body.zone,
+    'metadata[event_id]': zone.event_id,
+    'metadata[zone]': zone.zone_name,
     'metadata[quantity]': String(quantity),
-    'integration_identifier': `jongloei_checkout_${randomToken(6).toLowerCase()}`,
+    'payment_intent_data[metadata][order_id]': orderId,
   });
   if (user.email) params.set('customer_email', user.email);
-  const response = await stripeRequest(env.STRIPE_SECRET_KEY, '/v1/checkout/sessions', params);
-  if (!response.ok) {
-    console.error('stripe checkout session failed', response.status, await response.text());
+  let session = null;
+  try {
+    const response = await stripeRequest(env.STRIPE_SECRET_KEY, '/v1/checkout/sessions', params, orderId);
+    if (response.ok) session = await response.json();
+    else console.error('stripe checkout session failed', response.status, await response.text());
+  } catch (err) {
+    console.error('stripe checkout session failed', err && err.stack || err);
+  }
+  if (!session?.id) {
+    await releaseOrder(env.DB, orderId, 'expired');
     return json({ error: 'stripe_request_failed' }, 502);
   }
-  const session = await response.json();
-  if (env.DB) {
-    await env.DB.prepare(
-      `INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, amount, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    ).bind(orderId, user.id, session.id, body.eventId, body.zone, quantity, Math.round(zone * quantity * 1.03)).run();
-  }
-  return json({ url: session.url }, 200, { 'cache-control': 'no-store' });
+  await env.DB.prepare('UPDATE payment_orders SET stripe_session_id = ?, updated_at = ? WHERE id = ?')
+    .bind(session.id, Date.now(), orderId).run();
+  ctx.waitUntil(expireHolds(env, ctx).catch(err => console.error('hold sweep failed', err && err.stack || err)));
+  return json({ url: session.url, orderId, expiresAt: now + HOLD_MS }, 200, { 'cache-control': 'no-store' });
 }
 
-async function stripeWebhook(request, env) {
+async function checkoutStatus(request, env, ctx) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'authentication_required' }, 401);
+  const sessionId = new URL(request.url).searchParams.get('session_id');
+  if (!sessionId || !sessionId.startsWith('cs_')) return json({ error: 'invalid_session_id' }, 400);
+  const order = await env.DB.prepare(
+    `SELECT id, event_id, zone, quantity, status, expires_at, mint_tx_id
+     FROM payment_orders WHERE stripe_session_id = ? AND user_id = ?`,
+  ).bind(sessionId, user.id).first();
+  if (!order) return json({ error: 'order_not_found' }, 404);
+  // Keep the flow moving even when the cron trigger is not set up.
+  if (order.status === 'paid') ctx.waitUntil(advanceOrder(env, order).catch(err => console.error('advance failed', err)));
+  return json({
+    status: order.status,
+    orderId: order.id,
+    eventId: order.event_id,
+    zone: order.zone,
+    quantity: order.quantity,
+    expiresAt: order.expires_at,
+    tickets: await ticketRows(env.DB, user.id, order.id),
+  }, 200, { 'cache-control': 'no-store' });
+}
+
+// Back from Stripe without paying: give the seats back now instead of waiting for the hold.
+async function cancelCheckout(request, env, ctx) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'authentication_required' }, 401);
+  const body = await request.json().catch(() => ({}));
+  const order = await env.DB.prepare(
+    `SELECT id, stripe_session_id FROM payment_orders WHERE id = ? AND user_id = ? AND status = 'pending'`,
+  ).bind(String(body?.orderId || ''), user.id).first();
+  if (!order) return json({ ok: true, released: false });
+  return json({ ok: true, released: await expireOrder(env, order, ctx) });
+}
+
+async function myTickets(request, env, ctx) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'authentication_required' }, 401);
+  const tickets = await ticketRows(env.DB, user.id);
+  if (tickets.some(t => t.status === 'minting')) {
+    ctx.waitUntil(advancePaidOrders(env, user.id).catch(err => console.error('advance failed', err)));
+  }
+  return json({ tickets }, 200, { 'cache-control': 'no-store' });
+}
+
+async function ticketRows(db, userId, orderId = null) {
+  const rows = await db.prepare(
+    `SELECT id, order_id, event_id, zone, face_price, owner_wallet, token_id, status, transfers,
+            mint_tx_hash, created_at, minted_at
+     FROM tickets WHERE user_id = ? AND (? IS NULL OR order_id = ?) ORDER BY created_at DESC, id`,
+  ).bind(userId, orderId, orderId).all();
+  return (rows.results || []).map(t => ({
+    id: t.id, orderId: t.order_id, eventId: t.event_id, zone: t.zone, price: t.face_price,
+    wallet: t.owner_wallet, tokenId: t.token_id, status: t.status, transfers: t.transfers,
+    txHash: t.mint_tx_hash, explorer: t.mint_tx_hash ? `${FUJI_EXPLORER}/tx/${t.mint_tx_hash}` : null,
+    createdAt: t.created_at, mintedAt: t.minted_at,
+  }));
+}
+
+async function stripeWebhook(request, env, ctx) {
   if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: 'stripe_webhook_unconfigured' }, 503);
   const signature = request.headers.get('stripe-signature');
   const payload = await request.text();
+  // Check 1: the webhook really comes from Stripe.
   if (!signature || !(await verifyStripeSignature(payload, signature, env.STRIPE_WEBHOOK_SECRET))) {
     return json({ error: 'invalid_signature' }, 400);
   }
   const event = JSON.parse(payload);
-  const session = event.type.startsWith('checkout.session.') ? event.data?.object : null;
-  if (session?.id && env.DB) {
-    if ((event.type === 'checkout.session.completed' && session.payment_status !== 'unpaid')
-      || event.type === 'checkout.session.async_payment_succeeded') {
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status = 'paid', stripe_payment_intent = ?, paid_at = ?
-         WHERE stripe_session_id = ? AND status != 'paid'`,
-      ).bind(session.payment_intent || null, Date.now(), session.id).run();
+  const session = String(event.type || '').startsWith('checkout.session.') ? event.data?.object : null;
+  if (!session?.id) return json({ received: true });
+
+  // Check 5 (first layer): each Stripe event is handled once. On an error the claim is undone
+  // so Stripe's retry gets a second chance.
+  const claim = await env.DB.prepare(
+    `INSERT INTO webhook_events (id, provider, type) VALUES (?, 'stripe', ?) ON CONFLICT DO NOTHING`,
+  ).bind(event.id, event.type).run();
+  if (!claim.meta.changes) return json({ received: true, duplicate: true });
+  try {
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+      await confirmPayment(env, ctx, session.id);
     } else if (event.type === 'checkout.session.async_payment_failed') {
-      await env.DB.prepare(`UPDATE payment_orders SET status = 'failed' WHERE stripe_session_id = ? AND status = 'pending'`)
-        .bind(session.id).run();
+      await releaseOrderBySession(env.DB, session.id, 'failed');
+    } else if (event.type === 'checkout.session.expired') {
+      await releaseOrderBySession(env.DB, session.id, 'expired');
     }
+  } catch (err) {
+    console.error('stripe webhook failed', event.id, err && err.stack || err);
+    await env.DB.prepare('DELETE FROM webhook_events WHERE id = ?').bind(event.id).run();
+    return json({ error: 'processing_failed' }, 500);
   }
   return json({ received: true });
 }
 
-async function stripeRequest(secret, path, body) {
-  return fetch(`https://api.stripe.com${path}`, {
+// Runs checks 2 to 5 and, when all pass, hands the order to the minter. Never trusts the
+// webhook body: the session is fetched again from Stripe.
+async function confirmPayment(env, ctx, sessionId) {
+  const session = await stripeGetSession(env.STRIPE_SECRET_KEY, sessionId); // check 2
+  const order = await env.DB.prepare('SELECT * FROM payment_orders WHERE stripe_session_id = ?').bind(sessionId).first();
+  if (!order) {
+    console.error('payment for unknown session', sessionId);
+    return 'unknown_order';
+  }
+  if (session.payment_status !== 'paid') return 'not_paid'; // async methods report later
+  if (['paid', 'fulfilled', 'needs_review'].includes(order.status)) return 'already_handled';
+
+  const problems = [];
+  // Check 3: amount and currency match the order.
+  if (session.currency !== order.currency || session.amount_total !== order.amount) {
+    problems.push(`amount ${session.amount_total} ${session.currency} != ${order.amount} ${order.currency}`);
+  }
+  // Check 4: reference matches and the order is still held.
+  if (session.client_reference_id !== order.id || session.metadata?.order_id !== order.id) {
+    problems.push('reference mismatch');
+  }
+  if (order.status !== 'pending') problems.push(`paid after the hold ended (${order.status})`);
+  if (problems.length) {
+    await env.DB.prepare(
+      `UPDATE payment_orders SET status = 'needs_review', review_reason = ?, stripe_payment_intent = ?,
+              paid_at = ?, updated_at = ?
+       WHERE id = ? AND status IN ('pending', 'expired', 'failed')`,
+    ).bind(problems.join('; '), session.payment_intent || null, Date.now(), Date.now(), order.id).run();
+    console.error('payment needs review', order.id, problems);
+    return 'needs_review';
+  }
+  // Check 5: only one caller can move the order from pending to paid (and take the seats from
+  // remaining, 0004), so it is minted once.
+  const result = await confirmPaymentAndDecrementInventory(env.DB, session);
+  if (result === 'already_paid') return 'already_handled';
+  if (result !== 'paid') {
+    await env.DB.prepare(
+      `UPDATE payment_orders SET status = 'needs_review', review_reason = ?, stripe_payment_intent = ?,
+              paid_at = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
+    ).bind('paid but the zone has no seats left', session.payment_intent || null, Date.now(), Date.now(), order.id).run();
+    console.error('ticket inventory unavailable', session.id);
+    return 'needs_review';
+  }
+  ctx.waitUntil(mintOrder(env, order.id).catch(err => console.error('mint failed', order.id, err && err.stack || err)));
+  return 'paid';
+}
+
+async function stripeGetSession(secret, sessionId) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+        headers: { authorization: 'Bearer ' + secret, 'stripe-version': STRIPE_VERSION },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) return await res.json();
+      lastError = new Error(`stripe session ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      if (res.status < 500 && res.status !== 429) break;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
+// Verified payment: pending -> paid and remaining -= quantity in one batch (Pitichod, 0004).
+// The token ties the inventory update to the one caller that changed the order, so a repeated
+// webhook never decrements twice.
+async function confirmPaymentAndDecrementInventory(db, session) {
+  const paidAt = Date.now();
+  const inventoryToken = crypto.randomUUID();
+  const result = await db.batch([
+    db.prepare(
+      `UPDATE payment_orders
+       SET status = 'paid', stripe_payment_intent = ?, paid_at = ?, updated_at = ?, inventory_update_token = ?
+       WHERE stripe_session_id = ? AND status = 'pending'
+         AND EXISTS (
+           SELECT 1 FROM event_zones z
+           WHERE z.event_id = payment_orders.event_id
+             AND z.zone_name = payment_orders.zone
+             AND z.remaining >= payment_orders.quantity
+         )`,
+    ).bind(session.payment_intent || null, paidAt, paidAt, inventoryToken, session.id),
+    db.prepare(
+      `UPDATE event_zones
+       SET remaining = remaining - (
+         SELECT quantity FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       WHERE event_id = (
+         SELECT event_id FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       AND zone_name = (
+         SELECT zone FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )
+       AND remaining >= (
+         SELECT quantity FROM payment_orders
+         WHERE stripe_session_id = ? AND inventory_update_token = ?
+       )`,
+    ).bind(session.id, inventoryToken, session.id, inventoryToken,
+      session.id, inventoryToken, session.id, inventoryToken),
+    db.prepare(
+      `UPDATE payment_orders SET inventory_update_token = NULL
+       WHERE stripe_session_id = ? AND inventory_update_token = ?`,
+    ).bind(session.id, inventoryToken),
+  ]);
+  if (!result[0]?.meta?.changes) {
+    const existing = await db.prepare(
+      'SELECT status FROM payment_orders WHERE stripe_session_id = ?',
+    ).bind(session.id).first();
+    return existing?.status === 'paid' || existing?.status === 'fulfilled' ? 'already_paid' : 'inventory_unavailable';
+  }
+  return 'paid';
+}
+
+/* ---------- seat hold ---------- */
+
+// Closes a pending order, once. Its held seats free up by themselves: a hold is only a pending
+// order, and remaining was never reduced for it.
+async function releaseOrder(db, orderId, status) {
+  const close = await db.prepare(`UPDATE payment_orders SET status = ?, updated_at = ? WHERE id = ? AND status = 'pending'`)
+    .bind(status, Date.now(), orderId).run();
+  return Boolean(close.meta.changes);
+}
+
+async function releaseOrderBySession(db, sessionId, status) {
+  const order = await db.prepare('SELECT id FROM payment_orders WHERE stripe_session_id = ?').bind(sessionId).first();
+  return order ? releaseOrder(db, order.id, status) : false;
+}
+
+// Expires the Stripe session first, so the customer can no longer pay, then frees the hold.
+// If Stripe says the session already completed, the payment is confirmed instead.
+async function expireOrder(env, order, ctx) {
+  if (!order.stripe_session_id) return releaseOrder(env.DB, order.id, 'expired');
+  const res = await stripeRequest(env.STRIPE_SECRET_KEY,
+    `/v1/checkout/sessions/${encodeURIComponent(order.stripe_session_id)}/expire`, new URLSearchParams());
+  if (res.ok) return releaseOrder(env.DB, order.id, 'expired');
+  const session = await stripeGetSession(env.STRIPE_SECRET_KEY, order.stripe_session_id);
+  if (session.status === 'expired') return releaseOrder(env.DB, order.id, 'expired');
+  if (session.status === 'complete') {
+    await confirmPayment(env, ctx, order.stripe_session_id);
+  }
+  return false;
+}
+
+async function expireHolds(env, ctx) {
+  if (!env.STRIPE_SECRET_KEY) return;
+  // Orders still being created (no session id yet) get a minute of grace.
+  const rows = await env.DB.prepare(
+    `SELECT id, stripe_session_id FROM payment_orders
+     WHERE status = 'pending' AND expires_at < ? AND (stripe_session_id IS NOT NULL OR expires_at < ?)
+     ORDER BY expires_at LIMIT 25`,
+  ).bind(Date.now(), Date.now() - 60000).all();
+  for (const order of rows.results || []) {
+    try { await expireOrder(env, order, ctx); } catch (err) { console.error('expire failed', order.id, err && err.stack || err); }
+  }
+}
+
+/* ---------- mint after a verified payment ---------- */
+
+// Sends one batched write that mints every ticket of the order to the buyer's wallet.
+// The 'sending' claim makes sure two workers never send the same order.
+async function mintOrder(env, orderId) {
+  if (!env.THIRDWEB_SECRET_KEY) return; // retried by the cron once the secret is set
+  const claim = await env.DB.prepare(
+    `UPDATE payment_orders SET mint_tx_id = 'sending', mint_attempts = mint_attempts + 1, updated_at = ?
+     WHERE id = ? AND status = 'paid' AND mint_tx_id IS NULL AND mint_attempts < ?`,
+  ).bind(Date.now(), orderId, MAX_MINT_ATTEMPTS).run();
+  if (!claim.meta.changes) {
+    await env.DB.prepare(
+      `UPDATE payment_orders SET status = 'needs_review', review_reason = 'mint could not be sent: ' || COALESCE(mint_error, '?'),
+              updated_at = ?
+       WHERE id = ? AND status = 'paid' AND mint_tx_id IS NULL AND mint_attempts >= ?`,
+    ).bind(Date.now(), orderId, MAX_MINT_ATTEMPTS).run();
+    return;
+  }
+  const order = await env.DB.prepare(
+    `SELECT o.*, e.chain_event_id, z.price AS face_price FROM payment_orders o
+     JOIN events e ON e.id = o.event_id
+     JOIN event_zones z ON z.event_id = o.event_id AND z.zone_name = o.zone
+     WHERE o.id = ?`,
+  ).bind(orderId).first();
+  const unclaim = error => env.DB.prepare(
+    `UPDATE payment_orders SET mint_tx_id = NULL, mint_error = ?, updated_at = ? WHERE id = ? AND mint_tx_id = 'sending'`,
+  ).bind(String(error).slice(0, 500), Date.now(), orderId).run();
+
+  const wallet = await ensureWallet(env, order.user_id, null);
+  if (!wallet || order.chain_event_id == null) {
+    await unclaim(!wallet ? 'no_wallet' : 'event_has_no_chain_id');
+    return;
+  }
+  const existing = await env.DB.prepare('SELECT COUNT(*) AS n FROM tickets WHERE order_id = ?').bind(orderId).first();
+  const inserts = [];
+  for (let i = existing.n; i < order.quantity; i++) {
+    inserts.push(env.DB.prepare(
+      `INSERT INTO tickets (id, order_id, user_id, event_id, zone, face_price, owner_wallet, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'minting')`,
+    ).bind(crypto.randomUUID(), orderId, order.user_id, order.event_id, order.zone, order.face_price, wallet));
+  }
+  if (inserts.length) await env.DB.batch(inserts);
+
+  let transactionIds;
+  try {
+    const calls = Array.from({ length: order.quantity }, () => ({
+      contractAddress: TICKET_CONTRACT,
+      method: 'function mint(address to, uint256 eventId) returns (uint256)',
+      params: [wallet, String(order.chain_event_id)],
+    }));
+    transactionIds = await writeTicketContract(env.THIRDWEB_SECRET_KEY, calls);
+  } catch (err) {
+    // A timeout may still have queued the write; retrying could mint twice, so a person checks.
+    if (err && err.name === 'TimeoutError') {
+      await markNeedsReview(env.DB, orderId, 'mint request timed out; check the relayer before retrying');
+    } else {
+      await unclaim(err && err.message || err);
+    }
+    return;
+  }
+  await env.DB.prepare('UPDATE payment_orders SET mint_tx_id = ?, mint_error = NULL, updated_at = ? WHERE id = ?')
+    .bind(transactionIds.join(','), Date.now(), orderId).run();
+  await settleMint(env, orderId, 10);
+}
+
+// Checks the queued mint. Confirmed: reads the token ids from the receipt and fulfils the order.
+// Failed: frees the order for another attempt, or sends it to review after the last one.
+async function settleMint(env, orderId, polls = 1) {
+  const order = await env.DB.prepare(
+    `SELECT id, mint_tx_id, mint_attempts, quantity FROM payment_orders WHERE id = ? AND status = 'paid'`,
+  ).bind(orderId).first();
+  if (!order?.mint_tx_id || order.mint_tx_id === 'sending') return;
+  const results = [];
+  for (const id of order.mint_tx_id.split(',')) results.push(await waitForTransaction(env.THIRDWEB_SECRET_KEY, id, polls));
+  const failed = results.find(r => r.status === 'FAILED');
+  if (failed) {
+    const last = order.mint_attempts >= MAX_MINT_ATTEMPTS;
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE payment_orders SET mint_tx_id = NULL, mint_error = ?, status = ?, review_reason = ?, updated_at = ?
+         WHERE id = ? AND mint_tx_id = ?`,
+      ).bind(String(failed.error || 'mint failed').slice(0, 500), last ? 'needs_review' : 'paid',
+        last ? 'mint failed ' + MAX_MINT_ATTEMPTS + ' times' : null, Date.now(), orderId, order.mint_tx_id),
+      ...(last ? [env.DB.prepare(`UPDATE tickets SET status = 'mint_failed' WHERE order_id = ? AND status = 'minting'`).bind(orderId)] : []),
+    ]);
+    return;
+  }
+  if (!results.every(r => r.status === 'CONFIRMED' && r.hash)) return; // still on its way
+
+  const tickets = (await env.DB.prepare(
+    `SELECT id, owner_wallet FROM tickets WHERE order_id = ? AND status = 'minting' ORDER BY id`,
+  ).bind(orderId).all()).results || [];
+  const tokens = [];
+  for (const r of results) {
+    for (const tokenId of await mintedTokenIds(env, r.hash, tickets[0]?.owner_wallet)) tokens.push({ tokenId, hash: r.hash });
+  }
+  if (tokens.length < tickets.length) {
+    console.error('mint receipt has fewer tokens than tickets', orderId, tokens.length, tickets.length);
+    return; // retried on the next pass; RPC may lag behind thirdweb
+  }
+  const now = Date.now();
+  await env.DB.batch([
+    ...tickets.map((t, i) => env.DB.prepare(
+      `UPDATE tickets SET status = 'active', token_id = ?, mint_tx_hash = ?, minted_at = ? WHERE id = ?`,
+    ).bind(tokens[i].tokenId, tokens[i].hash, now, t.id)),
+    env.DB.prepare(
+      `UPDATE payment_orders SET status = 'fulfilled', mint_tx_hash = ?, fulfilled_at = ?, updated_at = ? WHERE id = ?`,
+    ).bind(results[0].hash, now, now, orderId),
+  ]);
+}
+
+// Token ids minted to `wallet` by the ticket contract in this transaction (ERC-721 Transfer from 0x0).
+async function mintedTokenIds(env, txHash, wallet) {
+  const res = await fetch(env.FUJI_RPC_URL || FUJI_RPC, {
     method: 'POST',
-    headers: { authorization: 'Bearer ' + secret, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': '2026-09-30.endive' },
-    body,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [txHash] }),
+    signal: AbortSignal.timeout(5000),
   });
+  if (!res.ok) throw new Error(`fuji rpc ${res.status}`);
+  const logs = (await res.json())?.result?.logs || [];
+  return parseMintedTokenIds(logs, TICKET_CONTRACT, wallet);
+}
+
+function parseMintedTokenIds(logs, contract, wallet) {
+  const pad = addr => '0x' + String(addr).toLowerCase().replace(/^0x/, '').padStart(64, '0');
+  return logs
+    .filter(l => String(l.address).toLowerCase() === contract.toLowerCase()
+      && l.topics?.length === 4
+      && String(l.topics[0]).toLowerCase() === ERC721_TRANSFER_TOPIC
+      && BigInt(l.topics[1]) === 0n
+      && String(l.topics[2]).toLowerCase() === pad(wallet))
+    .map(l => Number(BigInt(l.topics[3])));
+}
+
+async function markNeedsReview(db, orderId, reason) {
+  await db.prepare(`UPDATE payment_orders SET status = 'needs_review', review_reason = ?, updated_at = ? WHERE id = ?`)
+    .bind(reason, Date.now(), orderId).run();
+}
+
+// Moves one paid order forward: mint it if nothing was sent, settle it if a write is queued,
+// or send it to review if a send was claimed but never recorded.
+async function advanceOrder(env, order) {
+  if (order.mint_tx_id == null) return mintOrder(env, order.id);
+  if (order.mint_tx_id !== 'sending') return settleMint(env, order.id);
+  const row = await env.DB.prepare('SELECT updated_at FROM payment_orders WHERE id = ?').bind(order.id).first();
+  if (row && Date.now() - row.updated_at > 5 * 60000) {
+    await markNeedsReview(env.DB, order.id, 'mint send was interrupted; check the relayer before retrying');
+  }
+}
+
+async function advancePaidOrders(env, userId = null) {
+  const rows = await env.DB.prepare(
+    `SELECT id, mint_tx_id FROM payment_orders
+     WHERE status = 'paid' AND (? IS NULL OR user_id = ?) AND mint_attempts <= ?
+     ORDER BY paid_at LIMIT 10`,
+  ).bind(userId, userId, MAX_MINT_ATTEMPTS).all();
+  for (const order of rows.results || []) {
+    try { await advanceOrder(env, order); } catch (err) { console.error('advance failed', order.id, err && err.stack || err); }
+  }
+}
+
+// Cron trigger (wrangler.jsonc): releases expired holds and finishes paid orders.
+async function scheduled(_controller, env, ctx) {
+  ctx.waitUntil(Promise.all([
+    expireHolds(env, ctx).catch(err => console.error('hold sweep failed', err && err.stack || err)),
+    advancePaidOrders(env).catch(err => console.error('mint sweep failed', err && err.stack || err)),
+  ]));
+}
+
+async function stripeRequest(secret, path, body, idempotencyKey) {
+  const headers = { authorization: 'Bearer ' + secret, 'content-type': 'application/x-www-form-urlencoded', 'stripe-version': STRIPE_VERSION };
+  if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
+  return fetch(`https://api.stripe.com${path}`, { method: 'POST', headers, body, signal: AbortSignal.timeout(10000) });
 }
 
 async function verifyStripeSignature(payload, header, secret) {
@@ -369,6 +853,70 @@ async function createThirdwebWallet(secretKey, identifier) {
   const address = String(body?.result?.address || '').toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(address)) throw new Error('thirdweb returned no wallet address');
   return address;
+}
+
+/* ---------- ticket contract (via the thirdweb relayer) ---------- */
+
+// Proves the mint path end to end before the paid flow exists: an admin mints one ticket into
+// their own wallet. The real mint will run only after a payment is verified (context 6.1).
+async function testMint(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not_signed_in' }, 401);
+  if (user.role !== 'admin') return json({ error: 'forbidden' }, 403);
+  if (!env.THIRDWEB_SECRET_KEY) return json({ error: 'thirdweb_not_configured' }, 503);
+  if (!user.wallet) return json({ error: 'no_wallet' }, 409);
+
+  const body = await request.json().catch(() => ({}));
+  const eventId = Number.isSafeInteger(body.eventId) && body.eventId >= 0 ? body.eventId : 0;
+  const [transactionId] = await writeTicketContract(env.THIRDWEB_SECRET_KEY, [{
+    contractAddress: TICKET_CONTRACT,
+    method: 'function mint(address to, uint256 eventId) returns (uint256)',
+    params: [user.wallet, String(eventId)],
+  }]);
+  const tx = await waitForTransaction(env.THIRDWEB_SECRET_KEY, transactionId);
+  await logEvent(env.DB, user.id, 'test_mint', { transactionId, status: tx.status, hash: tx.hash, eventId }, request.headers.get('cf-connecting-ip')).run();
+  return json({
+    transactionId, status: tx.status, transactionHash: tx.hash, error: tx.error,
+    to: user.wallet, eventId,
+    explorer: tx.hash ? `${FUJI_EXPLORER}/tx/${tx.hash}` : null,
+    wallet: `${FUJI_EXPLORER}/address/${user.wallet}`,
+  }, tx.status === 'FAILED' ? 502 : 200);
+}
+
+// Queues contract calls from the relayer as one batch; thirdweb signs, pays gas and returns
+// the transaction ids.
+async function writeTicketContract(secretKey, calls) {
+  const res = await fetch(`${THIRDWEB_API}/v1/contracts/write`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-secret-key': secretKey },
+    body: JSON.stringify({
+      chainId: WALLET_CHAIN_ID,
+      from: RELAYER_ADDRESS,
+      calls,
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`thirdweb write ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const ids = (await res.json())?.result?.transactionIds;
+  if (!ids?.length) throw new Error('thirdweb returned no transaction id');
+  return ids;
+}
+
+// Polls the queued transaction (2 s apart, ~20 s by default); returns whatever state it reached.
+async function waitForTransaction(secretKey, transactionId, polls = 10) {
+  let last = { status: 'QUEUED', hash: null, error: null };
+  for (let i = 0; i < polls; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const res = await fetch(`${THIRDWEB_API}/v1/transactions/${encodeURIComponent(transactionId)}`, {
+      headers: { 'x-secret-key': secretKey },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) continue;
+    const tx = (await res.json())?.result || {};
+    last = { status: tx.status || last.status, hash: tx.transactionHash || null, error: tx.errorMessage || null };
+    if (last.status === 'CONFIRMED' || last.status === 'FAILED') break;
+  }
+  return last;
 }
 
 async function createSession(db, userId, identityId, { userAgent, ip }) {
