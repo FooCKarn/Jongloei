@@ -674,7 +674,7 @@ event(){
     </div>
     <div class="card small" style="display:flex;flex-direction:column;gap:6px">
       <b>เงื่อนไขการขายต่อ</b>
-      <span class="muted">ขายต่อหรือโอนให้เพื่อนได้ในแอปเท่านั้น ราคาไม่เกิน 120% ของราคาหน้าบัตร โอนได้สูงสุด 2 ครั้ง และปิดการซื้อขาย 1 ชั่วโมงก่อนงานเริ่ม</span>
+      <span class="muted">ขายต่อหรือโอนให้เพื่อนได้ในแอปเท่านั้น ราคาไม่เกิน 125% ของราคาหน้าบัตร ลงขายได้หลังได้ตั๋ว 6 ชั่วโมง และปิดการซื้อขาย 1 ชั่วโมงก่อนงานเริ่ม</span>
     </div>
   </div>
   <div class="col side">
@@ -702,7 +702,7 @@ checkout(){
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:buyUnit(e);const qty=L?1:S.qty;
   const local=isLocal(e.id);
-  const sub=L?unit:buyTotal(e),fee=local?0:Math.round(sub*0.03);   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
+  const sub=L?unit:buyTotal(e),fee=local||L?0:Math.round(sub*0.03);   // resale: the seller pays the 6% commission   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
   return `<div class="cols">
   <div class="col">
     <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
@@ -721,7 +721,7 @@ checkout(){
     </div>
     <dl class="kv card num" style="margin:0">
       <dt>ราคาบัตร</dt><dd>${fmt(sub)}</dd>
-      <dt>ค่าบริการ${local?'':' 3%'}</dt><dd>${local?'<span class="pill ok">ผู้จัดเป็นผู้จ่าย</span>':fmt(fee)}</dd>
+      <dt>ค่าบริการ${local||L?'':' 3%'}</dt><dd>${local?'<span class="pill ok">ผู้จัดเป็นผู้จ่าย</span>':L?'<span class="pill ok">ไม่มี ผู้ขายจ่ายคอมมิชชัน</span>':fmt(fee)}</dd>
       <dt>ค่าแก๊ส (ค่าธรรมเนียมบล็อกเชน)</dt><dd><span class="pill ok">ฟรี ระบบออกให้</span></dd>
       <dt style="font-weight:600;color:var(--ink)">ยอดชำระ</dt><dd style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--red)">${fmt(sub+fee)}</dd>
     </dl>
@@ -731,7 +731,7 @@ checkout(){
 pay(){
   appbar('สแกนเพื่อชำระ');
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
-  const sub=L?L.price:buyTotal(e);const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
+  const sub=L?L.price:buyTotal(e);const total=sub+(isLocal(e.id)||L?0:Math.round(sub*0.03));
   return `<div class="cols even">
   <div class="col">
     <div class="qrbox">
@@ -815,7 +815,7 @@ tickets(){
 },
 ticket(){
   const t=S.sel,e=evById(t.ev);appbar('Token #'+t.tid);
-  const locked=t.status!=='active'||t.real;
+  const locked=t.status!=='active'||t.minting||t.failed;
   return `<div class="tgrid">
   <div class="col">
     ${ticketAnn(t)}
@@ -834,30 +834,30 @@ ticket(){
     <div class="${S.ticketView==='nft'?'':'tv-hide'}">${nftCard(t,true)}</div>
     <div class="row">
       <button class="btn ghost" data-act="resell" ${locked?'disabled':''}>ขายต่อ</button>
-      <button class="btn ghost" data-act="transfer" ${locked||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button>
+      <button class="btn ghost" data-act="transfer" ${locked||t.real||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button>
     </div>
     ${t.status==='listed'?`<button class="btn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
-    ${t.real?'<p class="small muted" style="margin:0">ขายต่อและโอนตั๋วจริงจะเปิดในเวอร์ชันถัดไป</p>':`<button class="btn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>`}
+    ${t.real?'<p class="small muted" style="margin:0">ลงขายได้หลังได้ตั๋ว 6 ชั่วโมง ส่วนการโอนให้เพื่อนจะเปิดในเวอร์ชันถัดไป</p>':`<button class="btn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>`}
   </div></div>`;
 },
 market(){
   appbar('ตลาดรีเซล');
-  const ls=S.listings.filter(l=>S.mcat==='all'||l.ev===S.mcat);
+  const ls=marketListings().filter(l=>S.mcat==='all'||l.ev===S.mcat);
   return `
   <h1 class="d-only" style="font-size:24px">ตลาดรีเซล</h1>
   <div class="card" style="display:flex;gap:10px;align-items:flex-start"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
-    <div class="small"><b>ตั๋วมือสองที่ตรวจสอบได้ทุกใบ</b><br><span class="muted">ผู้ขายต้องเป็นเจ้าของตั๋วบนเชนจริง ราคาไม่เกิน 120% ของหน้าบัตร เงินถึงผู้ขายเมื่อตั๋วโอนสำเร็จเท่านั้น</span></div></div>
+    <div class="small"><b>ตั๋วมือสองที่ตรวจสอบได้ทุกใบ</b><br><span class="muted">ผู้ขายต้องเป็นเจ้าของตั๋วบนเชนจริง ราคาไม่เกิน 125% ของหน้าบัตร ระบบโอนตั๋วให้หลังยืนยันการชำระเงินแล้วเท่านั้น</span></div></div>
   <div class="chips"><button class="chip ${S.mcat==='all'?'on':''}" data-mcat="all">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip ${S.mcat===e.id?'on':''}" data-mcat="${e.id}">${esc(e.short).replace('\n',' ')}</button>`).join('')}</div>
-  ${ls.length?`<div class="lgrid">${ls.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.seller===short(S.user.wallet);return `
+  ${ls.length?`<div class="lgrid">${ls.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.real?l.mine:l.seller===short(S.user.wallet);return `
   <div class="listing">
     <div class="top">${poster(e)}<div><b>${e.name}</b><div class="small muted">${e.date} · ${l.zone}</div><div class="tokenid">Token #${l.tid}</div></div></div>
     <hr class="sep">
     <div class="row between">
       <div><div class="num" style="font-family:var(--f-display);font-weight:700;font-size:19px;color:var(--red)">${fmt(l.price)}</div>
         <div class="row" style="gap:6px"><span class="strike num">${fmt(l.face)}</span><span class="small muted">${pct>0?'+'+pct+'%':'ราคาหน้าบัตร'}</span></div></div>
-      ${mine?'<span class="pill grey">ตั๋วของคุณ</span>':`<button class="btn" style="width:auto;padding:10px 18px;font-size:15px" data-buyl="${l.lid}">ซื้อเลย</button>`}
+      ${mine?'<span class="pill grey">ตั๋วของคุณ</span>':l.held?'<span class="pill warn">มีคนกำลังชำระ</span>':`<button class="btn" style="width:auto;padding:10px 18px;font-size:15px" data-buyl="${l.lid}">ซื้อเลย</button>`}
     </div>
-    <div class="row small muted" style="flex-wrap:wrap;gap:6px 12px"><span>ผู้ขาย <span class="mono">${l.seller}</span></span><span>โอนมาแล้ว ${l.transfers}/2 ครั้ง</span><span class="pill ok">ยืนยันเจ้าของบนเชน</span></div>
+    <div class="row small muted" style="flex-wrap:wrap;gap:6px 12px"><span>ผู้ขาย <span class="mono">${l.seller}</span></span><span>โอนมาแล้ว ${l.transfers} ครั้ง</span><span class="pill ok">ยืนยันเจ้าของบนเชน</span></div>
   </div>`}).join('')}</div>`:`<div class="empty">${S.mcat==='all'?'ยังไม่มีตั๋วลงขาย':'ยังไม่มีตั๋วรีเซลของงานนี้'}</div>`}`;
 },
 profile(){
@@ -2289,17 +2289,17 @@ function walletCreating(){
     else{clearInterval(iv);S.signedIn=true;$('#wdone').innerHTML=`<button class="btn" data-act="signedin">เริ่มใช้งาน</button>`}},900);
 }
 function openResell(){
-  const t=S.sel,cap=Math.floor(t.price*1.2);
+  const t=S.sel,cap=Math.floor(t.price*1.25),cut=v=>Math.round(v*6)/100;
   sheet(`<h2 style="font-size:19px">ขายต่อ Token #${t.tid}</h2>
   <div class="field"><label for="rprice">ราคาที่ต้องการขาย (บาท)</label><input id="rprice" type="number" inputmode="numeric" value="${t.price}" min="1" max="${cap}">
-  <span class="hint" id="rhint">ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)</span></div>
-  <dl class="kv card small num" style="margin:0"><dt>ค่าธรรมเนียมแพลตฟอร์ม 5%</dt><dd id="rfee">${fmt(Math.round(t.price*.05))}</dd><dt><b style="color:var(--ink)">คุณจะได้รับ</b></dt><dd id="rget" style="font-weight:700;color:var(--red)">${fmt(t.price-Math.round(t.price*.05))}</dd></dl>
-  <div class="small muted">เงินจะโอนเข้าบัญชี PromptPay ของคุณหลังผู้ซื้อชำระและตั๋วโอนสำเร็จ ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม</div>
+  <span class="hint" id="rhint">ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (125%)</span></div>
+  <dl class="kv card small num" style="margin:0"><dt>คอมมิชชันแพลตฟอร์ม 6%</dt><dd id="rfee">${fmt(cut(t.price))}</dd><dt><b style="color:var(--ink)">คุณจะได้รับ</b></dt><dd id="rget" style="font-weight:700;color:var(--red)">${fmt(t.price-cut(t.price))}</dd></dl>
+  <div class="small muted">${t.real?'ระบบเก็บเงินของคุณไว้และจ่ายหลังงานจบ 24 ชั่วโมง (ทีมงานโอนให้)':'เงินจะโอนเข้าบัญชี PromptPay ของคุณหลังงานจบ'} ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม</div>
   <button class="btn" data-act="list" id="rlist">ลงขายในตลาดรีเซล</button>
   <button class="btn plain" data-act="close">ยกเลิก</button>`);
   $('#rprice').addEventListener('input',ev=>{const v=+ev.target.value||0;const ok=v>0&&v<=cap;
-    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)`:`ตั้งราคาได้ระหว่าง ฿1 ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
-    $('#rfee').textContent=fmt(Math.round(v*.05));$('#rget').textContent=fmt(v-Math.round(v*.05));$('#rlist').disabled=!ok});
+    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (125%)`:`ตั้งราคาได้ระหว่าง ฿1 ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
+    $('#rfee').textContent=fmt(cut(v));$('#rget').textContent=fmt(v-cut(v));$('#rlist').disabled=!ok});
 }
 function openTransfer(){
   const t=S.sel;
@@ -2325,7 +2325,7 @@ $('#device').addEventListener('click',e=>{
   if(b=t.closest('[data-mtab]')){S.mtab=b.dataset.mtab;render();return}
   if(b=t.closest('[data-ticket]')){S.sel=S.tickets.find(x=>(x.key||x.tid)==b.dataset.ticket);S.ticketView='qr';go('ticket');return}
   if(b=t.closest('[data-tv]')){S.ticketView=b.dataset.tv;stopTimers();render();return}
-  if(b=t.closest('[data-buyl]')){S.buyingListing=S.listings.find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');return}
+  if(b=t.closest('[data-buyl]')){S.buyingListing=marketListings().find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');return}
   if(!(b=t.closest('[data-act]'))||b.closest('#appbar'))return;
   const a=b.dataset.act;
   switch(a){
@@ -2344,10 +2344,10 @@ $('#device').addEventListener('click',e=>{
     case 'resell':openResell();break;
     case 'transfer':openTransfer();break;
     case 'close':closeSheet();break;
-    case 'list':{const v=+$('#rprice').value;const tk=S.sel;tk.status='listed';tk.listPrice=v;orgTicketStatus(tk,'listed');
+    case 'list':{const v=+$('#rprice').value;const tk=S.sel;if(tk.real){resaleList(tk,v);break}tk.status='listed';tk.listPrice=v;orgTicketStatus(tk,'listed');
       S.listings.unshift({lid:Date.now(),ev:tk.ev,zone:tk.zone,face:tk.price,price:v,seller:short(S.user.wallet),transfers:tk.transfers,tid:tk.tid,orgTicketId:tk.orgTicketId});
       closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');render();break}
-    case 'unlist':{const tk=S.sel;tk.status='active';orgTicketStatus(tk,'valid');S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
+    case 'unlist':{const tk=S.sel;if(tk.real){resaleUnlist(tk);break}tk.status='active';orgTicketStatus(tk,'valid');S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
     case 'dotransfer':{const to=$('#tto').value.trim();if(!to){$('#tto').focus();return}
       S.tickets=S.tickets.filter(x=>x!==S.sel);closeSheet();toast('โอน Token #'+S.sel.tid+' ให้ '+to+' แล้ว');go('tickets',true);break}
     case 'scan':{S.sel.status='used';orgTicketStatus(S.sel,'used');stopTimers();toast('สแกนผ่าน เข้างานได้ ตั๋วถูกล็อกแล้ว');render();break}
@@ -2387,13 +2387,14 @@ async function startStripeCheckout(){
   const button=document.querySelector('[data-act="topay"],[data-act="paid"]');
   if(button){button.disabled=true;button.textContent='กำลังเชื่อมต่อ Stripe…'}
   try{
-    const response=await fetch('/api/checkout-session',{
+    const endpoint=listing&&listing.real?'/api/resale/checkout':'/api/checkout-session';
+    const response=await fetch(endpoint,{
       method:'POST',
       credentials:'same-origin',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({eventId,zone,quantity}),
+      body:JSON.stringify(listing&&listing.real?{listingId:listing.lid}:{eventId,zone,quantity}),
     });
-    const data=await readJsonResponse(response,'/api/checkout-session');
+    const data=await readJsonResponse(response,endpoint);
     if(!data){
       throw new Error(response.status===404
         ?'ไม่พบ API ของ Worker กรุณา deploy Worker เวอร์ชันล่าสุด'
@@ -2404,6 +2405,11 @@ async function startStripeCheckout(){
         authentication_required:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
         sold_out:'ที่นั่งโซนนี้หมดแล้ว หรือมีคนกำลังชำระอยู่ ลองโซนอื่นหรือรอสักครู่',
         ticket_limit:'ซื้อได้สูงสุด 4 ใบต่อบัญชีต่องาน (รวมรายการที่กำลังชำระ)',
+        listing_held:'มีคนกำลังชำระตั๋วใบนี้อยู่ ลองใหม่ใน 10 นาที',
+        listing_unavailable:'ตั๋วใบนี้ถูกขายหรือยกเลิกไปแล้ว',
+        own_listing:'ซื้อตั๋วที่ตัวเองลงขายไม่ได้',
+        transfer_closed:'ปิดการซื้อขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',
+        no_wallet:'ยังไม่มีกระเป๋าตั๋ว ลองออกจากระบบแล้วเข้าใหม่',
         invalid_ticket:'ข้อมูลตั๋วไม่ถูกต้อง กรุณาเลือกใหม่',
         stripe_unconfigured:'ระบบยังไม่ได้ตั้งค่า Stripe Secret Key',
         stripe_request_failed:'Stripe ปฏิเสธคำขอ กรุณาตรวจสอบ API key และบัญชี Stripe',
@@ -2443,7 +2449,7 @@ async function checkAuth(){
   if(result){q.delete('login');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
   let back=null;try{back=JSON.parse(sessionStorage.getItem(AUTH_KEY)||'null');sessionStorage.removeItem(AUTH_KEY)}catch(_){}
   if(back&&me.user){if(back.ev&&evById(back.ev)){S.ev=back.ev;S.zone=back.zone||0;S.qty=back.qty||1}
-    S.buyingListing=back.lid?S.listings.find(l=>l.lid==back.lid)||null:null;S.afterSignup=back.after||null}
+    S.buyingListing=back.lid?marketListings().find(l=>l.lid==back.lid)||null:null;S.afterSignup=back.after||null}
   render();
   if(S.orgLiveWanted&&me.user&&S.mode==='org'&&!(S.org&&S.org.live))orgLiveStart();
   loadMyTickets();
@@ -2466,9 +2472,39 @@ async function loadMyTickets(){
     const response=await fetch('/api/tickets',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/tickets');
     if(!response.ok||!Array.isArray(data.tickets))return;
-    S.tickets=data.tickets.map(realTicket);render();
+    S.tickets=data.tickets.map(realTicket);
+    await loadResale();
     if(S.tickets.some(t=>t.minting))setTimeout(loadMyTickets,5000);
   }catch(err){console.error('Ticket API failed',err)}
+}
+
+/* resale on the Worker (src/resale.js); demo listings stay in S.listings for file:// and demo login */
+function marketListings(){return S.auth.google?(S.realListings||[]):S.listings}
+async function loadResale(){
+  try{
+    const [market,mine]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[]})));
+    S.realListings=market.listings.map(l=>({lid:l.id,ev:l.eventId,zone:l.zone,face:l.facePrice,price:l.price,seller:l.seller,transfers:l.transfers,tid:l.tokenId,held:l.held,mine:l.mine,real:true}));
+    for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold'}}
+  }catch(err){console.error('Resale API failed',err)}
+  render();
+}
+const RESALE_ERRORS={holding_period:'ลงขายได้หลังได้ตั๋วครบ 6 ชั่วโมง',transfer_closed:'ปิดการขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',invalid_price:'ราคาเกินเพดาน 125% ของราคาหน้าบัตร',
+  already_listed:'ตั๋วใบนี้ลงขายอยู่แล้ว',ticket_not_listable:'ตั๋วใบนี้ลงขายไม่ได้',event_not_open:'งานนี้ปิดหรือถูกยกเลิกแล้ว',event_time_unknown:'งานนี้ยังไม่มีเวลาเริ่มที่ชัดเจน',
+  listing_on_hold:'มีคนกำลังชำระตั๋วใบนี้ ยกเลิกได้หลังหมดเวลา 10 นาที',listing_closed:'รายการนี้ปิดไปแล้ว'};
+async function resaleCall(method,path,body){
+  const r=await fetch(path,{method,credentials:'same-origin',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){let m=RESALE_ERRORS[d.error]||'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง';if(d.error==='holding_period'&&d.listableAt)m+=' (ลงขายได้ '+new Date(d.listableAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})+')';throw new Error(m)}
+  return d;
+}
+async function resaleList(tk,price){
+  try{await resaleCall('POST','/api/resale/listings',{ticketId:tk.key,price});closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');await loadMyTickets();S.sel=S.tickets.find(x=>x.key===tk.key)||S.sel;render()}
+  catch(err){toast(err.message)}
+}
+async function resaleUnlist(tk){
+  if(!tk.listingId){toast(tk.listingSold?'ตั๋วขายแล้ว กำลังโอนให้ผู้ซื้อ':'ไม่พบรายการขาย');return}
+  try{await resaleCall('DELETE','/api/resale/listings/'+encodeURIComponent(tk.listingId));toast('ยกเลิกการลงขายแล้ว');await loadMyTickets();S.sel=S.tickets.find(x=>x.key===tk.key)||S.sel;render()}
+  catch(err){toast(err.message)}
 }
 async function handleCheckoutReturn(){
   const q=new URLSearchParams(location.search);
