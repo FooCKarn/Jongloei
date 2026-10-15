@@ -25,26 +25,13 @@ Conventions: ids are app-generated `TEXT` (UUID / ULID), timestamps are unix epo
 
 PDPA: only wallet addresses go on-chain. Everything personal stays here, and the sensitive fields are encrypted by the app with a key kept in a Worker secret.
 
-## Set up (once)
+## Where it lives
 
-```sh
-npx wrangler d1 create jongloei-db
-```
+The production database `jongloei-db` (region APAC) already exists and `0001_accounts.sql` has been applied. `wrangler.jsonc` binds it to the Worker as `env.DB`, with `migrations_dir` set to `db/migrations`.
 
-Let Wrangler add the binding to `wrangler.jsonc` (or paste the block it prints), then add `"migrations_dir": "db/migrations"` to that block:
+## Apply new migrations
 
-```jsonc
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "jongloei-db",
-    "database_id": "<id printed by the command above>",
-    "migrations_dir": "db/migrations"
-  }
-]
-```
-
-## Apply migrations
+Add the next numbered file in `db/migrations/`, then:
 
 ```sh
 npx wrangler d1 migrations apply jongloei-db --remote

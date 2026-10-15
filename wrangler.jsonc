@@ -1,5 +1,5 @@
 // Cloudflare Workers config: serves the static front-end mock-up in ./mockup.
-// No Worker script and no secrets; deploy from the Cloudflare dashboard (Workers Builds).
+// No Worker script and no secrets yet; deploy from the Cloudflare dashboard (Workers Builds).
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "jongloei",
@@ -8,6 +8,15 @@
     "directory": "./mockup",
     "not_found_handling": "single-page-application"
   },
+  // Account database (schema in db/migrations, docs in db/README.md).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jongloei-db",
+      "database_id": "f6a0e115-215f-4985-977d-a2d62fc4b925",
+      "migrations_dir": "db/migrations"
+    }
+  ],
   // Needed by `npx wrangler preview`, which Workers Builds runs for non-main branches.
   "previews": {}
 }
