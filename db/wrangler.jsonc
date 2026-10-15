@@ -1,0 +1,16 @@
+// Wrangler config used only for database commands (migrations, queries).
+// Kept apart from the root wrangler.jsonc so the static mock-up deploy stays
+// binding-free until a Worker script that uses env.DB exists.
+//   npx wrangler d1 migrations apply jongloei-db --remote -c db/wrangler.jsonc
+{
+  "name": "jongloei",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jongloei-db",
+      "database_id": "f6a0e115-215f-4985-977d-a2d62fc4b925",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

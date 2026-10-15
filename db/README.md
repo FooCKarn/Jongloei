@@ -27,14 +27,14 @@ PDPA: only wallet addresses go on-chain. Everything personal stays here, and the
 
 ## Where it lives
 
-The production database `jongloei-db` (region APAC) already exists and `0001_accounts.sql` has been applied. `wrangler.jsonc` binds it to the Worker as `env.DB`, with `migrations_dir` set to `db/migrations`.
+The production database `jongloei-db` (region APAC) already exists and `0001_accounts.sql` has been applied. Database commands use `db/wrangler.jsonc`, which points at it. The root `wrangler.jsonc` does not bind it yet: the Worker is still a static mock-up, so the binding is added together with the first Worker script that uses `env.DB`.
 
 ## Apply new migrations
 
 Add the next numbered file in `db/migrations/`, then:
 
 ```sh
-npx wrangler d1 migrations apply jongloei-db --remote
+npx wrangler d1 migrations apply jongloei-db --remote -c db/wrangler.jsonc
 ```
 
 Use `--local` instead of `--remote` to try it against a local database first.
