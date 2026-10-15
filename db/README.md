@@ -7,7 +7,7 @@ Cloudflare D1 (SQLite). Migrations live in `db/migrations/` and are plain SQL, a
 | Table | What it holds |
 |---|---|
 | `users` | One row per person: display name, verified email / phone, role (`guest`, `host`, `admin`), status, soft-delete for PDPA erasure |
-| `auth_identities` | Login methods linked to a user (`google`, `email`, `phone`, `line`, `wallet`). `(provider, provider_subject)` is unique, so the same Google account always maps to the same user |
+| `auth_identities` | Login methods linked to a user (`google`, `email`, `phone`, `wallet`). `(provider, provider_subject)` is unique, so the same Google account always maps to the same user |
 | `wallets` | Wallets the user owns. `inapp` = created by thirdweb at sign-up, `external` = the user's own wallet linked by signature (future work). At most one active primary wallet per user; tickets are minted to it |
 | `sessions` | Server sessions. Only the SHA-256 hash of the token is stored |
 | `host_profiles` | Shop details and verification status (shops are verified at sign-up). Legal name and ID number are stored encrypted (`*_enc`), never in plain text |
@@ -17,7 +17,7 @@ Conventions: ids are app-generated `TEXT` (UUID / ULID), timestamps are unix epo
 
 ## Sign-up / login flow against this schema
 
-1. User signs in with thirdweb (Google, email OTP, phone, LINE or an existing wallet). thirdweb returns the auth provider, the provider's user id and the in-app wallet address.
+1. User signs in with thirdweb (Google, email OTP, phone or an existing wallet). thirdweb returns the auth provider, the provider's user id and the in-app wallet address.
 2. Backend looks up `auth_identities` by `(provider, provider_subject)`.
    - Found: load the user, update `last_login_at`.
    - Not found: insert `users`, `auth_identities` and a primary `inapp` row in `wallets` in one batch, and log `signup` in `account_events`.
