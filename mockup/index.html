@@ -378,6 +378,7 @@ body{padding:0}
 </div>
 
 <script src="organizer-logic.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script>
 (function(){
 const $=s=>document.querySelector(s);
@@ -923,7 +924,7 @@ function orgEvCard(e){
       <button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="openEvent" data-id="${e.id}">เปิด</button>
       ${['draft','on_sale','paused','sold_out'].includes(e.status)?`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="editEvent" data-id="${e.id}">แก้ไข</button>`:''}
       <button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="evDuplicate" data-id="${e.id}">ทำซ้ำ</button>
-      ${['on_sale','sold_out'].includes(e.status)&&!S.org.live?`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="gate" data-id="${e.id}">หน้างาน</button>`:''}</div></div>`;
+      ${['on_sale','sold_out'].includes(e.status)?S.org.live?`<a class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px;text-decoration:none" href="/scan.html?event=${encodeURIComponent(e.id)}">หน้างาน</a>`:`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="gate" data-id="${e.id}">หน้างาน</button>`:''}</div></div>`;
 }
 // 14-day column chart: one series, so no legend box; value labelled on the peak only, full values in tooltip + table
 function orgChart(days){
@@ -2190,6 +2191,7 @@ const AFTER={
   },
   ticket(){
     const c=$('#entryqr');if(!c)return;
+    if(S.sel.real){liveEntryQR(c);return}
     let seed=S.sel.tid*1000+Math.floor(Date.now()/60000),s=60;drawQR(c,'t'+seed);
     S.qrTimer=setInterval(()=>{s--;if(s<=0){s=60;seed++;drawQR(c,'t'+seed)}
       const cd=$('#qrcd');if(cd)cd.textContent=s;const r=$('#ringfg');if(r)r.setAttribute('stroke-dashoffset',(94.25*(1-s/60)).toFixed(2))},1000);
@@ -2223,6 +2225,39 @@ function finishMint(){
   S.sel=t;S.stack=['tickets'];S.tab='tickets';S.mtab='active';go('success');
 }
 function rand(n){return Array.from({length:n},()=>'0123456789abcdef'[Math.random()*16|0]).join('')}
+
+/* ---------- entry QR of a real ticket: signed by the Worker through the owner's wallet ---------- */
+// GET /api/tickets/:id/qr gives a code valid for 60 s; a new one is fetched 10 s before it runs out.
+function liveEntryQR(c){
+  const t=S.sel;let exp=0,busy=false,failed=0;
+  const tick=()=>{
+    if(!c.isConnected||S.sel!==t){clearInterval(S.qrTimer);return}
+    const s=Math.max(0,Math.ceil((exp-Date.now())/1000));
+    const cd=$('#qrcd');if(cd)cd.textContent=s;const r=$('#ringfg');if(r)r.setAttribute('stroke-dashoffset',(94.25*(1-s/60)).toFixed(2));
+    if(exp-Date.now()<10000)refresh();
+  };
+  const refresh=async()=>{
+    if(busy||failed>=3)return;busy=true;
+    try{
+      const res=await fetch('/api/tickets/'+encodeURIComponent(t.key)+'/qr',{credentials:'same-origin'});
+      const d=await readJsonResponse(res,'/api/tickets/:id/qr');
+      if(!c.isConnected||S.sel!==t)return;
+      if(res.status===409){stopTimers();loadMyTickets();return} // scanned at the door, or no longer usable
+      if(!res.ok)throw new Error(d.error||'qr_failed');
+      drawCodeQR(c,d.code);exp=Date.now()+(d.expiresAt-d.ts*1000);failed=0;
+    }catch(err){
+      console.error('Entry QR failed',err);
+      if(++failed>=3){const cd=$('#qrcd');if(cd)cd.parentElement.textContent='สร้าง QR ไม่สำเร็จ ลองเปิดหน้านี้ใหม่';}
+    }finally{busy=false}
+  };
+  stopTimers();S.qrTimer=setInterval(tick,1000);tick();
+}
+function drawCodeQR(c,text){
+  const q=qrcode(0,'M');q.addData(text,'Byte');q.make();
+  const n=q.getModuleCount(),pad=2,ctx=c.getContext('2d');
+  c.width=c.height=n+pad*2;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#1E1416';
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(q.isDark(y,x))ctx.fillRect(x+pad,y+pad,1,1);
+}
 
 /* ---------- pseudo QR ---------- */
 function drawQR(c,seed){

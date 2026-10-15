@@ -18,8 +18,11 @@ Cloudflare D1 (SQLite). Migrations live in `db/migrations/` and are plain SQL, a
 | `tickets` | One row per ticket: owner wallet, on-chain `token_id`, mint transaction, status (`minting`, `active`, `listed`, `used`, `mint_failed`) |
 | `webhook_events` | Stripe event ids already handled, so a replayed webhook is ignored |
 | `host_members` | Shop team besides the owner (`manager`, `gate`), matched by Google e-mail. One shop per e-mail (0006) |
+| `ticket_scans` | Every door scan, valid or not, with the refusal reason and who scanned it (0007) |
 
 `0006_organizer.sql` also adds `events.host_id` (the shop owner; `NULL` for platform events), `description`, `starts_at`, `ends_at`, `published_at`, `cancelled_at`, `cancel_reason`, and `event_zones.capacity`. A cancelled event has `status = 'closed'` and `cancelled_at` set.
+
+`0007_checkin.sql` adds to `tickets`: `used_at`, `used_by` (the staff member who scanned it), and `mark_used_tx_id` / `mark_used_tx_hash` / `mark_used_attempts` / `mark_used_error`, which follow the `markUsed` write on the contract the way `payment_orders.mint_*` follow minting.
 
 Conventions: ids are app-generated `TEXT` (UUID / ULID), timestamps are unix epoch **milliseconds**, booleans are `0`/`1`, wallet addresses are stored lowercase.
 
