@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>JongLoei App Mock-up</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a phone-sized app on the right, a clickable user-flow index on the left (stacks on phones). */
+:root{
+  --brand:#A00018;          /* logo crimson, fixed in both themes */
+  --red:#A00018;            /* interactive accent */
+  --red-strong:#7E0013;
+  --red-soft:#FBEBED;       /* tinted fills */
+  --bg:#F6F3F3;             /* page ground, red-biased neutral */
+  --surface:#FFFFFF;
+  --surface-2:#FAF7F7;
+  --ink:#1E1416;
+  --muted:#6E6265;
+  --line:#ECE4E5;
+  --ok:#1D7A48; --ok-soft:#E5F3EB;
+  --warn:#9A5B00; --warn-soft:#FBF0DD;
+  --qr-bg:#FFFFFF; --qr-ink:#1E1416;
+  --shadow:0 1px 2px rgba(60,10,16,.06),0 8px 24px rgba(60,10,16,.08);
+  --f-display:"Prompt","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai","Prompt",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --red:#E8485A;--red-strong:#FF6B7B;--red-soft:#3A1519;--bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
+  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;--ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --red:#E8485A;--red-strong:#FF6B7B;--red-soft:#3A1519;--bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
+  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;--ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.25}
+.mono{font-family:var(--f-mono);font-size:.82em;letter-spacing:-.01em}
+.num{font-variant-numeric:tabular-nums}
+
+.stage{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:40px;align-items:start}
+@media (max-width:860px){.stage{grid-template-columns:minmax(0,1fr)}.stage .devwrap{order:-1;position:relative;top:auto}.stage .device{height:min(780px,calc(100dvh - 32px))}}
+
+/* ---------- flow index ---------- */
+.intro{display:flex;flex-direction:column;gap:20px;padding-top:8px;min-width:0}
+.brandrow{display:flex;align-items:center;gap:14px}
+.brandrow svg{width:52px;height:52px;flex:none}
+.wordmark{font-family:var(--f-display);font-weight:700;font-size:28px;letter-spacing:.06em;color:var(--red)}
+.intro p{margin:0;color:var(--muted);max-width:56ch}
+.flow{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;counter-reset:f}
+.flow button{width:100%;text-align:left;display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start;padding:10px 12px;border-radius:12px;border:1px solid transparent;background:none}
+.flow button:hover{background:var(--surface)}
+.flow button.on{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow)}
+.flow .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:13px;background:var(--red-soft);color:var(--red)}
+.flow button.on .n{background:var(--red);color:#fff}
+.flow b{display:block;font-weight:600}
+.flow small{color:var(--muted);font-size:13px}
+.legend{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+
+/* ---------- device ---------- */
+.device{position:relative;width:100%;max-width:400px;margin:0 auto;height:min(820px,calc(100dvh - 48px));min-height:620px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:36px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.appbar{display:flex;align-items:center;gap:10px;padding:14px 18px 10px;background:var(--surface);border-bottom:1px solid var(--line);flex:none}
+.appbar .ttl{flex:1;font-family:var(--f-display);font-weight:600;font-size:17px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appbar svg.logo{width:30px;height:30px}
+.iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
+.iconbtn svg{width:18px;height:18px}
+.walletchip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12px;font-weight:600;border:0}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+.screen{padding:16px 18px 24px;display:flex;flex-direction:column;gap:16px;animation:in .25s ease}
+@keyframes in{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.tabbar{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);flex:none;padding-bottom:6px}
+.tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0 4px;font-size:11.5px;color:var(--muted)}
+.tabbar button svg{width:22px;height:22px}
+.tabbar button.on{color:var(--red);font-weight:600}
+
+/* ---------- shared bits ---------- */
+.btn{border:0;border-radius:14px;padding:14px 18px;font-weight:600;font-family:var(--f-display);font-size:16px;background:var(--red);color:#fff;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{background:var(--red-strong)}
+.btn.ghost{background:var(--surface);color:var(--red);border:1.5px solid var(--red)}
+.btn.ghost:hover{background:var(--red-soft)}
+.btn.plain{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center}
+.between{justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--red-soft);color:var(--red);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.grey{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:13.5px;white-space:nowrap}
+.chip.on{background:var(--red);color:#fff;border-color:var(--red)}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;color:var(--muted)}
+.search svg{width:18px;height:18px}
+.search input{border:0;background:none;outline:none;flex:1;font:inherit;color:var(--ink);min-width:0}
+hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere}
+
+/* posters: typographic, no photos */
+.poster{border-radius:16px;position:relative;overflow:hidden;color:#fff;padding:14px;display:flex;flex-direction:column;justify-content:flex-end;min-height:140px;isolation:isolate}
+.poster::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--pbg)}
+.poster::after{content:"";position:absolute;inset:0;z-index:-1;background:repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 2px,transparent 2px 14px)}
+.poster .ptag{position:absolute;top:12px;left:12px;font-size:11px;font-weight:600;letter-spacing:.06em;background:rgba(255,255,255,.18);padding:3px 8px;border-radius:999px}
+.poster .pbig{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1.1;letter-spacing:.01em}
+.poster.lg{min-height:200px}.poster.lg .pbig{font-size:28px}
+
+.evlist{display:flex;flex-direction:column;gap:12px}
+.ev{display:grid;grid-template-columns:92px 1fr;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;width:100%}
+.ev .poster{min-height:92px;padding:8px;border-radius:12px}
+.ev .poster .pbig{font-size:13px}
+.ev h3{font-size:15.5px;font-weight:600}
+.ev .meta{font-size:13px;color:var(--muted)}
+.ev .price{font-family:var(--f-display);font-weight:600;color:var(--red)}
+.ev>div{min-width:0;display:flex;flex-direction:column;gap:3px}
+
+.zones{display:flex;flex-direction:column;gap:8px}
+.zone{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;width:100%}
+.zone .dot{width:12px;height:12px;border-radius:4px;background:var(--zc)}
+.zone.on{border-color:var(--red);background:var(--red-soft)}
+.zone b{font-family:var(--f-display);font-weight:600}
+.zone[disabled]{opacity:.5}
+.qty{display:flex;align-items:center;gap:14px}
+.qty button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:18px}
+
+.trust{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.trust div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;font-size:12.5px;line-height:1.35}
+.trust svg{width:20px;height:20px;color:var(--red);display:block;margin-bottom:4px}
+
+.sticky-cta{position:sticky;bottom:0;background:linear-gradient(to top,var(--surface-2) 85%,transparent);padding:14px 18px 16px;margin:0 -18px -24px;display:flex;gap:10px;align-items:center}
+.sticky-cta .tot{flex:none;display:flex;flex-direction:column;line-height:1.2}
+.sticky-cta .tot b{font-family:var(--f-display);font-size:20px}
+
+.pay{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;width:100%}
+.pay.on{border-color:var(--red)}
+.pay .logo{width:40px;height:28px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff;background:#113566}
+.radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line)}
+.pay.on .radio{border:6px solid var(--red)}
+
+.qrbox{background:var(--qr-bg);border-radius:18px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line);color:#1E1416}
+.qrbox canvas{width:220px;height:220px;max-width:100%;image-rendering:pixelated}
+.tqr{width:100%;background:#113566;color:#fff;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:13px}
+
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.steps li{display:grid;grid-template-columns:32px 1fr;gap:12px;padding-bottom:18px;position:relative}
+.steps li:not(:last-child)::before{content:"";position:absolute;left:15px;top:32px;bottom:2px;width:2px;background:var(--line)}
+.steps li.done:not(:last-child)::before{background:var(--red)}
+.steps .s{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;background:var(--surface)}
+.steps .s svg{width:16px;height:16px}
+.steps li.done .s{background:var(--red);border-color:var(--red);color:#fff}
+.steps li.active .s{border-color:var(--red)}
+.steps li.active .s::after{content:"";width:12px;height:12px;border-radius:50%;border:2px solid var(--red);border-right-color:transparent;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.steps b{display:block;font-weight:600}
+.steps small{color:var(--muted);font-size:13px}
+
+/* NFT ticket card */
+.nft{border-radius:22px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
+.nft .poster{border-radius:0;min-height:150px}
+.nft .stub{position:relative;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.nft .stub::before,.nft .stub::after{content:"";position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line)}
+.nft .stub::before{left:-12px}.nft .stub::after{right:-12px}
+.nft .perf{position:absolute;top:0;left:16px;right:16px;border-top:2px dashed var(--line)}
+.tokenid{font-family:var(--f-mono);font-weight:500;font-size:13px;color:var(--red)}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg.three{grid-template-columns:repeat(3,1fr)}
+.seg button{border:0;background:none;border-radius:9px;padding:8px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--red);color:#fff}
+
+.ring{display:flex;align-items:center;gap:8px;font-size:13px;color:#6E6265}
+.ring svg{width:22px;height:22px;transform:rotate(-90deg)}
+
+.mticket{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.mticket .poster{min-height:70px;padding:6px;border-radius:10px}
+.mticket .poster .pbig{font-size:11px}
+.mticket>div{min-width:0}
+.mticket h3{font-size:15px;font-weight:600}
+
+.listing{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.listing .top{display:grid;grid-template-columns:64px 1fr;gap:12px}
+.listing .poster{min-height:64px;padding:6px;border-radius:10px}.listing .poster .pbig{font-size:10px}
+.listing .top>div{min-width:0}
+.strike{text-decoration:line-through;color:var(--muted);font-size:13px}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--red);border-radius:99px}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600}
+.field input{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;font:inherit;color:var(--ink);width:100%}
+.field input:focus{border-color:var(--red);outline:none}
+.hint{font-size:12.5px;color:var(--muted)}
+.hint.err{color:var(--red)}
+
+.sheet-wrap{position:absolute;inset:0;background:rgba(20,6,8,.45);display:flex;align-items:flex-end;z-index:5}
+.sheet{background:var(--surface);width:100%;border-radius:24px 24px 0 0;padding:10px 18px 22px;display:flex;flex-direction:column;gap:14px;max-height:92%;overflow-y:auto;animation:up .25s ease}
+@keyframes up{from{transform:translateY(40px)}to{transform:none}}
+.grab{width:40px;height:4px;border-radius:9px;background:var(--line);margin:0 auto}
+.social{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:13px;font-weight:600;width:100%}
+.social .g{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.linkbtn{border:0;background:none;color:var(--red);font-weight:600;padding:0;font-size:13.5px;text-decoration:underline;text-underline-offset:3px}
+
+.toast{position:absolute;left:18px;right:18px;bottom:76px;background:var(--ink);color:var(--surface);border-radius:14px;padding:12px 14px;font-size:14px;z-index:9;display:flex;gap:8px;align-items:center;animation:up .2s ease}
+.hero-ok{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-top:6px}
+.hero-ok .big{width:64px;height:64px;border-radius:20px;background:var(--red);color:#fff;display:grid;place-items:center}
+.hero-ok .big svg{width:34px;height:34px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
+.wallet-addr{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.wallet-addr .mono{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adv{border:1px dashed var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.devwrap{position:sticky;top:max(16px,env(safe-area-inset-top,0px));min-width:0}
+.mode{display:inline-grid;grid-template-columns:1fr 1fr;width:max-content;max-width:100%}
+.cols,.col,.narrow{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ev.feature{grid-template-columns:1fr;padding:0;overflow:hidden}
+.d-only{display:none!important}
+.browserbar{display:none}
+.sgrid{display:grid;gap:16px;grid-template-areas:"hero" "nft" "btns";grid-template-columns:minmax(0,1fr)}
+.sgrid .a-hero{grid-area:hero}.sgrid .a-nft{grid-area:nft;min-width:0}.sgrid .a-btns{grid-area:btns;display:flex;flex-direction:column;gap:12px}
+.tgrid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+.stage:not(.desk) .tv-hide{display:none}
+.tlist,.lgrid{display:flex;flex-direction:column;gap:12px}
+.backrow{display:flex;align-items:center;gap:12px}
+
+/* ---------- desktop web mode ---------- */
+.stage.desk{grid-template-columns:minmax(0,1fr);max-width:1280px;gap:18px}
+.stage.desk .intro{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:0}
+.stage.desk .intro>p,.stage.desk .legend{display:none}
+.stage.desk .brandrow svg{width:36px;height:36px}.stage.desk .wordmark{font-size:20px}
+.stage.desk .mode{margin-left:auto}
+.stage.desk .flow{flex-direction:row;overflow-x:auto;flex:1 1 100%;order:3;gap:6px;padding-bottom:4px}
+.stage.desk .flow li{flex:none}
+.stage.desk .flow button{grid-template-columns:24px auto;align-items:center;padding:5px 12px 5px 5px;border-color:var(--line);background:var(--surface);border-radius:999px;gap:8px;box-shadow:none}
+.stage.desk .flow button.on{border-color:var(--red)}
+.stage.desk .flow small{display:none}.stage.desk .flow b{font-size:13.5px;white-space:nowrap}
+.stage.desk .flow .n{width:24px;height:24px;font-size:12px}
+.stage.desk .devwrap{position:static;overflow-x:auto;border-radius:14px}
+.stage.desk .device{max-width:none;min-width:1000px;border-radius:14px;height:min(860px,calc(100dvh - 150px));min-height:640px}
+.stage.desk .browserbar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);flex:none}
+.browserbar i{width:11px;height:11px;border-radius:50%;background:var(--line)}
+.browserbar .url{flex:0 1 420px;margin-left:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px 12px;font-size:12.5px;color:var(--muted)}
+.stage.desk .tabbar{display:none}
+.stage.desk .appbar{padding:12px 32px;gap:18px}
+.stage.desk .d-only{display:flex!important}
+.stage.desk .m-only{display:none}
+.dnav{gap:4px}
+.dnav button{border:0;background:none;padding:8px 14px;border-radius:10px;font-weight:600;color:var(--muted)}
+.dnav button:hover{background:var(--surface-2);color:var(--ink)}
+.dnav button.on{color:var(--red);background:var(--red-soft)}
+.dsearch.search{flex:1;max-width:340px;margin-left:auto;padding:8px 12px}
+.avatar{width:36px;height:36px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--f-display);font-weight:600;flex:none}
+.stage.desk .screen{max-width:1140px;margin:0 auto;width:100%;padding:28px 32px 48px;gap:24px}
+.stage.desk .ev.feature{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+.stage.desk .feature .poster{min-height:300px;border-radius:0}
+.stage.desk .feature .poster .pbig{font-size:52px}
+.stage.desk .feature .finfo{padding:28px!important;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.stage.desk .feature h3{font-size:28px!important}
+.stage.desk .evlist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.stage.desk .evlist .ev{grid-template-columns:1fr;padding:0;overflow:hidden}
+.stage.desk .evlist .ev .poster{min-height:160px;border-radius:0;padding:14px}
+.stage.desk .evlist .ev .poster .pbig{font-size:24px}
+.stage.desk .evlist .ev>div{padding:4px 16px 16px}
+.stage.desk .cols{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:32px;align-items:start}
+.stage.desk .cols.even{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stage.desk .col.side{position:sticky;top:0;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
+.stage.desk .sticky-cta{position:static;background:none;margin:0;padding:0}
+.stage.desk .poster.lg{min-height:320px}.stage.desk .poster.lg .pbig{font-size:52px}
+.stage.desk .sgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"nft hero" "nft btns";column-gap:48px;align-items:start}
+.stage.desk .sgrid .hero-ok{align-items:flex-start;text-align:left;padding-top:48px}
+.stage.desk .tgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.stage.desk .tgrid .seg{display:none}
+.stage.desk .qrbox canvas{width:260px;height:260px}
+.stage.desk .tlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.stage.desk .lgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.stage.desk .narrow{max-width:560px;margin:0 auto;width:100%}
+.stage.desk .seg.three{max-width:520px}
+.stage.desk .sheet-wrap{align-items:center;justify-content:center}
+.stage.desk .sheet{width:460px;border-radius:20px;padding:22px 24px}
+.stage.desk .grab{display:none}
+.stage.desk .toast{left:auto;right:24px;bottom:24px;width:360px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="17" fill="#A00018"/>
+      <g transform="rotate(-45 30 32)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round">
+        <path d="M11 24h38v3.5a4.5 4.5 0 0 0 0 9V40H11v-3.5a4.5 4.5 0 0 0 0-9z"/>
+      </g>
+      <path d="M33.5 31.5l13 4.6-5.4 2.1-2.2 5.6z" fill="#fff" stroke="#A00018" stroke-width="1.6" stroke-linejoin="round"/>
+      <circle cx="47.5" cy="45" r="2.8" fill="#fff"/>
+    </symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 7h12l-3-3M17 17H5l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8V6h18v2a2 2 0 0 0 0 4v0a2 2 0 0 0 0 4v2H3v-2a2 2 0 0 0 0-4 2 2 0 0 0 0-4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 6v12" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c1.5-4 4.5-5.5 8-5.5s6.5 1.5 8 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1zM4 7l11-3v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="16" cy="13.5" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  </defs>
+</svg>
+
+<div class="stage" id="stage">
+  <section class="intro">
+    <div class="brandrow">
+      <svg aria-hidden="true"><use href="#logo"/></svg>
+      <div>
+        <div class="wordmark">JONGLOEI</div>
+        <div class="small muted">ม็อกอัปหน้าเว็บสำหรับผู้ซื้อตั๋ว · ข้อมูลทั้งหมดเป็นตัวอย่าง</div>
+      </div>
+    </div>
+    <div class="seg mode" id="modeSeg" role="group" aria-label="ขนาดหน้าจอ"><button data-mode="m">มือถือ</button><button data-mode="d">คอมพิวเตอร์</button></div>
+    <p>ตั๋วทุกใบเป็น NFT ที่อยู่ในกระเป๋าของผู้ซื้อ แต่ผู้ใช้ไม่ต้องรู้เรื่อง wallet เลย ล็อกอินด้วย Google จ่ายด้วย PromptPay แล้วตั๋วก็มาอยู่ในแอป กดขั้นตอนด้านล่างเพื่อกระโดดไปหน้าที่ต้องการ หรือกดใช้งานในแอปได้เลย</p>
+    <ol class="flow" id="flow"></ol>
+    <div class="legend">หน้าจอที่ทำเครื่องหมาย “ต่อในอนาคต” เป็นการจำลอง เช่น Payment Gateway ที่ยืนยันยอดแล้ว mint ตั๋วให้อัตโนมัติ</div>
+  </section>
+
+  <div class="devwrap"><div class="device" id="device">
+    <div class="browserbar" aria-hidden="true"><i></i><i></i><i></i><span class="url">jongloei.app</span></div>
+    <header class="appbar" id="appbar"></header>
+    <main class="scroll" id="scroll"></main>
+    <nav class="tabbar" id="tabbar">
+      <button data-tab="home"><svg><use href="#i-home"/></svg>หน้าแรก</button>
+      <button data-tab="market"><svg><use href="#i-swap"/></svg>ตลาดรีเซล</button>
+      <button data-tab="tickets"><svg><use href="#i-ticket"/></svg>ตั๋วของฉัน</button>
+      <button data-tab="profile"><svg><use href="#i-user"/></svg>บัญชี</button>
+    </nav>
+  </div></div>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const fmt=n=>'฿'+n.toLocaleString('th-TH');
+const CONTRACT='0x7a3F9e21B4c0D58aE6f1b2C9d04E7f3A15b8c91E';
+
+const EVENTS=[
+  {id:'neon',name:'BKK Neon Nights 2026',short:'NEON\nNIGHTS',tag:'คอนเสิร์ต',date:'ส. 21 พ.ย. 2569',time:'19:00',venue:'อิมแพ็ค อารีนา เมืองทองธานี',bg:'linear-gradient(140deg,#A00018,#4A0010 70%,#1E0508)',
+   zones:[{z:'Standing A',p:2500,left:182,c:'#E8485A'},{z:'Seat B',p:3800,left:64,c:'#A00018'},{z:'VIP Front',p:5500,left:9,c:'#4A0010'}],sold:86},
+  {id:'jazz',name:'Siam River Jazz Festival',short:'RIVER\nJAZZ',tag:'เทศกาล',date:'ส. 5 ธ.ค. 2569',time:'16:00',venue:'ลานริมน้ำ เจริญกรุง',bg:'linear-gradient(160deg,#C2412D,#7E0013 60%,#2B0A0E)',
+   zones:[{z:'บัตรวันเดียว',p:1800,left:420,c:'#E8485A'},{z:'บัตร 2 วัน',p:3200,left:150,c:'#A00018'}],sold:58},
+  {id:'fan',name:'Starlight Fan Meeting in Bangkok',short:'STAR\nLIGHT',tag:'แฟนมีตติ้ง',date:'อา. 13 ธ.ค. 2569',time:'17:30',venue:'ธันเดอร์โดม เมืองทองธานี',bg:'linear-gradient(150deg,#D6455A,#A00018 45%,#3D0710)',
+   zones:[{z:'Zone C',p:2900,left:0,c:'#E8485A'},{z:'Zone B',p:4200,left:31,c:'#A00018'},{z:'Hi-Touch A',p:6900,left:4,c:'#4A0010'}],sold:97},
+  {id:'standup',name:'Late Night Stand-up Special',short:'LATE\nNIGHT',tag:'สแตนด์อัป',date:'ศ. 9 ม.ค. 2570',time:'20:00',venue:'สามย่านมิตรทาวน์ ฮอลล์',bg:'linear-gradient(130deg,#8A1020,#2A0A0D)',
+   zones:[{z:'Regular',p:1500,left:240,c:'#E8485A'},{z:'Front Row',p:2600,left:22,c:'#A00018'}],sold:41},
+];
+const evById=id=>EVENTS.find(e=>e.id===id);
+
+/* ---------- state ---------- */
+const S={
+  signedIn:false,user:{name:'ชนกานต์',email:'chonnakarn@gmail.com',wallet:'0x4B21c7aE90F3d18b52A6e4c0F7D93a1B2e8C5d07'},
+  tab:'home',stack:['home'],ev:'neon',zone:0,qty:1,pay:'promptpay',
+  tickets:[
+    {tid:427,ev:'jazz',zone:'บัตรวันเดียว',price:1800,status:'active',transfers:0,tx:'0x9c1e…a47b'},
+  ],
+  listings:[
+    {lid:1,ev:'fan',zone:'Zone B',face:4200,price:4600,seller:'0x91aD…3F0c',transfers:1,tid:1182},
+    {lid:2,ev:'neon',zone:'VIP Front',face:5500,price:6200,seller:'0x2C77…e19A',transfers:0,tid:66},
+    {lid:3,ev:'fan',zone:'Zone C',face:2900,price:2900,seller:'0x5bE0…7712',transfers:0,tid:2045},
+  ],
+  sel:null,qrTimer:null,payTimer:null,nextTid:1311,buyingListing:null,ticketView:'qr',mtab:'active',
+};
+const short=a=>a.slice(0,6)+'…'+a.slice(-4);
+
+/* ---------- flow index ---------- */
+const FLOW=[
+  ['signup','สมัคร / เข้าสู่ระบบ','Google หรือ LINE แล้วระบบสร้าง wallet ให้เอง'],
+  ['home','เลือกงาน','งานราคาบัตร 1,000 บาทขึ้นไป'],
+  ['event','เลือกโซนและจำนวน','เห็นชัดว่าได้ตั๋วเป็น NFT'],
+  ['checkout','ชำระด้วย PromptPay','สแกน QR จ่ายเงินแบบคนไทยคุ้นเคย'],
+  ['minting','รอยืนยันและ mint ตั๋ว','Payment Gateway → mint เข้ากระเป๋า (ต่อในอนาคต)'],
+  ['tickets','ตั๋ว NFT ของฉัน','Token ID, เจ้าของ, ประวัติบนเชน'],
+  ['resell','ขายต่อ / โอนตั๋ว','ตั้งราคาได้ไม่เกิน 120% ของราคาหน้าบัตร'],
+  ['market','ตลาดรีเซล','ซื้อตั๋วมือสองที่ตรวจสอบบนเชนได้'],
+  ['qr','QR เข้างาน','เปลี่ยนทุก 60 วินาที แคปหน้าจอใช้ไม่ได้'],
+];
+function renderFlow(cur){
+  $('#flow').innerHTML=FLOW.map(([k,t,d],i)=>`<li><button data-jump="${k}" class="${k===cur?'on':''}"><span class="n">${i+1}</span><span><b>${t}</b><small>${d}</small></span></button></li>`).join('');
+}
+$('#flow').addEventListener('click',e=>{const b=e.target.closest('[data-jump]');if(b)jump(b.dataset.jump)});
+function jump(k){
+  closeSheet();
+  if(k!=='signup'&&!S.signedIn){S.signedIn=true}
+  S.tab={qr:'tickets',resell:'tickets',tickets:'tickets',market:'market'}[k]||'home';
+  switch(k){
+    case 'signup':S.signedIn=false;go('home',true);openSignup();renderFlow('signup');return;
+    case 'home':go('home',true);break;
+    case 'event':S.ev='neon';S.zone=0;S.qty=1;go('event');break;
+    case 'checkout':S.ev='neon';S.zone=0;S.qty=1;S.buyingListing=null;go('checkout');break;
+    case 'minting':S.ev='neon';S.zone=0;S.qty=1;S.buyingListing=null;go('minting');break;
+    case 'tickets':go('tickets',true);break;
+    case 'resell':S.sel=S.tickets.find(t=>t.status==='active')||S.tickets[0];S.ticketView='nft';go('ticket');openResell();break;
+    case 'market':go('market',true);break;
+    case 'qr':S.sel=S.tickets.find(t=>t.status==='active')||S.tickets[0];S.ticketView='qr';go('ticket');break;
+  }
+  renderFlow(k);
+  if(window.matchMedia('(max-width:860px)').matches)$('#device').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ---------- nav ---------- */
+const TABS=['home','market','tickets','profile'];
+function go(screen,reset){
+  stopTimers();
+  if(TABS.includes(screen)&&reset){S.tab=screen;S.stack=[screen]}
+  else S.stack.push(screen);
+  render();
+}
+function back(){stopTimers();if(S.stack.length>1)S.stack.pop();render()}
+$('#tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;closeSheet();go(b.dataset.tab,true);renderFlow(b.dataset.tab==='profile'?'':b.dataset.tab)});
+function stopTimers(){clearInterval(S.qrTimer);clearInterval(S.payTimer);S.qrTimer=S.payTimer=null}
+
+function appbar(title){
+  S.title=title;
+  if(S.desk){
+    $('#appbar').innerHTML=`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="wordmark" style="font-size:19px">JONGLOEI</span>
+    <nav class="dnav d-only">${[['home','หน้าแรก'],['market','ตลาดรีเซล'],['tickets','ตั๋วของฉัน']].map(([k,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${v}</button>`).join('')}</nav>
+    <div class="search dsearch"><svg><use href="#i-search"/></svg><input id="dq" placeholder="ค้นหางาน ศิลปิน สถานที่"></div>`
+    +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button><button class="avatar" data-tab="profile" aria-label="บัญชี">ช</button>`
+                :`<button class="btn" style="width:auto;padding:9px 18px;font-size:14px" data-act="signup">เข้าสู่ระบบ</button>`);
+    return;
+  }
+  const top=S.stack.length<=1;
+  $('#appbar').innerHTML=(top?`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg>`:`<button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button>`)
+   +`<div class="ttl">${title}</div>`
+   +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button>`
+               :`<button class="walletchip" data-act="signup">เข้าสู่ระบบ</button>`);
+}
+$('#appbar').addEventListener('click',e=>{const tb=e.target.closest('[data-tab]');if(tb){closeSheet();go(tb.dataset.tab,true);renderFlow(tb.dataset.tab==='profile'?'':tb.dataset.tab);return}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  if(a.dataset.act==='back')back();if(a.dataset.act==='profile')go('profile',true);if(a.dataset.act==='signup')openSignup()});
+
+function render(){
+  const cur=S.stack[S.stack.length-1];
+  document.querySelectorAll('#tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
+  const fullFlow=['checkout','pay','minting'].includes(cur);
+  $('#tabbar').hidden=fullFlow;
+  let html=(VIEWS[cur]||VIEWS.home)();
+  if(S.desk&&S.stack.length>1)html=`<div class="backrow"><button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h2 style="font-size:20px">${S.title}</h2></div>`+html;
+  $('#scroll').innerHTML=`<div class="screen">${html}</div>`;
+  $('#scroll').scrollTop=0;
+  (AFTER[cur]||(()=>{}))();
+}
+
+function poster(ev,cls=''){return `<div class="poster ${cls}" style="--pbg:${ev.bg}"><span class="ptag">${ev.tag}</span><div class="pbig">${ev.short.replace('\n','<br>')}</div></div>`}
+function minPrice(ev){return Math.min(...ev.zones.map(z=>z.p))}
+
+/* ---------- views ---------- */
+const VIEWS={
+home(){
+  appbar('JongLoei');
+  const f=EVENTS[0];
+  return `
+  <div class="search m-only"><svg><use href="#i-search"/></svg><input id="q" placeholder="ค้นหาคอนเสิร์ต ศิลปิน สถานที่"></div>
+  <div class="chips"><button class="chip on">ทั้งหมด</button><button class="chip">คอนเสิร์ต</button><button class="chip">เทศกาล</button><button class="chip">แฟนมีตติ้ง</button><button class="chip">สแตนด์อัป</button></div>
+  <button class="ev feature" data-ev="${f.id}">
+    ${poster(f,'lg')}
+    <div class="finfo" style="padding:4px 14px 14px">
+      <div class="row between"><span class="pill">ขายเร็ว · เหลือ ${100-f.sold}%</span><span class="price num">เริ่ม ${fmt(minPrice(f))}</span></div>
+      <h3 style="font-size:18px;margin-top:6px">${f.name}</h3>
+      <div class="meta">${f.date} · ${f.time} น. · ${f.venue}</div>
+      <span class="d-only btn" style="width:auto;align-self:flex-start;margin-top:8px">ดูรายละเอียดและซื้อตั๋ว</span>
+    </div>
+  </button>
+  <div class="row between"><h2 style="font-size:17px">งานที่กำลังเปิดขาย</h2><span class="small muted">บัตร 1,000 บาทขึ้นไป</span></div>
+  <div class="evlist">${EVENTS.slice(1).map(e=>`
+    <button class="ev" data-ev="${e.id}">${poster(e)}
+      <div><h3>${e.name}</h3><div class="meta">${e.date} · ${e.time} น.</div><div class="meta">${e.venue}</div>
+      <div class="row between" style="margin-top:auto"><span class="price num">เริ่ม ${fmt(minPrice(e))}</span>${e.sold>=95?'<span class="pill warn">ใกล้เต็ม</span>':'<span class="pill grey">ตั๋ว NFT</span>'}</div></div>
+    </button>`).join('')}</div>`;
+},
+event(){
+  const e=evById(S.ev);appbar(e.name);
+  const z=e.zones[S.zone];
+  return `<div class="cols">
+  <div class="col">
+    ${poster(e,'lg')}
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <h1 style="font-size:22px">${e.name}</h1>
+      <div class="muted">${e.date} · ${e.time} น.</div>
+      <div class="muted">${e.venue}</div>
+    </div>
+    <div class="trust">
+      <div><svg><use href="#i-cube"/></svg>ตั๋วเป็น NFT ของคุณจริง</div>
+      <div><svg><use href="#i-shield"/></svg>ปลอมสลิป ปลอมตั๋วไม่ได้</div>
+      <div><svg><use href="#i-swap"/></svg>ขายต่อในแอปได้ ราคาคุมเพดาน</div>
+    </div>
+    <div class="card small" style="display:flex;flex-direction:column;gap:6px">
+      <b>เงื่อนไขการขายต่อ</b>
+      <span class="muted">ขายต่อหรือโอนให้เพื่อนได้ในแอปเท่านั้น ราคาไม่เกิน 120% ของราคาหน้าบัตร โอนได้สูงสุด 2 ครั้ง และปิดการซื้อขาย 1 ชั่วโมงก่อนงานเริ่ม</span>
+    </div>
+  </div>
+  <div class="col side">
+    <div class="row between"><h2 style="font-size:17px">เลือกโซน</h2><span class="small muted">ขายไปแล้ว ${e.sold}%</span></div>
+    <div class="bar"><i style="width:${e.sold}%"></i></div>
+    <div class="zones">${e.zones.map((zz,i)=>`
+      <button class="zone ${i===S.zone?'on':''}" data-zone="${i}" ${zz.left===0?'disabled':''}>
+        <span class="dot" style="--zc:${zz.c}"></span>
+        <span><b>${zz.z}</b><br><span class="small muted">${zz.left===0?'ขายหมดแล้ว · ดูในตลาดรีเซล':'เหลือ '+zz.left+' ที่'}</span></span>
+        <b class="num">${fmt(zz.p)}</b>
+      </button>`).join('')}</div>
+    <div class="card row between">
+      <div><b>จำนวน</b><div class="small muted">สูงสุด 4 ใบต่อบัญชี</div></div>
+      <div class="qty"><button data-q="-1" aria-label="ลด">−</button><b class="num" style="min-width:16px;text-align:center">${S.qty}</b><button data-q="1" aria-label="เพิ่ม">+</button></div>
+    </div>
+    <div class="sticky-cta">
+      <div class="tot"><span class="small muted">รวม</span><b class="num">${fmt(z.p*S.qty)}</b></div>
+      <button class="btn" data-act="buy">ซื้อตั๋ว</button>
+    </div>
+  </div></div>`;
+},
+checkout(){
+  appbar('ชำระเงิน');
+  const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
+  const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:e.zones[S.zone].p;const qty=L?1:S.qty;
+  const sub=unit*qty,fee=Math.round(sub*0.03);
+  return `<div class="cols">
+  <div class="col">
+    <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
+    <div class="zones">
+      <button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">Prompt<br>Pay</span><span><b>PromptPay</b><br><span class="small muted">สแกนจ่ายผ่านแอปธนาคาร</span></span><span class="radio"></span></button>
+      <button class="pay" disabled style="opacity:.55"><span class="logo" style="background:#5A4A4D">CARD</span><span><b>บัตรเครดิต / เดบิต</b><br><span class="small muted">เร็ว ๆ นี้</span></span><span class="radio"></span></button>
+      <button class="pay" disabled style="opacity:.55"><span class="logo" style="background:#2E3A8C">USDC</span><span><b>จ่ายด้วยคริปโต</b><br><span class="small muted">สำหรับผู้ที่มี wallet อยู่แล้ว · เร็ว ๆ นี้</span></span><span class="radio"></span></button>
+    </div>
+    <p class="small muted" style="margin:0">ตั๋วจะถูกส่งเข้ากระเป๋าตั๋วของ ${S.user.name} (<span class="mono">${short(S.user.wallet)}</span>) หลังยืนยันการชำระเงิน</p>
+  </div>
+  <div class="col side">
+    <div class="card" style="display:grid;grid-template-columns:64px 1fr;gap:12px">
+      <div class="poster" style="min-height:64px;padding:6px;border-radius:10px;--pbg:${e.bg}"><div class="pbig" style="font-size:10px">${e.short.replace('\n','<br>')}</div></div>
+      <div style="min-width:0"><b>${e.name}</b><div class="small muted">${e.date} · ${zone} × ${qty}</div>${L?'<span class="pill" style="margin-top:4px">ตั๋วรีเซล · Token #'+L.tid+'</span>':''}</div>
+    </div>
+    <dl class="kv card num" style="margin:0">
+      <dt>ราคาบัตร</dt><dd>${fmt(sub)}</dd>
+      <dt>ค่าบริการ 3%</dt><dd>${fmt(fee)}</dd>
+      <dt>ค่าแก๊ส (ค่าธรรมเนียมบล็อกเชน)</dt><dd><span class="pill ok">ฟรี ระบบออกให้</span></dd>
+      <dt style="font-weight:600;color:var(--ink)">ยอดชำระ</dt><dd style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--red)">${fmt(sub+fee)}</dd>
+    </dl>
+    <div class="sticky-cta"><button class="btn" data-act="topay">ชำระ ${fmt(sub+fee)} ด้วย PromptPay</button></div>
+  </div></div>`;
+},
+pay(){
+  appbar('สแกนเพื่อชำระ');
+  const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
+  const sub=L?L.price:e.zones[S.zone].p*S.qty;const total=sub+Math.round(sub*0.03);
+  return `<div class="cols even">
+  <div class="col">
+    <div class="qrbox">
+      <div class="tqr"><span>THAI QR PAYMENT</span><span>PromptPay</span></div>
+      <canvas id="payqr" width="29" height="29" aria-label="QR PromptPay ตัวอย่าง"></canvas>
+      <div style="text-align:center;line-height:1.3"><div style="font-size:13px;color:#6E6265">บจก. จองเลย (ตัวอย่าง)</div>
+      <div style="font-family:var(--f-display);font-weight:700;font-size:26px;color:#A00018" class="num">${fmt(total)}</div></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card row between"><span>QR หมดอายุใน</span><b class="num" id="paycd" style="font-family:var(--f-display);color:var(--red)">09:59</b></div>
+    <ol class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+      <li>เปิดแอปธนาคาร แล้วเลือกสแกนจ่าย</li><li>สแกน QR นี้ ยอดเงินจะขึ้นให้อัตโนมัติ</li><li>ไม่ต้องส่งสลิป ระบบตรวจยอดกับธนาคารให้เอง</li>
+    </ol>
+    <button class="btn" data-act="paid">จำลองว่าชำระเงินแล้ว</button>
+    <button class="btn plain" data-act="back">ยกเลิก</button>
+  </div></div>`;
+},
+minting(){
+  appbar('กำลังออกตั๋ว');
+  return `<div class="narrow">
+  <div class="hero-ok" style="padding-top:10px"><span class="pill warn">ต่อในอนาคต: Payment Gateway</span>
+    <h1 style="font-size:20px">กำลังสร้างตั๋ว NFT ของคุณ</h1><p class="small muted" style="margin:0">ห้ามปิดหน้านี้ ใช้เวลาไม่เกิน 1 นาที</p></div>
+  <ol class="steps" id="mintsteps">
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ได้รับเงินผ่าน PromptPay</b><small>ธนาคารแจ้งยอดเข้า เลขอ้างอิง PP2569111501842</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Payment Gateway ยืนยันยอด</b><small>ตรวจว่ายอดตรงและไม่ซ้ำ ไม่ต้องใช้สลิป</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Mint ตั๋วบนบล็อกเชน</b><small>สร้าง NFT ERC-721 และล็อกที่นั่งให้คุณ</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ส่งเข้ากระเป๋าตั๋วของคุณ</b><small class="mono">${short(S.user.wallet)}</small></span></li>
+  </ol></div>`;
+},
+success(){
+  appbar('ได้ตั๋วแล้ว');
+  const t=S.sel;
+  return `<div class="sgrid">
+  <div class="hero-ok a-hero"><div class="big"><svg><use href="#i-check"/></svg></div><h1 style="font-size:21px">ตั๋วอยู่ในกระเป๋าของคุณแล้ว</h1>
+    <p class="small muted" style="margin:0">ตั๋วใบนี้เป็น NFT ใครก็ตรวจสอบได้ว่าคุณเป็นเจ้าของ</p></div>
+  <div class="a-nft">${nftCard(t)}</div>
+  <div class="a-btns"><button class="btn" data-act="viewticket">ดูตั๋วและ QR เข้างาน</button>
+  <button class="btn plain" data-act="home">กลับหน้าแรก</button></div></div>`;
+},
+tickets(){
+  appbar('ตั๋วของฉัน');
+  if(!S.signedIn)return `<div class="empty">เข้าสู่ระบบเพื่อดูตั๋วของคุณ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>`;
+  const groups={active:'ใช้งานได้',listed:'ลงขายอยู่',used:'ใช้แล้ว'};
+  const list=S.tickets.filter(t=>t.status===S.mtab);
+  return `
+  <h1 class="d-only" style="font-size:24px">ตั๋วของฉัน</h1>
+  <div class="seg three">${Object.entries(groups).map(([k,v])=>`<button data-mtab="${k}" class="${S.mtab===k?'on':''}">${v} (${S.tickets.filter(t=>t.status===k).length})</button>`).join('')}</div>
+  ${list.length?`<div class="tlist">${list.map(t=>{const e=evById(t.ev);return `
+    <button class="mticket" data-ticket="${t.tid}">${poster(e)}
+      <div><h3>${e.name}</h3><div class="small muted">${e.date} · ${t.zone}</div><div class="tokenid">Token #${t.tid}</div></div>
+      ${t.status==='listed'?`<span class="pill warn">${fmt(t.listPrice)}</span>`:t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':'<span class="pill ok">พร้อมใช้</span>'}
+    </button>`}).join('')}</div>`:`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ลองดูงานที่หน้าแรก':'ไม่มีตั๋วในหมวดนี้'}</div>`}
+  <div class="card small muted">ตั๋วทุกใบเก็บอยู่ใน wallet ที่ระบบสร้างให้ตอนสมัคร คุณไม่ต้องจำ seed phrase หรือจ่ายค่าแก๊สเอง</div>`;
+},
+ticket(){
+  const t=S.sel,e=evById(t.ev);appbar('Token #'+t.tid);
+  const locked=t.status!=='active';
+  return `<div class="tgrid">
+  <div class="col">
+    <div class="seg"><button data-tv="qr" class="${S.ticketView==='qr'?'on':''}">QR เข้างาน</button><button data-tv="nft" class="${S.ticketView==='nft'?'on':''}">ข้อมูล NFT</button></div>
+    <div class="col ${S.ticketView==='qr'?'':'tv-hide'}">
+      <div class="qrbox">
+        <div style="text-align:center;line-height:1.35"><b style="font-family:var(--f-display)">${e.name}</b><div style="font-size:13px;color:#6E6265">${e.date} · ${t.zone}</div></div>
+        ${t.status==='listed'?`<div style="padding:40px 10px;text-align:center;color:#6E6265">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`:t.status==='used'?`<div style="padding:40px 10px;text-align:center;color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`:`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
+        <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" stroke-width="4"/><circle id="ringfg" cx="18" cy="18" r="15" fill="none" stroke="#A00018" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="0" stroke-linecap="round"/></svg>QR ใหม่ใน <b id="qrcd" class="num">60</b> วินาที</div>`}
+      </div>
+      <div class="card small" style="display:flex;gap:10px"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
+        <span>QR นี้ลงชื่อด้วย wallet ของคุณและเปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอจึงใช้เข้างานไม่ได้ เมื่อสแกนแล้วตั๋วจะถูกล็อก โอนต่อไม่ได้</span></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="${S.ticketView==='nft'?'':'tv-hide'}">${nftCard(t,true)}</div>
+    <div class="row">
+      <button class="btn ghost" data-act="resell" ${locked?'disabled':''}>ขายต่อ</button>
+      <button class="btn ghost" data-act="transfer" ${locked||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button>
+    </div>
+    ${t.status==='listed'?`<button class="btn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
+    <button class="btn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>
+  </div></div>`;
+},
+market(){
+  appbar('ตลาดรีเซล');
+  return `
+  <h1 class="d-only" style="font-size:24px">ตลาดรีเซล</h1>
+  <div class="card" style="display:flex;gap:10px;align-items:flex-start"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
+    <div class="small"><b>ตั๋วมือสองที่ตรวจสอบได้ทุกใบ</b><br><span class="muted">ผู้ขายต้องเป็นเจ้าของตั๋วบนเชนจริง ราคาไม่เกิน 120% ของหน้าบัตร เงินถึงผู้ขายเมื่อตั๋วโอนสำเร็จเท่านั้น</span></div></div>
+  <div class="chips"><button class="chip on">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip">${e.short.replace('\n',' ')}</button>`).join('')}</div>
+  ${S.listings.length?`<div class="lgrid">${S.listings.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.seller===short(S.user.wallet);return `
+  <div class="listing">
+    <div class="top">${poster(e)}<div><b>${e.name}</b><div class="small muted">${e.date} · ${l.zone}</div><div class="tokenid">Token #${l.tid}</div></div></div>
+    <hr class="sep">
+    <div class="row between">
+      <div><div class="num" style="font-family:var(--f-display);font-weight:700;font-size:19px;color:var(--red)">${fmt(l.price)}</div>
+        <div class="row" style="gap:6px"><span class="strike num">${fmt(l.face)}</span><span class="small muted">${pct>0?'+'+pct+'%':'ราคาหน้าบัตร'}</span></div></div>
+      ${mine?'<span class="pill grey">ตั๋วของคุณ</span>':`<button class="btn" style="width:auto;padding:10px 18px;font-size:15px" data-buyl="${l.lid}">ซื้อเลย</button>`}
+    </div>
+    <div class="row small muted" style="flex-wrap:wrap;gap:6px 12px"><span>ผู้ขาย <span class="mono">${l.seller}</span></span><span>โอนมาแล้ว ${l.transfers}/2 ครั้ง</span><span class="pill ok">ยืนยันเจ้าของบนเชน</span></div>
+  </div>`}).join('')}</div>`:'<div class="empty">ยังไม่มีตั๋วลงขาย</div>'}`;
+},
+profile(){
+  appbar('บัญชี');
+  if(!S.signedIn)return `<div class="empty">ยังไม่ได้เข้าสู่ระบบ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>`;
+  return `<div class="cols even">
+  <div class="col">
+    <div class="row"><div style="width:56px;height:56px;border-radius:18px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-size:22px;font-weight:600">ช</div>
+      <div><h2 style="font-size:19px">${S.user.name}</h2><div class="small muted">${S.user.email} · เข้าสู่ระบบด้วย Google</div></div></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row between"><b>กระเป๋าตั๋วของคุณ</b><span class="pill ok">สร้างอัตโนมัติ</span></div>
+      <div class="wallet-addr"><span class="mono">${S.user.wallet}</span><button class="iconbtn" data-act="copy" aria-label="คัดลอก"><svg><use href="#i-copy"/></svg></button></div>
+      <dl class="kv" style="margin:0"><dt>เครือข่าย</dt><dd>Base Sepolia (ทดสอบ)</dd><dt>ตั๋ว NFT</dt><dd class="num">${S.tickets.length} ใบ</dd><dt>ค่าแก๊ส</dt><dd>ระบบออกให้ทั้งหมด</dd></dl>
+    </div>
+  </div>
+  <div class="col">
+    <div class="adv">
+      <b class="small">สำหรับผู้ที่คุ้นเคยกับ wallet</b>
+      <span class="small muted">เชื่อมต่อ wallet ของคุณเอง หรือย้ายตั๋วออกไปเก็บที่อื่น ไม่จำเป็นสำหรับการใช้งานทั่วไป</span>
+      <button class="btn plain" data-act="toast" data-msg="ฟีเจอร์นี้อยู่ในแผนพัฒนาถัดไป">เชื่อมต่อ wallet ของฉัน</button>
+    </div>
+    <button class="btn plain" data-act="logout">ออกจากระบบ</button>
+  </div></div>`;
+},
+};
+
+function nftCard(t,full){
+  const e=evById(t.ev);
+  return `<div class="nft">${poster(e)}
+    <div class="stub"><span class="perf"></span>
+      <div class="row between"><span class="tokenid">JONGLOEI #${t.tid}</span><span class="pill">ERC-721</span></div>
+      <b style="font-family:var(--f-display);font-size:17px">${e.name}</b>
+      <dl class="kv small" style="margin:0">
+        <dt>วันที่</dt><dd>${e.date} · ${e.time} น.</dd>
+        <dt>โซน</dt><dd>${t.zone}</dd>
+        <dt>ราคาหน้าบัตร</dt><dd class="num">${fmt(t.price)}</dd>
+        <dt>เจ้าของ</dt><dd class="mono">${short(S.user.wallet)} (คุณ)</dd>
+        ${full?`<dt>สัญญา</dt><dd class="mono">${short(CONTRACT)}</dd>
+        <dt>ธุรกรรม mint</dt><dd class="mono">${t.tx}</dd>
+        <dt>เครือข่าย</dt><dd>Base Sepolia (ทดสอบ)</dd>
+        <dt>โอนแล้ว</dt><dd class="num">${t.transfers}/2 ครั้ง</dd>`:''}
+      </dl>
+      ${full?`<div class="small muted">ประวัติ: Mint → ${S.user.name}${t.transfers?' → โอน '+t.transfers+' ครั้ง':''}</div>`:''}
+    </div></div>`;
+}
+
+/* ---------- after-render hooks ---------- */
+const AFTER={
+  pay(){
+    drawQR($('#payqr'),'pp'+Date.now());
+    let s=599;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0)clearInterval(S.payTimer)},1000);
+  },
+  minting(){
+    const lis=[...document.querySelectorAll('#mintsteps li')];let i=0;
+    lis[0].classList.add('active');
+    S.payTimer=setInterval(()=>{
+      if(!lis[i])return;lis[i].classList.remove('active');lis[i].classList.add('done');i++;
+      if(i<lis.length){lis[i].classList.add('active')}
+      else{clearInterval(S.payTimer);S.payTimer=null;finishMint()}
+    },1100);
+  },
+  ticket(){
+    const c=$('#entryqr');if(!c)return;
+    let seed=S.sel.tid*1000+Math.floor(Date.now()/60000),s=60;drawQR(c,'t'+seed);
+    S.qrTimer=setInterval(()=>{s--;if(s<=0){s=60;seed++;drawQR(c,'t'+seed)}
+      const cd=$('#qrcd');if(cd)cd.textContent=s;const r=$('#ringfg');if(r)r.setAttribute('stroke-dashoffset',(94.25*(1-s/60)).toFixed(2))},1000);
+  },
+};
+
+function finishMint(){
+  let t;
+  if(S.buyingListing){
+    const L=S.buyingListing;S.listings=S.listings.filter(x=>x.lid!==L.lid);
+    t={tid:L.tid,ev:L.ev,zone:L.zone,price:L.face,status:'active',transfers:L.transfers+1,tx:'0x'+rand(4)+'…'+rand(4)};
+    S.tickets.unshift(t);S.buyingListing=null;
+  }else{
+    const e=evById(S.ev);const z=e.zones[S.zone];z.left=Math.max(0,z.left-S.qty);
+    for(let k=0;k<S.qty;k++){t={tid:S.nextTid++,ev:e.id,zone:z.z,price:z.p,status:'active',transfers:0,tx:'0x'+rand(4)+'…'+rand(4)};S.tickets.unshift(t)}
+    t=S.tickets[S.qty-1];
+  }
+  S.sel=t;S.stack=['tickets'];S.tab='tickets';S.mtab='active';go('success');renderFlow('tickets');
+}
+function rand(n){return Array.from({length:n},()=>'0123456789abcdef'[Math.random()*16|0]).join('')}
+
+/* ---------- pseudo QR ---------- */
+function drawQR(c,seed){
+  if(!c)return;const N=29,ctx=c.getContext('2d');
+  let h=2166136261;for(const ch of seed){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}
+  const rnd=()=>{h|=0;h=h+0x6D2B79F5|0;let t=Math.imul(h^h>>>15,1|h);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,N,N);ctx.fillStyle='#1E1416';
+  const inFinder=(x,y)=>[[0,0],[N-7,0],[0,N-7]].some(([fx,fy])=>x>=fx-1&&x<=fx+7&&y>=fy-1&&y<=fy+7);
+  for(let y=1;y<N-1;y++)for(let x=1;x<N-1;x++)if(!inFinder(x,y)&&rnd()<.48)ctx.fillRect(x,y,1,1);
+  [[1,1],[N-8,1],[1,N-8]].forEach(([x,y])=>{ctx.fillRect(x,y,7,7);ctx.fillStyle='#fff';ctx.fillRect(x+1,y+1,5,5);ctx.fillStyle='#1E1416';ctx.fillRect(x+2,y+2,3,3)});
+  ctx.fillStyle='#A00018';ctx.fillRect(13,13,3,3);
+}
+
+/* ---------- sheets ---------- */
+function sheet(html){closeSheet();const w=document.createElement('div');w.className='sheet-wrap';w.id='sheet';
+  w.innerHTML=`<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  w.addEventListener('click',ev=>{if(ev.target===w)closeSheet()});$('#scroll').appendChild(w);$('#scroll').scrollTop=0;$('#scroll').style.overflow='hidden'}
+function closeSheet(){const s=$('#sheet');if(s)s.remove();$('#scroll').style.overflow=''}
+
+function openSignup(after){
+  S.afterSignup=after||null;
+  sheet(`<div class="row" style="gap:12px"><svg width="44" height="44"><use href="#logo"/></svg><div><h2 style="font-size:19px">เข้าสู่ระบบ JongLoei</h2><div class="small muted">ซื้อ ขาย และเก็บตั๋วไว้ในที่เดียว</div></div></div>
+  <button class="social" data-act="google"><span class="g" style="background:#4285F4">G</span>ดำเนินการต่อด้วย Google</button>
+  <button class="social" data-act="google"><span class="g" style="background:#06C755">L</span>ดำเนินการต่อด้วย LINE</button>
+  <button class="social" data-act="google">ใช้อีเมลและรหัส OTP</button>
+  <p class="small muted" style="margin:0;text-align:center">ไม่ต้องมี wallet ระบบจะสร้างกระเป๋าตั๋วให้คุณอัตโนมัติ</p>
+  <div style="text-align:center"><button class="linkbtn" data-act="toast" data-msg="การเชื่อมต่อ wallet เดิมอยู่ในแผนพัฒนาถัดไป">มี wallet อยู่แล้ว? เชื่อมต่อ wallet</button></div>`);
+}
+function walletCreating(){
+  sheet(`<h2 style="font-size:19px;text-align:center">กำลังเตรียมบัญชีของคุณ</h2>
+  <ol class="steps" id="wsteps">
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ยืนยันตัวตนกับ Google</b><small>${S.user.email}</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>สร้างกระเป๋าตั๋ว (wallet) ให้อัตโนมัติ</b><small>ผ่าน thirdweb in-app wallet ไม่ต้องจำ seed phrase</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>พร้อมใช้งาน</b><small class="mono">${short(S.user.wallet)}</small></span></li>
+  </ol><div id="wdone"></div>`);
+  const lis=[...document.querySelectorAll('#wsteps li')];let i=0;lis[0].classList.add('active');
+  const iv=setInterval(()=>{if(!document.contains(lis[0])){clearInterval(iv);return}
+    lis[i].classList.remove('active');lis[i].classList.add('done');i++;
+    if(i<lis.length)lis[i].classList.add('active');
+    else{clearInterval(iv);S.signedIn=true;$('#wdone').innerHTML=`<button class="btn" data-act="signedin">เริ่มใช้งาน</button>`}},900);
+}
+function openResell(){
+  const t=S.sel,cap=Math.floor(t.price*1.2);
+  sheet(`<h2 style="font-size:19px">ขายต่อ Token #${t.tid}</h2>
+  <div class="field"><label for="rprice">ราคาที่ต้องการขาย (บาท)</label><input id="rprice" type="number" inputmode="numeric" value="${t.price}" min="1" max="${cap}">
+  <span class="hint" id="rhint">ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)</span></div>
+  <dl class="kv card small num" style="margin:0"><dt>ค่าธรรมเนียมแพลตฟอร์ม 5%</dt><dd id="rfee">${fmt(Math.round(t.price*.05))}</dd><dt><b style="color:var(--ink)">คุณจะได้รับ</b></dt><dd id="rget" style="font-weight:700;color:var(--red)">${fmt(t.price-Math.round(t.price*.05))}</dd></dl>
+  <div class="small muted">เงินจะโอนเข้าบัญชี PromptPay ของคุณหลังผู้ซื้อชำระและตั๋วโอนสำเร็จ ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม</div>
+  <button class="btn" data-act="list" id="rlist">ลงขายในตลาดรีเซล</button>
+  <button class="btn plain" data-act="close">ยกเลิก</button>`);
+  $('#rprice').addEventListener('input',ev=>{const v=+ev.target.value||0;const ok=v>0&&v<=cap;
+    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)`:`ตั้งราคาได้ระหว่าง ฿1 ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
+    $('#rfee').textContent=fmt(Math.round(v*.05));$('#rget').textContent=fmt(v-Math.round(v*.05));$('#rlist').disabled=!ok});
+}
+function openTransfer(){
+  const t=S.sel;
+  sheet(`<h2 style="font-size:19px">โอนตั๋วให้เพื่อน</h2>
+  <div class="field"><label for="tto">อีเมลหรือเบอร์โทรของเพื่อน</label><input id="tto" placeholder="เช่น friend@gmail.com หรือ 081-234-5678" value="pim.s@gmail.com">
+  <span class="hint">ถ้าเพื่อนยังไม่มีบัญชี ระบบจะสร้าง wallet ให้ตอนเพื่อนกดรับตั๋ว</span></div>
+  <div class="card small" style="display:flex;flex-direction:column;gap:4px"><b>Token #${t.tid} · ${evById(t.ev).name}</b><span class="muted">โอนแล้ว ${t.transfers}/2 ครั้ง · หลังโอน QR เดิมของคุณจะใช้ไม่ได้ทันที</span></div>
+  <button class="btn" data-act="dotransfer">ยืนยันการโอน</button><button class="btn plain" data-act="close">ยกเลิก</button>`);
+}
+function toast(msg){const old=$('.toast');if(old)old.remove();const d=document.createElement('div');d.className='toast';d.setAttribute('role','status');
+  d.innerHTML=`<svg width="18" height="18" style="flex:none"><use href="#i-check"/></svg>${msg}`;$('#device').appendChild(d);setTimeout(()=>d.remove(),2600)}
+
+/* ---------- actions ---------- */
+$('#device').addEventListener('click',e=>{
+  const t=e.target;let b;
+  if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.zone=evById(S.ev).zones.findIndex(z=>z.left>0);S.qty=1;go('event');renderFlow('event');return}
+  if(b=t.closest('[data-zone]')){S.zone=+b.dataset.zone;render();return}
+  if(b=t.closest('[data-q]')){S.qty=Math.min(4,Math.max(1,S.qty+ +b.dataset.q));render();return}
+  if(b=t.closest('[data-pay]')){S.pay=b.dataset.pay;render();return}
+  if(b=t.closest('[data-mtab]')){S.mtab=b.dataset.mtab;render();return}
+  if(b=t.closest('[data-ticket]')){S.sel=S.tickets.find(x=>x.tid==b.dataset.ticket);S.ticketView='qr';go('ticket');return}
+  if(b=t.closest('[data-tv]')){S.ticketView=b.dataset.tv;stopTimers();render();return}
+  if(b=t.closest('[data-buyl]')){S.buyingListing=S.listings.find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');renderFlow('checkout');return}
+  if(!(b=t.closest('[data-act]'))||b.closest('#appbar'))return;
+  const a=b.dataset.act;
+  switch(a){
+    case 'buy':S.buyingListing=null;if(!S.signedIn){openSignup('checkout');return}go('checkout');renderFlow('checkout');break;
+    case 'topay':go('pay');break;
+    case 'paid':S.stack.pop();S.stack.pop();go('minting');renderFlow('minting');break;
+    case 'back':back();break;
+    case 'home':go('home',true);renderFlow('home');break;
+    case 'viewticket':S.ticketView='qr';go('ticket');renderFlow('qr');break;
+    case 'signup':openSignup();break;
+    case 'google':walletCreating();break;
+    case 'signedin':closeSheet();toast('สร้างกระเป๋าตั๋วเรียบร้อย');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;go(n);renderFlow(n)}else render();break;
+    case 'resell':openResell();break;
+    case 'transfer':openTransfer();break;
+    case 'close':closeSheet();break;
+    case 'list':{const v=+$('#rprice').value;const tk=S.sel;tk.status='listed';tk.listPrice=v;
+      S.listings.unshift({lid:Date.now(),ev:tk.ev,zone:tk.zone,face:tk.price,price:v,seller:short(S.user.wallet),transfers:tk.transfers,tid:tk.tid});
+      closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');render();break}
+    case 'unlist':{const tk=S.sel;tk.status='active';S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
+    case 'dotransfer':{const to=$('#tto').value.trim();if(!to){$('#tto').focus();return}
+      S.tickets=S.tickets.filter(x=>x!==S.sel);closeSheet();toast('โอน Token #'+S.sel.tid+' ให้ '+to+' แล้ว');go('tickets',true);renderFlow('tickets');break}
+    case 'scan':{S.sel.status='used';stopTimers();toast('สแกนผ่าน เข้างานได้ ตั๋วถูกล็อกแล้ว');render();break}
+    case 'copy':{const w=S.user.wallet;try{navigator.clipboard.writeText(w).then(()=>toast('คัดลอกที่อยู่ wallet แล้ว'),()=>toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน'))}catch(_){toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน')}break}
+    case 'toast':toast(b.dataset.msg);break;
+    case 'logout':S.signedIn=false;go('home',true);renderFlow('home');break;
+  }
+});
+
+/* screen-size mode: auto by width until the viewer picks one */
+let chosenMode=null;
+function applyMode(){
+  S.desk=chosenMode?chosenMode==='d':window.innerWidth>=1100;
+  $('#stage').classList.toggle('desk',S.desk);
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.mode==='d')===S.desk));
+}
+$('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(!b)return;chosenMode=b.dataset.mode;const was=S.desk;applyMode();if(was!==S.desk){closeSheet();stopTimers();render()}});
+window.addEventListener('resize',()=>{if(chosenMode)return;const was=S.desk;applyMode();if(was!==S.desk){closeSheet();stopTimers();render()}});
+
+/* boot: signed-out home, matching step 1 of the flow */
+applyMode();render();renderFlow('home');
+})();
+</script>
+
+</body>
+</html>
