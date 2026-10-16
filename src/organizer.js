@@ -161,7 +161,7 @@ export async function handleOrganizer(request, env, ctx, url, deps) {
     if (method === 'GET') return json({ events: await listEvents(db, access.hostId) });
     if (method === 'POST') return allow('edit') ? createEvent(db, access, body, deps) : forbidden();
   }
-  const m = path.match(/^\/api\/org\/events\/(ev-[0-9a-f]{12})(\/publish|\/cancel|\/orders)?$/);
+  const m = path.match(/^\/api\/org\/events\/(ev-[0-9a-f]{12})(\/publish|\/cancel|\/orders|\/poster)?$/);
   if (m) {
     const [, id, action] = m;
     const event = await db.prepare('SELECT * FROM events WHERE id = ? AND host_id = ?').bind(id, access.hostId).first();
@@ -171,6 +171,8 @@ export async function handleOrganizer(request, env, ctx, url, deps) {
     if (action === '/publish' && method === 'POST') return allow('edit') ? publishEvent(db, access, event, deps) : forbidden();
     if (action === '/cancel' && method === 'POST') return allow('owner') ? cancelEvent(env, ctx, event, body, deps) : forbidden();
     if (action === '/orders' && method === 'GET') return allow('edit') ? json({ orders: await orderRows(db, id) }) : forbidden();
+    if (action === '/poster' && method === 'PUT') return allow('edit') ? putPoster(db, event, body, deps) : forbidden();
+    if (action === '/poster' && method === 'DELETE') return allow('edit') ? deletePoster(db, event, deps) : forbidden();
   }
   return json({ error: 'not_found' }, 404);
 }
@@ -297,12 +299,76 @@ async function eventJson(db, e, zones) {
   zones = zones || await zoneRows(db, e.id);
   return {
     id: e.id, name: e.name, short: e.short_name, category: e.category, venue: e.venue, description: e.description,
-    poster: Math.max(0, POSTERS.indexOf(e.poster_background)), startsAt: e.starts_at, endsAt: e.ends_at,
+    poster: Math.max(0, POSTERS.indexOf(e.poster_background)), posterUrl: posterUrl(e.id, e.poster_image_at),
+    startsAt: e.starts_at, endsAt: e.ends_at,
     date: e.event_date, time: e.event_time,
     status: e.cancelled_at ? 'cancelled' : e.status, chainEventId: e.chain_event_id,
     publishedAt: e.published_at, cancelledAt: e.cancelled_at, cancelReason: e.cancel_reason,
     zones: zones.map(zoneJson),
   };
+}
+
+/* ---------- poster images (0009_posters.sql) ---------- */
+
+export const POSTER_MAX_BYTES = 1_000_000;
+// URL of an uploaded poster; ?v= changes with every upload so the image can be cached for good.
+export const posterUrl = (eventId, at) => (at ? `/api/posters/${eventId}?v=${at}` : null);
+
+// The type comes from the first bytes, never from what the client says.
+function sniffImage(b) {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP') return 'image/webp';
+  return null;
+}
+
+// input: "data:image/jpeg;base64,..." (the browser has already shrunk the picture)
+export function parsePosterImage(dataUrl) {
+  const m = typeof dataUrl === 'string' && /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+  if (!m) return { error: 'invalid' };
+  if (m[2].length > Math.ceil(POSTER_MAX_BYTES / 3) * 4) return { error: 'too_large' };
+  let bin;
+  try { bin = atob(m[2]); } catch { return { error: 'invalid' }; }
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  if (!bytes.length) return { error: 'invalid' };
+  if (bytes.length > POSTER_MAX_BYTES) return { error: 'too_large' };
+  if (sniffImage(bytes) !== m[1]) return { error: 'invalid' };
+  return { value: { mime: m[1], bytes } };
+}
+
+async function putPoster(db, event, body, deps) {
+  if (event.cancelled_at || event.status === 'closed') return deps.json({ error: 'event_closed' }, 409);
+  const p = parsePosterImage(body?.image);
+  if (p.error) return deps.json({ error: 'invalid_input', fields: { image: p.error } }, 400);
+  const at = Date.now();
+  await db.batch([
+    db.prepare(
+      `INSERT INTO event_posters (event_id, mime, data, bytes, updated_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (event_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, bytes = excluded.bytes, updated_at = excluded.updated_at`,
+    ).bind(event.id, p.value.mime, p.value.bytes.buffer, p.value.bytes.length, at),
+    db.prepare('UPDATE events SET poster_image_at = ?, updated_at = ? WHERE id = ?').bind(at, at, event.id),
+  ]);
+  const fresh = await db.prepare('SELECT * FROM events WHERE id = ?').bind(event.id).first();
+  return deps.json({ event: await eventJson(db, fresh) });
+}
+
+async function deletePoster(db, event, deps) {
+  await db.batch([
+    db.prepare('DELETE FROM event_posters WHERE event_id = ?').bind(event.id),
+    db.prepare('UPDATE events SET poster_image_at = NULL, updated_at = ? WHERE id = ?').bind(Date.now(), event.id),
+  ]);
+  const fresh = await db.prepare('SELECT * FROM events WHERE id = ?').bind(event.id).first();
+  return deps.json({ event: await eventJson(db, fresh) });
+}
+
+// GET /api/posters/:id (public: buyers see it on the event card). Ids are random, so drafts are not listed anywhere.
+export async function servePoster(db, eventId) {
+  const row = await db.prepare('SELECT mime, data FROM event_posters WHERE event_id = ?').bind(eventId).first().catch(() => null);
+  if (!row) return new Response('not found', { status: 404 });
+  const data = row.data instanceof ArrayBuffer ? row.data : new Uint8Array(row.data);
+  return new Response(data, {
+    headers: { 'content-type': row.mime, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' },
+  });
 }
 
 async function listEvents(db, hostId) {

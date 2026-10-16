@@ -1,7 +1,8 @@
-// Cloudflare Workers config: serves the front-end mock-up in ./mockup and runs
-// src/worker.js for Google sign-in (/auth/*) and the account API (/api/*).
-// Deploy from the Cloudflare dashboard (Workers Builds): build command empty,
-// deploy command `npx wrangler deploy`.
+// Cloudflare Workers config: serves the Next.js front-end (static export in ./web/out)
+// and runs src/worker.js for Google sign-in (/auth/*) and the account API (/api/*).
+// Deploy from the Cloudflare dashboard (Workers Builds): build command
+// `cd web && npm ci && npm run build`, deploy command `npx wrangler deploy`.
+// (The old HTML/CSS mock-up still lives in ./mockup for reference.)
 //
 // Secrets (Settings > Variables and Secrets, type "Secret"; never commit them):
 //   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, THIRDWEB_SECRET_KEY,
@@ -14,9 +15,9 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "assets": {
-    "directory": "./mockup",
+    "directory": "./web/out",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
+    "not_found_handling": "404-page",
     "run_worker_first": ["/auth/*", "/api/*"]
   },
   "d1_databases": [

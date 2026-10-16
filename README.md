@@ -137,21 +137,23 @@ Resale is paid with PromptPay like a first sale. After the 5 checks pass, the re
 | 3 · Then | Mid-size events | Festivals and fan meetings; organizer dashboard; full secondary market |
 | 4 · Later | Big events | Fair Draw against bots + ticket-holder identity; offline gate for stadiums; pitch with real traction |
 
-## Front-end mock-up
+## Front-end (Next.js)
 
-Clickable mock-up of the guest app (Thai UI, white and crimson theme), with a phone view and a desktop web view. Sign-in with Google is real (below); everything else is sample data.
+The guest app (Thai UI, white and crimson theme), with a phone view and a desktop web view. Sign-in with Google is real (below); events come from `/api/events`; everything else is sample data kept in the browser. Built with **Next.js 15 (App Router), React 19 and Tailwind v4** and exported to plain static files that the Worker serves.
 
-- Page: `mockup/index.html` (open it directly in a browser)
-- Hosting: `wrangler.jsonc` serves `mockup/` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo, leave the build command empty and use `npx wrangler deploy` as the deploy command.
+- Source: `web/` — screens in `web/components/screens/`, state and actions in `web/lib/`, the app shell in `web/components/AppFrame.tsx`.
+- Run locally: `cd web && npm install && npm run dev` (needs the Worker for `/api/*`; without it the home page falls back to sample events). `npm run build` writes the static site to `web/out`.
+- Hosting: `wrangler.jsonc` serves `./web/out` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo and set the build command to `cd web && npm ci && npm run build`, deploy command `npx wrangler deploy`.
+- The earlier hand-written HTML/CSS mock-up still lives in `mockup/` for reference; it is no longer what gets deployed.
 
-### Organizer mode (mock-up)
+### Organizer mode
 
 The same page has a second mode for **organizers** (bars, workshops, pop-ups, small concerts). Open **บัญชี → เข้าโหมดผู้จัดงาน** (or "สำหรับผู้จัดงาน" in the desktop header). Everything here is sample data kept in the browser (`localStorage`); no backend, no real money. Screens that show money carry a "ข้อมูลตัวอย่าง" / "จำลอง" label.
 
 - **Organizer account:** organizers sign up and log in with their own (simulated) Google account, separate from the buyer's login. No buyer sign-in is needed, and logging out of one side never logs out the other. One account belongs to one shop; an owner can invite managers and door staff, who log in with the invited e-mail and get that role. Sample accounts: `owner@rooftop88.example`, `manager@example.com`, `door.staff@example.com`. Real organizer Google sign-in needs an account type in the Worker session and is future work.
 - **Shop onboarding:** four steps (shop, tax ID, PromptPay payout account, ID document), then a simulated 3-second verification. Unverified shops can draft events but not publish. Team roles: owner, manager, door staff.
 - **Dashboard:** today's sales, net revenue, next payout, held seats, a to-do list, a 14-day sales chart, and the event list (with duplicate).
-- **Create / edit event:** 4-step wizard with a zone editor (standing, seated, table, comp), sale windows for early-bird pricing, a resale price cap (1.00–1.25×), and a live fee preview (฿5 + 3% per ticket, `ticket ฿1,000 → ฿35`). Zones that already have buyers lock their price and cannot shrink below sold + held.
+- **Create / edit event:** 4-step wizard with a zone editor (standing, seated, table, comp), a **poster image upload** (client-resized to ≤1200 px JPEG, stored as a D1 BLOB — migration `0009_posters.sql`; `PUT`/`DELETE /api/org/events/:id/poster`; demo keeps the image in the browser), separate date and time pickers, sale windows for early-bird pricing, a resale price cap (1.00–1.25×), and a live fee preview (฿5 + 3% per ticket, `ticket ฿1,000 → ฿35`). Zones that already have buyers lock their price and cannot shrink below sold + held.
 - **Event page:** zones, buyers (search, filter, CSV export with masked e-mails), resale hops, comp tickets, promo codes, announcements to ticket holders, settings, and **cancel event** (every payer is refunded exactly what they paid, once; buyers see "คืนเงินแล้ว").
 - **Door:** simulated scan with 8 cases (valid, used, old QR, future QR, other event, cancelled, old owner, listed) and manual check-in by name, e-mail, ticket number or last 4 phone digits.
 - **Finance:** pending / paid / fees / refunded, per-event payout date (event end + 24 h), per-ticket split for resold tickets, and a printable summary (not a tax invoice).
@@ -167,7 +169,7 @@ Published organizer events appear on the buyer home page and are bought through 
 6. Event → ตั้งค่า → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
 7. การเงิน: the refunded amount and the payout schedule of the other events.
 
-The money and rule maths lives in `mockup/organizer-logic.js` and is covered by `node --test tests/organizer/*.test.js`.
+The money and rule maths lives in `mockup/organizer-logic.js` (copied to `web/lib/org-logic.js` for the Next.js app) and is covered by `node --test tests/organizer/*.test.js`.
 
 ### Google sign-in
 
