@@ -1,15 +1,14 @@
 // Settling a primary mint when thirdweb loses track of it (src/worker.js settleMint): the mint
-// is looked up in the contract's TicketMinted logs instead of waiting on thirdweb forever, and is
-// never sent twice. Run: node --test tests/worker/*.test.mjs
+// is looked up token by token on the contract (ownerOf / eventOf) instead of waiting on thirdweb
+// forever, and is never sent twice. Run: node --test tests/worker/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../../src/worker.js';
 import { makeD1 } from './d1-shim.mjs';
-import { keccak256, toHex } from '../../src/evm.js';
+import { keccak256, toHex, SELECTORS } from '../../src/evm.js';
 
 const MIN = 60000;
 const CONTRACT = '0xef36fcbdED316dEd4367636a6c85d73bFD5e2735';
-const MINTED = '0x5c1c9352d51031acc9a558d7cdcca15b0ce5fe4f46d7315cca355248175b0a37';
 const WALLET = '0xd43fbbdc9dc08867c768e9f36c94f38d8b01660a';
 const pad = v => '0x' + BigInt(v).toString(16).padStart(64, '0');
 
@@ -31,9 +30,24 @@ function setup({ age, quantity = 1 }) {
   return { DB, env };
 }
 
-// thirdweb answers `status` for the queued write; the RPC has `minted` [tokenId, eventId, to?] logs.
+// thirdweb answers `status` for the queued write; the contract holds the `minted`
+// [tokenId, eventId, to?] tokens, and nextTokenId is one past the highest of them.
 function mockNetwork({ status, minted = [], thirdwebDown = false, rpcError = null }) {
-  const sent = { writes: 0, bodies: [], getLogs: [] };
+  const sent = { writes: 0, bodies: [], chainReads: 0 };
+  const byId = new Map(minted.map(([tokenId, eventId, to = WALLET]) => [tokenId, { eventId, to }]));
+  const next = Math.max(0, ...byId.keys()) + 1;
+  const call = ({ method, params, id }) => {
+    assert.equal(method, 'eth_call');
+    assert.equal(params[0].to, CONTRACT);
+    const data = params[0].data;
+    if (rpcError) return { jsonrpc: '2.0', id, error: { code: -32000, message: rpcError } };
+    if (data === SELECTORS.nextTokenId) return { jsonrpc: '2.0', id, result: pad(next) };
+    const token = byId.get(Number(BigInt('0x' + data.slice(10))));
+    if (!token) return { jsonrpc: '2.0', id, error: { code: 3, message: 'execution reverted' } };
+    if (data.startsWith(SELECTORS.ownerOf)) return { jsonrpc: '2.0', id, result: pad(token.to) };
+    if (data.startsWith(SELECTORS.eventOf)) return { jsonrpc: '2.0', id, result: pad(token.eventId) };
+    throw new Error('unexpected eth_call ' + data);
+  };
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const reply = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
@@ -46,19 +60,9 @@ function mockNetwork({ status, minted = [], thirdwebDown = false, rpcError = nul
       return reply({ result: { status, errorMessage: status === 'FAILED' ? 'RECEIPT_QUERY_FAILED' : null } });
     }
     if (url.host === 'api.avax-test.network') {
-      const { method, params } = JSON.parse(init.body);
-      if (method === 'eth_blockNumber') return reply({ result: '0x38c75c0' });
-      if (rpcError) return reply({ jsonrpc: '2.0', id: 1, error: { code: -32000, message: rpcError } });
-      if (method === 'eth_getLogs') {
-        const [f] = params;
-        sent.getLogs.push(f);
-        assert.equal(f.address, CONTRACT);
-        const logs = minted
-          .map(([tokenId, eventId, to = WALLET]) => ({ address: CONTRACT.toLowerCase(), transactionHash: '0xmint' + tokenId,
-            topics: [MINTED, pad(tokenId), pad(to), pad(eventId)] }))
-          .filter(l => l.topics.every((t, i) => f.topics[i] == null || t === f.topics[i]));
-        return reply({ result: logs });
-      }
+      sent.chainReads++;
+      const body = JSON.parse(init.body);
+      return reply(Array.isArray(body) ? body.map(call) : call(body));
     }
     throw new Error('unexpected fetch ' + url);
   };
@@ -79,8 +83,7 @@ test('thirdweb stuck on a mint that landed: the ticket is read from the chain', 
   const sent = mockNetwork({ status: 'SUBMITTED', minted: [[9, 4], [5, 3]] });
   await cron(env);
   assert.equal(order(DB).status, 'fulfilled');
-  assert.equal(order(DB).mint_tx_hash, '0xmint9');
-  assert.deepEqual(tickets(DB).map(t => ({ ...t })), [{ status: 'active', token_id: 9, mint_tx_hash: '0xmint9' }]);
+  assert.deepEqual(tickets(DB).map(t => ({ ...t })), [{ status: 'active', token_id: 9, mint_tx_hash: null }]);
   assert.equal(sent.writes, 0);
 });
 
@@ -89,7 +92,7 @@ test('a just-queued mint waits for thirdweb without reading the chain', async ()
   const sent = mockNetwork({ status: 'SUBMITTED', minted: [[9, 4]] });
   await cron(env);
   assert.equal(order(DB).status, 'paid');
-  assert.equal(sent.getLogs.length, 0);
+  assert.equal(sent.chainReads, 0);
 });
 
 test('still pending and not on chain: waits, then goes to review after 30 min, never re-sent', async () => {
@@ -152,12 +155,12 @@ test('thirdweb status lookup timing out still lets the chain check fulfil the or
 
 test('an RPC error on the chain check is kept on the order and nothing else changes', async () => {
   const { DB, env } = setup({ age: 5 * MIN });
-  const sent = mockNetwork({ status: 'SUBMITTED', rpcError: 'requested too many blocks' });
+  const sent = mockNetwork({ status: 'SUBMITTED', rpcError: 'rate limited' });
   await cron(env);
   const row = DB.raw.prepare('SELECT status, mint_tx_id, mint_error FROM payment_orders WHERE id = ?').get('po1');
   assert.equal(row.status, 'paid');
   assert.equal(row.mint_tx_id, 'tw-tx-1');
-  assert.match(row.mint_error, /chain check: .*too many blocks/);
+  assert.match(row.mint_error, /chain check: .*rate limited/);
   assert.equal(sent.writes, 0);
 });
 
@@ -179,4 +182,26 @@ test('with the mint guard set, each ticket is minted once by its order key', asy
       assert.deepEqual(calls[0].params, [WALLET, '4']);
     }
   }
+});
+
+test('ticket rows deleted from a paid order are put back and settled from the chain', async () => {
+  const { DB, env } = setup({ age: 5 * MIN, quantity: 2 });
+  DB.raw.prepare(`DELETE FROM tickets WHERE order_id = 'po1'`).run();
+  // #10 went to someone else, #13 is another event's: only #11 and #12 are this order's.
+  mockNetwork({ status: 'SUBMITTED', minted: [[10, 4, '0x' + '4'.repeat(40)], [11, 4], [12, 4], [13, 3]] });
+  await cron(env);
+  assert.equal(order(DB).status, 'fulfilled');
+  assert.deepEqual(tickets(DB).map(t => t.token_id).sort(), [11, 12]);
+});
+
+test('tokens below the highest token of earlier orders are not read again', async () => {
+  const { DB, env } = setup({ age: 5 * MIN });
+  DB.raw.prepare(`INSERT INTO payment_orders (id, user_id, stripe_session_id, event_id, zone, quantity, unit_amount, amount, status, expires_at, paid_at)
+    VALUES ('po0', 'u1', 'cs_0', 'standup', 'x', 1, 1, 1, 'fulfilled', 0, 1)`).run();
+  DB.raw.prepare(`INSERT INTO tickets (id, order_id, user_id, event_id, zone, face_price, owner_wallet, token_id, status)
+    VALUES ('old', 'po0', 'u1', 'standup', 'x', 1, ?, 8, 'active')`).run(WALLET);
+  // #7 is an older stray mint to the same wallet; it sits below #8, so it is not this order's.
+  mockNetwork({ status: 'SUBMITTED', minted: [[7, 4], [8, 4], [9, 4]] });
+  await cron(env);
+  assert.deepEqual(tickets(DB).map(t => t.token_id), [9]);
 });

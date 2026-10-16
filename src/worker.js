@@ -25,7 +25,7 @@
 
 import { handleOrganizer } from './organizer.js';
 import { handleCheckin, advanceMarkUsed } from './checkin.js';
-import { keccak256, toHex } from './evm.js';
+import { keccak256, toHex, callData, SELECTORS } from './evm.js';
 import {
   handleResale, confirmResalePayment, releaseResaleBySession, resaleCheckoutStatus, cancelResaleCheckout, resaleSweep,
 } from './resale.js';
@@ -55,8 +55,7 @@ const MAX_MINT_ATTEMPTS = 3;
 // and after 30 minutes with nothing found the order goes to review instead of waiting forever.
 const MINT_CHAIN_CHECK_AFTER_MS = 3 * 60000;
 const MINT_REVIEW_AFTER_MS = 30 * 60000;
-const TICKET_MINTED_TOPIC = '0x5c1c9352d51031acc9a558d7cdcca15b0ce5fe4f46d7315cca355248175b0a37'; // TicketMinted(uint256,address,uint256)
-const LOG_SPAN = 2000; // blocks per eth_getLogs call (the public Fuji RPC caps the range)
+const MINT_SCAN_MAX = 60; // token ids read per chain check; ids below the last settled order are skipped
 // Seats a buyer can still take in zone z: not sold (remaining, reduced on verified payment by
 // 0004) and not held by a pending order (the 10-minute hold).
 const AVAILABLE_SEATS = `(z.remaining - (SELECT COALESCE(SUM(o.quantity), 0) FROM payment_orders o
@@ -561,7 +560,8 @@ async function mintOrder(env, orderId) {
 // last one. Still pending and not on chain after 30 minutes: review, never a second send.
 async function settleMint(env, orderId, polls = 1) {
   const order = await env.DB.prepare(
-    `SELECT o.id, o.mint_tx_id, o.mint_attempts, o.quantity, o.updated_at, e.chain_event_id
+    `SELECT o.id, o.user_id, o.event_id, o.zone, o.mint_tx_id, o.mint_attempts, o.quantity, o.paid_at, o.updated_at,
+            e.chain_event_id
      FROM payment_orders o JOIN events e ON e.id = o.event_id WHERE o.id = ? AND o.status = 'paid'`,
   ).bind(orderId).first();
   if (!order?.mint_tx_id || order.mint_tx_id === 'sending') return;
@@ -577,6 +577,7 @@ async function settleMint(env, orderId, polls = 1) {
   const age = Date.now() - order.updated_at;
   if (!confirmed && !failed && age < MINT_CHAIN_CHECK_AFTER_MS) return; // still on its way
 
+  await restoreTicketRows(env, order);
   const tickets = (await env.DB.prepare(
     `SELECT id, owner_wallet FROM tickets WHERE order_id = ? AND status = 'minting' ORDER BY id`,
   ).bind(orderId).all()).results || [];
@@ -592,7 +593,7 @@ async function settleMint(env, orderId, polls = 1) {
   } else {
     if (!tickets.length) return;
     try {
-      tokens = await unclaimedMintsOnChain(env, tickets[0].owner_wallet, order.chain_event_id, age);
+      tokens = await unclaimedMintsOnChain(env, tickets[0].owner_wallet, order.chain_event_id, order.paid_at);
     } catch (err) {
       // Kept on the order so a stuck mint shows why in D1; retried on the next pass.
       await env.DB.prepare('UPDATE payment_orders SET mint_error = ? WHERE id = ? AND status = \'paid\'')
@@ -632,32 +633,65 @@ async function settleMint(env, orderId, polls = 1) {
   ]);
 }
 
-// Tickets of this event minted to `wallet` within the last `ageMs` (plus a margin) that no
-// ticket row holds yet, oldest first, from the contract's TicketMinted logs.
-async function unclaimedMintsOnChain(env, wallet, chainEventId, ageMs) {
+// A paid order whose ticket rows are gone (deleted by hand, or never inserted) would wait
+// forever, so the missing 'minting' rows are put back the way mintOrder makes them.
+async function restoreTicketRows(env, order) {
+  const existing = await env.DB.prepare('SELECT COUNT(*) AS n FROM tickets WHERE order_id = ?').bind(order.id).first();
+  if (existing.n >= order.quantity) return;
+  const row = await env.DB.prepare(
+    `SELECT w.address, z.price AS face_price FROM wallets w
+     JOIN event_zones z ON z.event_id = ? AND z.zone_name = ?
+     WHERE w.user_id = ? AND w.kind = 'inapp' AND w.removed_at IS NULL LIMIT 1`,
+  ).bind(order.event_id, order.zone, order.user_id).first();
+  if (!row) return;
+  console.error('restoring missing ticket rows', order.id, existing.n, order.quantity);
+  await env.DB.batch(Array.from({ length: order.quantity - existing.n }, () => env.DB.prepare(
+    `INSERT INTO tickets (id, order_id, user_id, event_id, zone, face_price, owner_wallet, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'minting')`,
+  ).bind(crypto.randomUUID(), order.id, order.user_id, order.event_id, order.zone, row.face_price, row.address)));
+}
+
+// Tickets of this event owned by `wallet` that no ticket row holds yet, oldest first. Read
+// token by token (ownerOf / eventOf) from just above the highest token of orders paid before
+// this one up to nextTokenId, since the public Fuji RPC caps eth_getLogs at 100 blocks.
+async function unclaimedMintsOnChain(env, wallet, chainEventId, paidAt) {
   if (!wallet || chainEventId == null) return [];
-  const latest = Number(BigInt(await fujiRpc(env, 'eth_blockNumber', [])));
-  // Fuji makes a block every ~2 s, so one block per second of age reaches back far enough.
-  const span = Math.min(Math.ceil(ageMs / 1000) + 300, LOG_SPAN * 10);
-  const pad = v => '0x' + BigInt(v).toString(16).padStart(64, '0');
-  const logs = [];
-  for (let from = Math.max(0, latest - span); from <= latest; from += LOG_SPAN) {
-    logs.push(...await fujiRpc(env, 'eth_getLogs', [{
-      address: TICKET_CONTRACT,
-      fromBlock: '0x' + from.toString(16),
-      toBlock: '0x' + Math.min(from + LOG_SPAN - 1, latest).toString(16),
-      topics: [TICKET_MINTED_TOPIC],
-    }]) || []);
+  const next = Number(BigInt(await fujiRpc(env, 'eth_call', [{ to: TICKET_CONTRACT, data: SELECTORS.nextTokenId }, 'latest'])));
+  const floor = (await env.DB.prepare(
+    `SELECT MAX(t.token_id) AS m FROM tickets t JOIN payment_orders o ON o.id = t.order_id WHERE o.paid_at < ?`,
+  ).bind(paidAt || 0).first())?.m || 0;
+  const taken = new Set(((await env.DB.prepare('SELECT token_id FROM tickets WHERE token_id > ?')
+    .bind(floor).all()).results || []).map(r => r.token_id));
+  const ids = [];
+  for (let id = floor + 1; id < next && ids.length < MINT_SCAN_MAX; id++) if (!taken.has(id)) ids.push(id);
+  const found = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const chunk = ids.slice(i, i + 20);
+    const out = await fujiRpcBatch(env, chunk.flatMap(id => ['ownerOf', 'eventOf'].map(fn =>
+      ['eth_call', [{ to: TICKET_CONTRACT, data: callData(fn, id) }, 'latest']])));
+    chunk.forEach((id, k) => {
+      const [owner, eventOf] = [out[2 * k], out[2 * k + 1]];
+      if (owner?.result && eventOf?.result
+          && '0x' + String(owner.result).slice(-40).toLowerCase() === String(wallet).toLowerCase()
+          && BigInt(eventOf.result) === BigInt(chainEventId)) found.push({ tokenId: id, hash: null });
+    });
   }
-  // Filtered here rather than with null topic wildcards, which not every RPC accepts.
-  const found = logs.filter(l => l.topics?.length === 4
-      && String(l.topics[2]).toLowerCase() === pad(wallet) && BigInt(l.topics[3]) === BigInt(chainEventId))
-    .map(l => ({ tokenId: Number(BigInt(l.topics[1])), hash: l.transactionHash }));
-  if (!found.length) return [];
-  const taken = new Set(((await env.DB.prepare(
-    `SELECT token_id FROM tickets WHERE token_id IN (${found.map(() => '?').join(',')})`,
-  ).bind(...found.map(t => t.tokenId)).all()).results || []).map(r => r.token_id));
-  return found.filter(t => !taken.has(t.tokenId)).sort((a, b) => a.tokenId - b.tokenId);
+  return found;
+}
+
+// Several JSON-RPC calls in one request; answers come back in call order (an entry may hold an error).
+async function fujiRpcBatch(env, calls) {
+  const res = await fetch(env.FUJI_RPC_URL || FUJI_RPC, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(calls.map(([method, params], id) => ({ jsonrpc: '2.0', id, method, params }))),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new Error(`fuji rpc ${res.status}`);
+  const body = await res.json();
+  if (!Array.isArray(body)) throw new Error('fuji rpc batch: ' + (body?.error?.message || 'bad reply'));
+  const byId = Object.fromEntries(body.map(r => [r.id, r]));
+  return calls.map((_, id) => byId[id]);
 }
 
 async function fujiRpc(env, method, params) {
