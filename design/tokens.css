@@ -1,0 +1,216 @@
+/* JONGLOEI design tokens (handoff 2026-10-16, section A3).
+   The only file that may hold raw colour values. Everything else uses var(--…).
+   Dark is the default theme. Light applies only with <html data-theme="light"> (the theme switch);
+   the light values below are the base the dark block overrides.
+   Breakpoints (media queries cannot read variables): sm ≥ 600px · desk ≥ 900px · wide ≥ 1200px. */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- colour: 60 · neutral ground ---------- */
+  --bg: #F6F3F3;
+  --surface: #FFFFFF;
+  --surface-2: #FAF7F7;
+
+  /* ---------- colour: 30 · red family ---------- */
+  --brand: #A00018;          /* logo, wordmark: fixed in both themes */
+  --red: #A00018;            /* primary button, link, selected, focus ring, price, sales bars */
+  --red-strong: #7E0013;     /* hover/pressed, solid red areas (hero, footer) */
+  --on-red: #FFFFFF;         /* text/icon on solid --red or --danger (new: dark theme needs dark text) */
+  /* No tinted red: anything selected or active is solid --red with --on-red text. */
+
+  /* ---------- colour: 10 · ink and lines ---------- */
+  --ink: #1E1416;
+  --muted: #6E6265;
+  --line: #ECE4E5;
+  --line-soft: color-mix(in oklab, var(--ink) 8%, transparent);   /* card borders */
+
+  /* ---------- colour: status (pill, icon, alert only) ---------- */
+  --ok: #1D7A48;      --ok-soft: #E5F3EB;
+  --warn: #9A5B00;    --warn-soft: #FBF0DD;
+  --danger: #B42318;  --danger-soft: #FDECEA;
+  --info: #1F5FA8;    --info-soft: #E6EEF8;
+  --chain: #0B6E69;   --chain-soft: #E3F2F0;   /* on-chain data, buyer side only */
+
+  /* ---------- colour: solid status fills (pill, alert, price tag); same in both themes; white text ----------
+     Owner's choice: white on --ok-solid is about 2.6:1 and on --warn-solid about 1.6:1, below WCAG 4.5:1. */
+  --ok-solid: #22BB33;
+  --warn-solid: #FFC107;     /* MUI Amber 500 */
+  --danger-solid: #DC2626;
+  --info-solid: #2563EB;
+  --red-solid: #D0021B;
+  --neutral-solid: #898989;  /* ร่าง จบแล้ว เข้างานแล้ว คืนเงินแล้ว รอ */
+  --on-solid: #FFFFFF;
+
+  /* ---------- colour: organizer sidebar ---------- */
+  --side: #7E0013;                         /* = --red-strong in light */
+  --on-side: #FFFFFF;
+  --side-active: rgb(255 255 255 / .16);
+  --side-panel: rgb(255 255 255 / .10);
+  --side-outline: rgb(255 255 255 / .28);
+
+  /* ---------- colour: fixed in both themes ---------- */
+  --scan-ok: #22BB33;        /* = --ok-solid */
+  --scan-bad: #B42318;
+  --on-scan: #FFFFFF;
+  --on-scan-tint: rgb(255 255 255 / .16);
+  --on-scan-outline: rgb(255 255 255 / .6);
+  --qr-bg: #FFFFFF;
+  --qr-ink: #1E1416;
+  --promptpay: #113566;
+  --on-promptpay: #FFFFFF;
+  --camera-bg: #1E1416;
+  --camera-frame: rgb(255 255 255 / .85);
+  --poster-outline: rgb(0 0 0 / .10);
+  --switch-knob: #FFFFFF;
+  --scrim: rgb(18 12 13 / .56);
+
+  /* ---------- colour: ticket zones (always with a name label) ---------- */
+  --zone-1: #2A78D6;   /* blue */
+  --zone-2: #EB6834;   /* orange */
+  --zone-3: #1BAF7A;   /* sea green */
+  --zone-4: #EDA100;   /* yellow */
+  --zone-5: #E87BA4;   /* pink */
+
+  /* ---------- colour: event posters: red gradient + diagonal stripes, white text (same in both themes) ---------- */
+  --poster-stripes: repeating-linear-gradient(135deg, rgb(255 255 255 / .07) 0 2px, transparent 2px 14px);
+  --poster-intro: linear-gradient(135deg, #C2001F, #7E0013 55%, #2A0A0D);   /* banner slide 1 (about the site) */
+  --poster-neon: linear-gradient(140deg, #A00018, #4A0010 70%, #1E0508);
+  --poster-jazz: linear-gradient(160deg, #C2412D, #7E0013 60%, #2B0A0E);
+  --poster-fan: linear-gradient(150deg, #D6455A, #A00018 45%, #3D0710);
+  --poster-standup: linear-gradient(130deg, #8A1020, #2A0A0D);
+  --poster-fg: #FFFFFF;
+  --poster-chip: rgb(255 255 255 / .18);   /* date chip on a poster; also the big title mark in the banner */
+
+  /* ---------- elevation: overlays only (sheet, toast, popover) ---------- */
+  --shadow-overlay: 0 1px 2px rgb(60 10 16 / .06), 0 12px 32px rgb(60 10 16 / .14);
+
+  /* ---------- type ---------- */
+  --font-body: "General Sans", "Anuphan", system-ui, sans-serif;
+  --font-display: "General Sans", "Prompt", system-ui, sans-serif;
+  --font-mono: ui-monospace, Menlo, monospace;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* mobile values; desktop overrides below at ≥ 900px */
+  --fs-hero: 30px;      --lh-hero: 1.2;
+  --fs-h1: 22px;        --lh-h1: 1.25;
+  --fs-h2: 18px;        --lh-h2: 1.3;
+  --fs-h3: 16px;        --lh-h3: 1.35;
+  --fs-stat: 24px;      --lh-stat: 1.2;
+  --fs-price-xl: 24px;  --lh-price-xl: 1.2;
+  --fs-price: 18px;     --lh-price: 1.2;
+  --fs-scan: 32px;      --lh-scan: 1.2;
+  --fs-counter: 36px;   --lh-counter: 1.1;
+  --fs-body-lg: 16px;   --lh-body-lg: 1.6;   /* every input: stops iOS zoom */
+  --fs-body: 15px;      --lh-body: 1.6;
+  --fs-table: 14px;     --lh-table: 1.45;
+  --fs-sm: 13px;        --lh-sm: 1.5;
+  --fs-xs: 12px;        --lh-xs: 1.4;        /* smallest size in the system */
+  --fs-mono: 13px;      --lh-mono: 1.4;
+
+  /* ---------- space (4px base) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-14: 56px;
+
+  --gutter-page: var(--space-4);   /* 16 mobile, 32 desk */
+  --gap-cards: var(--space-3);     /* 12 mobile, 16–24 desk */
+
+  /* ---------- size ---------- */
+  --tap: 44px;            /* minimum tap target, md button */
+  --tap-lg: 52px;         /* lg button */
+  --tap-xl: 56px;         /* xl button, gate */
+  --row-min: 44px;        /* table row, 40 on desk */
+  --icon-sm: 16px;
+  --icon: 20px;
+  --icon-lg: 24px;
+  --nav-h: 64px;          /* desk nav height */
+  --sidebar-w: 240px;
+  --container-buyer: 1120px;
+  --container-org: 1280px;
+  --flow-w: 600px;        /* single-column checkout, 560–640 */
+  --gate-w: 480px;
+  --sheet-w: 460px;       /* desktop dialog */
+  --toast-w: 360px;
+  --qr-size: 220px;
+
+  /* ---------- radius: 4 · 8 · 12 · full only ---------- */
+  --radius-sm: 4px;      /* zone dot, chart bar, swatch */
+  --radius-md: 8px;      /* button, input, icon button */
+  --radius-lg: 12px;     /* card, sheet (top only) */
+  --radius-full: 999px;  /* pill, chip, avatar */
+
+  /* ---------- z-index: 4 levels ---------- */
+  --z-sticky: 10;
+  --z-overlay: 20;   /* sheet, scan result */
+  --z-toast: 30;
+  --z-skip: 40;
+
+  /* ---------- motion ---------- */
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --dur-press: 150ms;   /* hover, press */
+  --dur-toast: 200ms;
+  --dur-sheet: 250ms;   /* ceiling for UI motion */
+  --dur-hero: 800ms;    /* hero cross-fade (exception) */
+  --scan-hold: 2s;      /* scan result stays, then clears (exception) */
+  --press-scale: .97;
+}
+
+@media (min-width: 900px) {
+  :root {
+    --fs-hero: 44px;
+    --fs-h1: 30px;
+    --fs-h2: 22px;
+    --fs-h3: 17px;
+    --fs-stat: 28px;
+    --fs-price-xl: 32px;
+    --fs-price: 20px;
+    --fs-scan: 40px;
+    --fs-counter: 44px;
+    --fs-sm: 14px;
+
+    --gutter-page: var(--space-8);
+    --gap-cards: var(--space-5);
+    --row-min: 40px;
+  }
+}
+
+/* ---------- dark theme (default) ---------- */
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #120C0D;
+    --surface: #1C1415;
+    --surface-2: #241A1C;
+    --red: #E8485A;
+    --red-strong: #FF6B7B;
+    --on-red: #120C0D;
+    --ink: #F5ECED;
+    --muted: #B3A3A6;
+    --line: #35282A;
+    --ok: #5CC98C;      --ok-soft: #163223;
+    --warn: #F0B35A;    --warn-soft: #352612;
+    --danger: #FF7A6E;  --danger-soft: #3A1512;
+    --info: #7FB0EA;    --info-soft: #14243A;
+    --chain: #4CC2B5;   --chain-soft: #10302D;
+    --side: #3A1519;    /* rule 4: no full-bleed bright red on dark */
+    --on-side: #F5ECED;
+    --side-active: rgb(245 236 237 / .12);
+    --side-panel: rgb(245 236 237 / .06);
+    --side-outline: rgb(245 236 237 / .2);
+    --zone-1: #3987E5;
+    --zone-2: #D95926;
+    --zone-3: #199E70;
+    --zone-4: #C98500;
+    --zone-5: #D55181;
+    --scrim: rgb(0 0 0 / .64);
+    --shadow-overlay: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .45);
+  }
