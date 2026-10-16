@@ -13,12 +13,15 @@
 //                                   has a ticket wallet, set session cookie
 //   POST /auth/logout            -> revoke the session
 //   POST /api/dev/test-mint      -> admin only: mint one test ticket to the caller's wallet
+//   /api/org/*, /api/admin/hosts -> organizer API, see src/organizer.js
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 // THIRDWEB_SECRET_KEY, STRIPE_SECRET_KEY (prefer an rk_ restricted key), and
 // STRIPE_WEBHOOK_SECRET. Without the Google ones /api/me reports googleEnabled=false and
 // the mock-up keeps its demo login. Without THIRDWEB_SECRET_KEY login works but no wallet
 // is made.
+
+import { handleOrganizer } from './organizer.js';
 
 const SESSION_COOKIE = 'jl_session';
 const STATE_COOKIE = 'jl_oauth';
@@ -64,6 +67,9 @@ export default {
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
       if (url.pathname === '/auth/logout' && request.method === 'POST') return logout(request, env);
       if (url.pathname === '/api/dev/test-mint' && request.method === 'POST') return testMint(request, env);
+      if (url.pathname.startsWith('/api/org/') || url.pathname === '/api/admin/hosts/verify') {
+        return handleOrganizer(request, env, ctx, url, { currentUser, json, expireOrder, logEvent });
+      }
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
         return json({ error: 'not_found' }, 404);
       }
@@ -87,24 +93,34 @@ async function me(request, env) {
 
 async function events(request, env) {
   try {
-    const rows = await env.DB.prepare(
+    const list = capacity => env.DB.prepare(
       `SELECT e.id, e.name, e.short_name AS short, e.category AS tag, e.event_date AS date,
               e.event_time AS time, e.venue, e.poster_background AS bg, e.sold_percent AS sold,
-              z.zone_name AS zone, z.price, z.color, ${AVAILABLE_SEATS} AS remaining
+              z.zone_name AS zone, z.price, z.color, ${capacity} AS capacity, ${AVAILABLE_SEATS} AS remaining
        FROM events e JOIN event_zones z ON z.event_id = e.id
        WHERE e.status = 'on_sale' ORDER BY e.event_date, e.id, z.sort_order`,
     ).all();
+    // Until 0006_organizer.sql is applied the column does not exist; keep the list working.
+    const rows = await list('z.capacity').catch(err => {
+      if (/no such column/.test(String(err?.message || err))) return list('NULL');
+      throw err;
+    });
     const byId = new Map();
     for (const row of rows.results || []) {
       let event = byId.get(row.id);
       if (!event) {
         event = { id: row.id, name: row.name, short: row.short, tag: row.tag, date: row.date,
-          time: row.time, venue: row.venue, bg: row.bg, sold: row.sold, zones: [] };
+          time: row.time, venue: row.venue, bg: row.bg, sold: row.sold, zones: [], cap: 0, taken: 0 };
         byId.set(row.id, event);
       }
       event.zones.push({ z: row.zone, p: row.price, left: row.remaining, c: row.color });
+      // organizer events (0006) know their capacity, so their sold % is computed, not stored
+      if (row.capacity == null) event.cap = null;
+      else if (event.cap != null) { event.cap += row.capacity; event.taken += row.capacity - row.remaining; }
     }
-    return json([...byId.values()], 200, { 'cache-control': 'no-store' });
+    const result = [...byId.values()].map(({ cap, taken, ...event }) =>
+      cap ? { ...event, sold: Math.min(100, Math.floor(taken * 100 / cap)) } : event);
+    return json(result, 200, { 'cache-control': 'no-store' });
   } catch (err) {
     console.error('event list failed', err && err.stack || err);
     return json({ error: 'event_storage_unavailable' }, 503);
@@ -308,6 +324,11 @@ async function confirmPayment(env, ctx, sessionId) {
     problems.push('reference mismatch');
   }
   if (order.status !== 'pending') problems.push(`paid after the hold ended (${order.status})`);
+  // An organizer cancelled the event (0006) while this guest was at Stripe: refund, do not mint.
+  // (Before 0006 is applied the column is missing and nothing can be cancelled, so that reads as null.)
+  const event = await env.DB.prepare('SELECT cancelled_at FROM events WHERE id = ?').bind(order.event_id).first()
+    .catch(err => { if (/no such column/.test(String(err?.message || err))) return null; throw err; });
+  if (event?.cancelled_at) problems.push('event cancelled before the payment arrived');
   if (problems.length) {
     await env.DB.prepare(
       `UPDATE payment_orders SET status = 'needs_review', review_reason = ?, stripe_payment_intent = ?,
