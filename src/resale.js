@@ -6,6 +6,7 @@
 //   DELETE /api/resale/listings/:id                 seller takes the listing down
 //   POST   /api/resale/checkout                     { listingId } 10-minute hold + Stripe session
 //   GET    /api/resale/payouts                      the caller's seller payouts (held / paid out)
+//   GET    /api/resale/orders                       the caller's pending resale purchases
 // Hooks used by src/worker.js:
 //   confirmResalePayment / releaseResaleBySession   Stripe webhook for orders with metadata.kind=resale
 //   resaleCheckoutStatus / cancelResaleCheckout     return from Stripe
@@ -93,6 +94,7 @@ export async function handleResale(request, env, ctx, url, deps) {
   const { json } = deps;
   const path = url.pathname;
   if (path === '/api/resale/listings' && request.method === 'GET') return listListings(request, env, url, deps);
+  if (path === '/api/resale/orders' && request.method === 'GET') return myResaleOrders(request, env, deps);
   if (path === '/api/resale/listings' && request.method === 'POST') return createListing(request, env, deps);
   const m = path.match(/^\/api\/resale\/listings\/([\w-]{1,64})$/);
   if (m && request.method === 'DELETE') return cancelListing(request, env, m[1], deps);
@@ -297,6 +299,29 @@ async function myPayouts(request, env, deps) {
       id: p.id, eventId: p.event_id, zone: p.zone, tokenId: p.token_id, grossSatang: p.gross,
       commissionSatang: p.commission, netSatang: p.net, status: p.status, releaseAfter: p.release_after,
       createdAt: p.created_at, settledAt: p.settled_at,
+    })),
+  }, 200, { 'cache-control': 'no-store' });
+}
+
+async function myResaleOrders(request, env, deps) {
+  const user = await deps.currentUser(request, env);
+  if (!user) return deps.json({ error: 'authentication_required' }, 401);
+  const rows = await env.DB.prepare(
+    `SELECT o.id, o.ticket_id, o.event_id, o.zone, o.amount, o.status, o.review_reason,
+            o.created_at, o.paid_at, o.fulfilled_at, o.updated_at,
+            l.price, t.token_id
+     FROM resale_orders o
+     JOIN resale_listings l ON l.id = o.listing_id
+     JOIN tickets t ON t.id = o.ticket_id
+     WHERE o.buyer_id = ? AND o.status IN ('pending', 'paid', 'needs_review')
+     ORDER BY o.created_at DESC LIMIT 20`,
+  ).bind(user.id).all();
+  return deps.json({
+    orders: (rows.results || []).map(o => ({
+      id: o.id, ticketId: o.ticket_id, eventId: o.event_id, zone: o.zone,
+      amountSatang: o.amount, price: o.price, status: o.status,
+      reviewReason: o.review_reason, tokenId: o.token_id,
+      createdAt: o.created_at, paidAt: o.paid_at, fulfilledAt: o.fulfilled_at, updatedAt: o.updated_at,
     })),
   }, 200, { 'cache-control': 'no-store' });
 }
@@ -541,6 +566,36 @@ async function advanceTransfer(env, orderId, deps) {
   }
 }
 
+async function recoverTimedOutTransfer(env, orderId, deps) {
+  const order = await env.DB.prepare(
+    `SELECT o.id, o.ticket_id, o.buyer_wallet, o.transfer_tx_id, t.owner_wallet, t.token_id
+     FROM resale_orders o JOIN tickets t ON t.id = o.ticket_id
+     WHERE o.id = ? AND o.status = 'needs_review'
+       AND o.transfer_tx_id = 'sending'
+       AND o.review_reason LIKE 'transfer request timed out%'`,
+  ).bind(orderId).first();
+  if (!order) return;
+  let owner;
+  try {
+    owner = (await readChain(env, order.token_id)).owner;
+  } catch (err) {
+    console.error('timed-out resale transfer chain check failed', orderId, err && err.message || err);
+    return;
+  }
+  const buyer = String(order.buyer_wallet).toLowerCase();
+  const seller = String(order.owner_wallet).toLowerCase();
+  if (owner === seller) {
+    await env.DB.prepare(
+      `UPDATE resale_orders
+       SET status = 'paid', transfer_tx_id = NULL, transfer_error = NULL, review_reason = NULL, updated_at = ?
+       WHERE id = ? AND status = 'needs_review' AND transfer_tx_id = 'sending'`,
+    ).bind(Date.now(), orderId).run();
+    await advanceTransfer(env, orderId, deps);
+  } else if (owner !== buyer) {
+    console.error('timed-out resale transfer has unexpected chain owner', orderId, owner);
+  }
+}
+
 /* ---------- cron ---------- */
 
 export async function resaleSweep(env, ctx, deps) {
@@ -573,6 +628,15 @@ export async function resaleSweep(env, ctx, deps) {
     ]);
   }
   // 3. Paid orders: send or settle operatorTransfer.
+  const recover = await env.DB.prepare(
+    `SELECT id FROM resale_orders
+     WHERE status = 'needs_review' AND transfer_tx_id = 'sending'
+       AND review_reason LIKE 'transfer request timed out%'
+     ORDER BY updated_at LIMIT 10`,
+  ).all();
+  for (const o of recover.results || []) {
+    try { await recoverTimedOutTransfer(env, o.id, deps); } catch (err) { console.error('resale transfer recovery failed', o.id, err && err.stack || err); }
+  }
   const paid = await env.DB.prepare(
     `SELECT id FROM resale_orders WHERE status = 'paid' ORDER BY paid_at LIMIT 10`,
   ).all();

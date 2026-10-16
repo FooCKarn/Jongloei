@@ -852,6 +852,7 @@ const S={
   tickets:[],
   q:'',cat:'ทั้งหมด',mcat:'all',
   listings:[],
+  pendingResales:[],
   sel:null,qrTimer:null,payTimer:null,nextTid:1311,buyingListing:null,ticketView:'qr',mtab:'active',
   mode:'buyer',org:null,
 };
@@ -1031,7 +1032,7 @@ function guardMode(){
   if(S.org.role!=='owner'&&['orgFinance','orgTeam'].includes(cur))return reset('orgDash');
 }
 
-function render(){
+function render(preserveScroll){
   guardMode();
   const cur=S.stack[S.stack.length-1];
   const tabs=S.mode==='org'?orgTabsFor(S.org.role):BUYER_TABS;
@@ -1040,10 +1041,12 @@ function render(){
   const fullFlow=['checkout','pay','minting','orgWizard','orgOnboard','orgWelcome'].includes(cur);
   $('#tabbar').hidden=fullFlow;
   S.full=false;   // a view sets S.full when it lays itself out edge to edge (v2 screens)
+  const prevScroll=$('#scroll').scrollTop;
   let html=(VIEWS[cur]||VIEWS.home)();
   if(!S.full&&S.desk&&S.stack.length>1)html=`<div class="backrow"><button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h2 style="font-size:20px">${S.title}</h2></div>`+html;
   $('#scroll').innerHTML=`<div class="screen${S.full?' v2':''}">${html}</div>`;
-  $('#scroll').scrollTop=0;
+  // a background poll (orders, minting status) re-renders the same screen; jumping back to the top on every tick reads as a refresh
+  $('#scroll').scrollTop=preserveScroll?prevScroll:0;
   (AFTER[cur]||(()=>{}))();
   if(S.focus){const el=document.getElementById(S.focus);if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(_){}}S.focus=null}
   save();
@@ -1224,12 +1227,18 @@ tickets(){
     <h1 class="h2">เข้าสู่ระบบเพื่อดูตั๋ว</h1><p class="muted" style="margin:0">ใช้บัญชี Google บัญชีเดียว ตั๋วอยู่ครบทุกเครื่อง</p><button class="bigbtn" data-act="signup" style="max-width:320px">เข้าสู่ระบบ</button></div>`;
   const groups={active:'ใช้งานได้',listed:'ลงขายอยู่',used:'ใช้แล้ว',refunded:'คืนเงินแล้ว'};
   const list=S.tickets.filter(t=>t.status===S.mtab);
+  const pendingResales=S.mtab==='active'?S.pendingResales.filter(o=>o.status!=='fulfilled'):[];
+  const pendingCards=pendingResales.map(o=>{
+    const e=evById(o.eventId),status=o.status==='needs_review'?'ต้องตรวจสอบการโอน':o.status==='paid'?'กำลังโอนตั๋ว':'รอการยืนยันการชำระเงิน';
+    const note=o.status==='needs_review'?'ระบบกำลังตรวจสอบธุรกรรมเพื่อป้องกันการโอนซ้ำ':'ชำระเงินแล้ว ตั๋วจะแสดงที่นี่เมื่อโอนบนบล็อกเชนสำเร็จ';
+    return `<div class="card" role="status"><div class="row between"><b>${esc(e?e.name:'ตั๋วขายต่อ')}</b><span class="pill warn">${status}</span></div><div class="small muted">${esc(o.zone)} · ยอดชำระ ${fmt((o.amountSatang||0)/100)}</div><div class="small muted">${note}</div></div>`;
+  }).join('');
   return `<div class="wrap">
   <h1 class="ftitle">ตั๋วของฉัน</h1>
   <div class="chips" role="group" aria-label="สถานะตั๋ว">${Object.entries(groups).map(([k,v])=>`<button class="chip ${S.mtab===k?'on':''}" data-mtab="${k}" aria-pressed="${S.mtab===k}">${v} <span class="num">${S.tickets.filter(t=>t.status===k).length}</span></button>`).join('')}</div>
-  ${list.length?`<div class="tklist">${list.map(t=>{const e=evById(t.ev);return `<button class="tk" data-ticket="${t.key||t.tid}">${thumb(e)}
+  ${pendingCards}${list.length?`<div class="tklist">${list.map(t=>{const e=evById(t.ev);return `<button class="tk" data-ticket="${t.key||t.tid}">${thumb(e)}
       <div class="info"><h3>${e.name}</h3><span class="meta num">${e.date} · ${e.time} น.</span><span>${zchip(e,t.zone)}</span></div>${tkPill(t)}</button>`}).join('')}</div>`
-    :`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ตั๋วที่ซื้อหรือได้รับโอนจะขึ้นที่นี่ พร้อม QR สำหรับเข้างาน':'ไม่มีตั๋วในหมวดนี้'}${S.mtab==='active'?'<br><br><button class="btn" data-act="home" style="max-width:280px;margin:0 auto">ดูงานทั้งหมด</button>':''}</div>`}
+    :pendingCards?'' :`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ตั๋วที่ซื้อหรือได้รับโอนจะขึ้นที่นี่ พร้อม QR สำหรับเข้างาน':'ไม่มีตั๋วในหมวดนี้'}${S.mtab==='active'?'<br><br><button class="btn" data-act="home" style="max-width:280px;margin:0 auto">ดูงานทั้งหมด</button>':''}</div>`}
   <p class="small muted" style="margin:0">ตั๋วทุกใบเก็บในบัญชีที่ระบบสร้างให้ตอนสมัคร ไม่ต้องจำรหัสกู้คืนหรือจ่ายค่า gas เอง</p>
   </div>`;
 },
@@ -2708,12 +2717,17 @@ async function liveWizSave(){
   const ev=replaceLive(r.event);o.draft=JSON.parse(JSON.stringify(ev));o.wizDirty=false;return ev;
 }
 const ORDER_STATUS={pending:'รอชำระ (Hold)',expired:'หมดเวลา',paid:'ชำระแล้ว',fulfilled:'ออกตั๋วแล้ว',failed:'ไม่สำเร็จ',needs_review:'รอตรวจสอบ'};
-function liveBuyers(e){
+function liveBuyersBody(e){
   const o=S.org,rows=o.orders[e.id];
   if(rows===undefined){
     o.orders[e.id]=null;
     orgApi('GET',`/api/org/events/${e.id}/orders`).then(d=>{o.orders[e.id]=d.orders},err=>{o.orders[e.id]={error:orgErrText(err)}})
-      .finally(()=>{if(S.org===o&&o.oev===e.id&&S.stack[S.stack.length-1]==='orgEvent')render()});
+      .finally(()=>{
+        if(S.org!==o||o.oev!==e.id||S.stack[S.stack.length-1]!=='orgEvent')return;
+        // patch the table in place instead of a full render(), so the whole screen doesn't flash while the list loads
+        const w=document.getElementById('org-orders-wrap');
+        if(w)w.innerHTML=liveBuyersBody(e);else render();
+      });
   }
   if(!rows)return '<div class="empty">กำลังโหลดคำสั่งซื้อ…</div>';
   if(rows.error)return `<div class="empty">${esc(rows.error)}</div>`;
@@ -2724,6 +2738,7 @@ function liveBuyers(e){
       <td class="num">${OL.fmtBaht(r.amountSatang)}</td><td style="text-align:left">${ORDER_STATUS[r.status]||esc(r.status)}</td><td class="num">${r.minted}</td></tr>`).join('')}</tbody></table></div>`
     :'<div class="empty">ยังไม่มีคำสั่งซื้อ</div>'}`;
 }
+function liveBuyers(e){return `<div id="org-orders-wrap">${liveBuyersBody(e)}</div>`}
 const notLive=()=>toast('ส่วนนี้ยังไม่เปิดในระบบจริง ใช้ได้ในเดโม');
 // actions that differ in live mode; everything else falls back to ORG_ACTIONS (see orgAct)
 const LIVE_ACTIONS={
@@ -3187,11 +3202,12 @@ async function loadMyTickets(){
     const response=await fetch('/api/tickets',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/tickets');
     if(!response.ok||!Array.isArray(data.tickets))return;
-    const before=JSON.stringify([S.tickets,S.realListings]);
+    const before=JSON.stringify([S.tickets,S.realListings,S.pendingResales]);
     S.tickets=data.tickets.map(realTicket);
     await loadResale();
-    // Redraw only when something changed, so a ticket still minting does not make the page flash every poll.
-    if(JSON.stringify([S.tickets,S.realListings])!==before)render();
+    // Redraw only when something changed, so a ticket still minting does not make the page flash every poll;
+    // keep the scroll position too, so the redraw doesn't jump back to the top like a page refresh.
+    if(JSON.stringify([S.tickets,S.realListings,S.pendingResales])!==before)render(true);
     clearTimeout(mintTimer);
     if(!S.tickets.some(t=>t.minting))mintPolls=0;
     else if(++mintPolls<=120)mintTimer=setTimeout(loadMyTickets,5000);
@@ -3201,12 +3217,14 @@ let mintPolls=0,mintTimer=0;
 
 /* Resale listings are always loaded from the Worker. */
 function marketListings(){return S.realListings||[]}
-async function loadResale(){
+ async function loadResale(){
   try{
-    const [market,mine]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[]})));
+  const [market,mine,orders]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1','/api/resale/orders'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[],orders:[]})));
     S.realListings=market.listings.map(l=>({lid:l.id,ev:l.eventId,zone:l.zone,face:l.facePrice,price:l.price,seller:l.seller,transfers:l.transfers,tid:l.tokenId,held:l.held,mine:l.mine,real:true}));
-    for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold';t.listingOrderStatus=l.orderStatus;t.listingReviewReason=l.orderReviewReason}}
-  }catch(err){console.error('Resale API failed',err)}
+  S.pendingResales=orders.orders||[];
+  for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold';t.listingOrderStatus=l.orderStatus;t.listingReviewReason=l.orderReviewReason}}
+  if(S.pendingResales.some(o=>o.status==='paid'))setTimeout(loadMyTickets,5000);
+}catch(err){console.error('Resale API failed',err)}
 }
 const RESALE_ERRORS={holding_period:'ลงขายได้หลังได้ตั๋วครบ 6 ชั่วโมง',transfer_closed:'ปิดการขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',invalid_price:'ราคาเกินเพดาน 125% ของราคาหน้าบัตร',
   already_listed:'ตั๋วใบนี้ลงขายอยู่แล้ว',ticket_not_listable:'ตั๋วใบนี้ลงขายไม่ได้',event_not_open:'งานนี้ปิดหรือถูกยกเลิกแล้ว',event_time_unknown:'งานนี้ยังไม่มีเวลาเริ่มที่ชัดเจน',
@@ -3248,10 +3266,10 @@ async function handleCheckoutReturn(){
       if(data.status==='fulfilled'){
         await loadMyTickets();
         const first=S.tickets.find(t=>t.key===(data.tickets[0]&&data.tickets[0].id));
-        if(first){S.sel=first;S.stack=['tickets'];S.mtab='active';go('success')}else if(changed)render();
+        if(first){S.sel=first;S.stack=['tickets'];S.mtab='active';go('success')}else if(changed)render(true);
         return;
       }
-      if(changed&&S.stack[S.stack.length-1]==='paymentSuccess')render();
+      if(changed&&S.stack[S.stack.length-1]==='paymentSuccess')render(true);
       if(['needs_review','expired','failed'].includes(data.status))return;
     }catch(err){console.error('Checkout status failed',err);return}
     await new Promise(resolve=>setTimeout(resolve,3000));
