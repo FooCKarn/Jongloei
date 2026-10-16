@@ -3,8 +3,8 @@ import AppFrame from "@/components/AppFrame";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "JONGLOEI · Event Tickets · บัตรเข้าร่วมงานอีเวนต์",
-  description: "ซื้อ ขายต่อ และจัดเก็บบัตรเข้าร่วมงานอีเวนต์อย่างปลอดภัยและไร้การปลอมแปลง สามารถชำระเงินผ่าน PromptPay ยินดีคืนเงินหากมีการยกเลิกงาน | Buy, resell and keep event tickets that cannot be forged. Pay with PromptPay, with automatic refunds if an event is cancelled.",
+  title: "JONGLOEI · Event Tickets",
+  description: "Buy, resell and keep event tickets that cannot be forged. Pay with Stripe, with automatic refunds if an event is cancelled. ซื้อ ขายต่อ และจัดเก็บบัตรเข้าร่วมงานอีเวนต์อย่างปลอดภัยและไร้การปลอมแปลง",
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#120D0E" };
 
@@ -13,7 +13,7 @@ const THEME = `try{if(localStorage.getItem('jongloei-theme')==='light')document.
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="th" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

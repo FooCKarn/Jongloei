@@ -3,10 +3,10 @@
 import { S } from "./state";
 
 export const PATH: Record<string, string> = {
-  home: "/", event: "/event/", checkout: "/checkout/", pay: "/pay/", minting: "/minting/", success: "/success/",
+  home: "/", event: "/event/", checkout: "/checkout/", pay: "/pay/", success: "/success/",
   paymentSuccess: "/payment/", tickets: "/tickets/", ticket: "/ticket/", market: "/market/", profile: "/profile/",
   orgDash: "/org/", orgWelcome: "/org/welcome/", orgOnboard: "/org/onboarding/", orgEvents: "/org/events/", orgWizard: "/org/wizard/",
-  orgEvent: "/org/event/", orgGatePick: "/org/gate/", orgGate: "/org/gate/scan/", orgFinance: "/org/finance/", orgTeam: "/org/team/",
+  orgEvent: "/org/event/", orgGatePick: "/org/gate/", orgGate: "/org/gate/scan/", orgFinance: "/org/finance/", orgTeam: "/org/team/", orgAdmin: "/org/admin/",
 };
 export const SCREEN_OF: Record<string, string> = Object.fromEntries(Object.entries(PATH).map(([k, v]) => [v, k]));
 

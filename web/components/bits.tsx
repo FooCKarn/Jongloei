@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { S, OL, fmt, short, CONTRACT, evById, DAY, HOUR } from "@/lib/state";
 import { back } from "@/lib/nav";
 import { tr, useLang, toggleLang, getLang } from "@/lib/i18n";
-import { EV_STATUS, ROLE_LABEL } from "@/lib/org";
+import { EV_STATUS, ROLE_LABEL, verifyLabel, verifyClass } from "@/lib/org";
 
 export const Icon = ({ id, className, size }: { id: string; className?: string; size?: number }) => (
   <svg aria-hidden="true" className={className} width={size} height={size}><use href={"#" + id} /></svg>);
@@ -77,8 +77,8 @@ export function LineSteps({ labels, cur, onPick }: { labels: string[]; cur: numb
 }
 // page head: title + shop row (mobile) + primary action
 export function OrgHead({ title, action }: { title: string; action?: any }) {
-  const sh = S.org.shop, ok = sh.verification === "verified";
-  return (<div className="ohead"><h1>{title}</h1><div className="oshop"><b>{tr(sh.name)}</b><span className={"pill " + (ok ? "ok" : "warn")}>{ok ? tr("ผ่านการยืนยันร้านค้า") : tr("รอการตรวจสอบตัวตน")}</span>
+  const sh = S.org.shop;
+  return (<div className="ohead"><h1>{title}</h1><div className="oshop"><b>{tr(sh.name)}</b><span className={"pill " + verifyClass(sh)}>{verifyLabel(sh)}</span>{S.org.live && <span className="pill ok">{tr("ระบบจริง")}</span>}
     {S.org.role !== "owner" && <span className="pill grey">{ROLE_LABEL[S.org.role]}</span>}</div>{action || null}</div>);
 }
 

@@ -1,8 +1,8 @@
 "use client";
-// Organizer actions: demo shop (state in this browser) and the real shop (/api/org/*, src/organizer.js).
-// In live mode S.org holds what the server returned and the demo state waits in S.orgDemo.
+// Organizer actions: always the real shop (/api/org/*, src/organizer.js). S.org holds what the server returned;
+// while the buyer side runs it waits in S.orgLive.
 import { useState } from "react";
-import { S, OL, emit, save, HOUR, DAY, POSTERS, ORG_PARAMS, DEMO_ACCOUNTS, isLocal, evById, refreshEvents, ensureOrg, orgEv, replaceOrgEvent,
+import { S, OL, emit, save, HOUR, DAY, POSTERS, ORG_PARAMS, evById, refreshEvents, orgEv, replaceOrgEvent,
   orgPerson, ledgerAdd, evTickets } from "./state";
 import { go, back, currentScreen } from "./nav";
 import { toast, mockToast, sheet, closeSheet, rerenderSheet } from "./ui";
@@ -49,14 +49,16 @@ export const myEvents = myEventsOf;
 /* ---------- mode ---------- */
 export function setMode(mode: "buyer" | "org") {
   closeSheet(); camStop();
-  // the real shop steps aside while the buyer side runs, so buyer code only ever sees the demo organizer state
-  if (mode === "buyer" && S.org && S.org.live) { S.orgLive = S.org; S.org = S.orgDemo; S.orgDemo = null; refreshEvents(); }
-  else if (mode === "org" && S.orgLive) { S.orgDemo = S.org; S.org = S.orgLive; S.orgLive = null; }
+  // the real shop steps aside while the buyer side runs
+  const leavingLiveOrg = mode === "buyer" && S.org && S.org.live;
+  if (leavingLiveOrg) { S.orgLive = S.org; S.org = null; }
+  else if (mode === "org" && S.orgLive) { S.org = S.orgLive; S.orgLive = null; }
   S.mode = mode; emit();
+  if (leavingLiveOrg) loadEvents().then(() => emit()).catch(err => console.error("Buyer event refresh failed", err));
   go(mode === "org" ? orgHomeScreen() : "home", { replace: true });
 }
-// the organizer area has its own account, so it never asks for the buyer's Google sign-in
-export function enterOrg() { if (S.orgLiveWanted && S.signedIn && !S.orgLive && !live()) orgLiveStart(); else setMode("org"); }
+// the organizer area always uses the signed-in Worker session
+export const enterOrg = () => orgLiveStart();
 export function orgHomeScreen() {
   const o = S.org;
   if (!o || !o.account) return "orgWelcome";
@@ -67,7 +69,8 @@ export function orgHomeScreen() {
 export function guardFor(cur: string): string | null {
   const isOrg = cur.startsWith("org");
   if (S.mode !== "org") return isOrg ? "home" : null;
-  if (!S.org.account) return cur === "orgWelcome" ? null : "orgWelcome";
+  if (!S.org || !S.org.account) return cur === "orgWelcome" ? null : "orgWelcome";
+  if (cur === "orgAdmin") return orgIsAdmin() ? null : orgHomeScreen();
   if (!S.org.shop) return cur === "orgOnboard" ? null : "orgOnboard";
   if (!isOrg || cur === "orgWelcome" || cur === "orgOnboard") return orgHomeScreen();
   if (S.org.role === "gate" && !["orgGatePick", "orgGate"].includes(cur)) return "orgGatePick";
@@ -84,50 +87,10 @@ export function orgTabsFor(role: string) {
   return ORG_TABS.filter(([k]) => (role === "gate" ? k === "orgGatePick" : role === "manager" ? k !== "orgFinance" : true));
 }
 
-/* ---------- demo organizer accounts ---------- */
-const teamShopOf = (email: string) => S.org.shops.find((s: any) => s.team.some((m: any) => m.email === email));
-const orgKnown = (email: string) => !!(S.org.accounts[email] || teamShopOf(email));
-export function orgLoginAs(email: string) {
-  const o = S.org, tshop = teamShopOf(email);
-  if (!o.accounts[email]) o.accounts[email] = { name: email.split("@")[0], shopId: tshop ? tshop.id : null };
-  const acc = o.accounts[email];
-  o.account = { email, name: acc.name };
-  o.shop = (acc.shopId && o.shops.find((s: any) => s.id === acc.shopId)) || null;
-  const m = o.shop && o.shop.team.find((x: any) => x.email === email); o.role = o.shop ? (m ? m.role : "owner") : null;
-  if (!o.shop) o.onboard = { step: 1, data: { kind: "bar", legal: "individual" }, err: {} };
-  closeSheet(); emit(); go(orgHomeScreen(), { replace: true });
-}
 export function orgLogout() {
-  if (live()) orgLiveStop();
-  const o = S.org; o.account = null; o.shop = null; o.role = null; o.oev = null; o.draft = null; o.wizDirty = false; o.printEv = null;
-  closeSheet(); emit(); go("orgWelcome", { replace: true });
+  orgLiveStop(); S.mode = "buyer";
+  closeSheet(); emit(); go("home", { replace: true });
 }
-function OrgChooser({ mode }: { mode: "signup" | "login" }) {
-  const [email, setEmail] = useState(""), [name, setName] = useState(""), [err, setErr] = useState<any>({});
-  const sample = Object.entries(S.org.accounts).filter(([e]) => DEMO_ACCOUNTS[e]) as [string, any][];
-  const submit = () => {
-    const em = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(em)) return setErr({ email: tr("รูปแบบอีเมลไม่ถูกต้อง") });
-    if (mode === "signup") {
-      if (orgKnown(em)) return setErr({ email: tr("อีเมลนี้มีบัญชีผู้จัดงานอยู่ในระบบแล้ว กรุณากดเข้าสู่ระบบแทน") });
-      if (!name.trim()) return setErr({ name: tr("กรุณาระบุชื่อของคุณ") });
-      S.org.accounts[em] = { name: name.trim(), shopId: null };
-    } else if (!orgKnown(em)) return setErr({ email: tr("ยังไม่มีบัญชีผู้จัดงานสำหรับอีเมลนี้ กรุณาดำเนินการสมัครผู้จัดงานก่อน") });
-    orgLoginAs(em);
-  };
-  return (<>
-    <div className="row" style={{ gap: 12 }}><svg width="40" height="40"><use href="#logo" /></svg><div><h2 style={{ fontSize: 19 }}>{mode === "signup" ? tr("สมัครเป็นผู้จัดงาน") : tr("เข้าสู่ระบบผู้จัดงาน")}</h2>
-      <div className="small muted">{tr("เข้าสู่ระบบด้วยบัญชี Google ของผู้จัดงาน แยกอิสระจากบัญชีผู้ซื้อ")}</div></div></div>
-    <span className="pill warn" style={{ alignSelf: "flex-start" }}>{tr("ระบบทดลอง: ยังไม่ได้เชื่อมต่อระบบ Google จริงสำหรับผู้จัดงาน")}</span>
-    <Fld id="og-email" label={tr("อีเมล Google")} err={err.email}><input id="og-email" type="email" autoComplete="off" value={email} onChange={e => setEmail(e.target.value)} {...errA("og-email", err.email)} /></Fld>
-    {mode === "signup" && <Fld id="og-name" label={tr("ชื่อของคุณ")} err={tr(err.name)}><input id="og-name" autoComplete="off" value={name} onChange={e => setName(e.target.value)} {...errA("og-name", err.name)} /></Fld>}
-    <button className="btn" onClick={submit}>{mode === "signup" ? tr("สมัครและดำเนินการต่อ") : tr("เข้าสู่ระบบ")}</button>
-    {mode === "login" && sample.length > 0 && <div className="adv"><b className="small">{tr("บัญชีตัวอย่างทดลอง")}</b>{sample.map(([e, a]) => (
-      <button key={e} className="btn plain" style={{ fontSize: 14, padding: 10 }} onClick={() => orgLoginAs(e)}>{tr(a.name)}<br /><span className="small muted">{e}</span></button>))}</div>}
-    <button className="btn plain" onClick={closeSheet}>{tr("ปิดหน้าต่าง")}</button>
-  </>);
-}
-export const orgChooser = (mode: "signup" | "login") => sheet(() => <OrgChooser mode={mode} />);
 
 /* ---------- small form helpers shared by organizer screens ---------- */
 export const errA = (id: string, err?: string, hint?: boolean) => ({ "aria-describedby": `${id}-err${hint ? ` ${id}-hint` : ""}`, "aria-invalid": err ? true : undefined });
@@ -136,41 +99,49 @@ export function Fld({ id, label, err, hint, children }: { id: string; label: any
     {hint ? <span className="hint" id={`${id}-hint`}>{typeof hint === "string" ? tr(hint) : hint}</span> : null}<span className="hint err" id={`${id}-err`} role="alert">{err ? tr(err) : ""}</span></div>);
 }
 
+/* ---------- shop verification: an ID card or company certificate, reviewed by a JONGLOEI admin ---------- */
+export const DOC_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"], DOC_MAX = 1024 * 1024, DOC_ACCEPT = DOC_TYPES.join(",");
+export const docProblem = (f: File | null) => !f ? tr("แนบเอกสารยืนยันตัวตนก่อนส่ง") : !DOC_TYPES.includes(f.type) ? tr("รับเฉพาะรูป JPG, PNG, WebP หรือไฟล์ PDF") : f.size > DOC_MAX ? tr("ไฟล์ใหญ่เกิน 1 MB") : "";
+const docBody = (f: File) => new Promise<any>((res, rej) => { const r = new FileReader(); r.onload = () => res({ name: f.name, mime: f.type, data: String(r.result).split(",")[1] || "" }); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
+const VERIFY: Record<string, [string, string]> = tmap({ verified: ["ยืนยันร้านแล้ว", "ok"], pending: ["รอตรวจเอกสาร", "warn"], rejected: ["เอกสารไม่ผ่าน", "danger"] });
+export const verifyLabel = (sh: any) => (sh.verification === "pending" && !sh.docName ? tr("รอแนบเอกสาร") : (VERIFY[sh.verification] || VERIFY.pending)[0]);
+export const verifyClass = (sh: any) => (VERIFY[sh.verification] || VERIFY.pending)[1];
+export const verifyFields = (s: any) => ({ verification: s.verification, verificationNote: s.verificationNote || "", docName: s.document ? s.document.name : "", docMime: s.document ? s.document.mime : "", docAt: s.document ? s.document.uploadedAt : null });
+
+let obDocFile: File | null = null;
+export function obDocChosen(f: File | null) {
+  const ob = S.org.onboard, p = f ? docProblem(f) : "";
+  obDocFile = p ? null : f; ob.data.docName = obDocFile ? f!.name : ""; ob.err = p ? { doc: p } : {}; emit();
+}
+// status for the shop's own team, with a file field when the owner still has to send (or resend) a document
+export function shopDocChosen(f: File) {
+  const sh = S.org.shop, p = docProblem(f);
+  if (p) { S.org.docErr = p; emit(); return; }
+  S.org.docErr = "";
+  liveStep(async () => {
+    const r = await orgApi("PUT", "/api/org/shop/document", await docBody(f));
+    Object.assign(sh, verifyFields(r.shop)); toast(tr("ส่งเอกสารแล้ว รอทีมงานตรวจ"), "ok");
+  }, err => { S.org.docErr = orgErrText(err); emit(); });
+}
+
 /* ---------- onboarding ---------- */
-const OB_CHECK: Record<number, (d: any) => any> = {
-  1: d => ({ ...(String(d.name || "").trim().length < 2 || String(d.name).length > 60 ? { name: tr("กรุณาระบุชื่อร้านความยาว 2-60 ตัวอักษร") } : {}), ...(!/^0\d{9}$/.test(String(d.phone || "").replace(/\D/g, "")) ? { phone: tr("หมายเลขโทรศัพท์ 10 หลัก ขึ้นต้นด้วย 0") } : {}) }),
-  2: d => (!/^\d{13}$/.test(String(d.taxId || "").replace(/\D/g, "")) ? { tax: tr("เลขประจำตัวผู้เสียภาษีอากรต้องเป็นตัวเลข 13 หลัก") } : {}),
-  3: d => (!/^(0\d{9}|\d{13})$/.test(String(d.pp || "").replace(/\D/g, "")) ? { pp: tr("กรุณาระบุเบอร์มือถือ 10 หลัก หรือเลขบัตร/เลขนิติบุคคล 13 หลัก") } : {}),
-  4: d => (!d.docName ? { doc: tr("กรุณาแนบเอกสารยืนยันตัวตนก่อนทำการส่งข้อมูล") } : {}),
-};
-function obValid() { const ob = S.org.onboard; ob.err = OB_CHECK[ob.step](ob.data); emit(); return !Object.keys(ob.err).length; }
+const OB_CHECK = (d: any) => ({ ...(String(d.name || "").trim().length < 2 || String(d.name).length > 60 ? { name: tr("กรุณาระบุชื่อร้านความยาว 2-60 ตัวอักษร") } : {}), ...(!/^0\d{9}$/.test(String(d.phone || "").replace(/\D/g, "")) ? { phone: tr("หมายเลขโทรศัพท์ 10 หลัก ขึ้นต้นด้วย 0") } : {}) });
 export async function obNext() {
-  if (!obValid()) return;
-  if (live()) {
-    const o = S.org, d = o.onboard.data;
-    await liveStep(async () => {
-      const r = await orgApi("POST", "/api/org/shop", { name: d.name.trim(), type: d.kind, contactLine: d.line || "", phone: String(d.phone).replace(/\D/g, "") });
-      o.shop = fromServerShop(r.shop, o.account.email, r.role); o.shops = [o.shop]; o.role = r.role; emit();
-      go("orgDash", { replace: true }); toast(tr("เปิดร้านค้าสำเร็จ ทีมงาน JONGLOEI จะดำเนินการตรวจสอบและอนุมัติร้านค้าก่อนเผยแพร่อีเวนต์"));
-    }, err => { S.org.onboard.err = { name: orgErrText(err) }; emit(); });
-    return;
-  }
-  S.org.onboard.step = Math.min(4, S.org.onboard.step + 1); emit();
+  const ob = S.org.onboard, d = ob.data, docErr = docProblem(obDocFile);
+  ob.err = OB_CHECK(d); if (docErr) ob.err.doc = docErr; emit();
+  if (Object.keys(ob.err).length) return;
+  const o = S.org, file = obDocFile!;
+  await liveStep(async () => {
+    const r = await orgApi("POST", "/api/org/shop", { name: d.name.trim(), type: d.kind, contactLine: d.line || "", phone: String(d.phone).replace(/\D/g, "") });
+    o.shop = fromServerShop(r.shop, o.account.email, r.role); o.shops = [o.shop]; o.role = r.role; obDocFile = null; emit();
+    // the shop exists now; a failed upload can be retried from the dashboard
+    let msg = tr("เปิดร้านค้าแล้ว ทีมงาน JONGLOEI จะตรวจเอกสารก่อนเปิดให้เผยแพร่อีเวนต์");
+    try { Object.assign(o.shop, verifyFields((await orgApi("PUT", "/api/org/shop/document", await docBody(file))).shop)); }
+    catch (err) { console.error("document upload failed", err); msg = tr("เปิดร้านค้าแล้ว แต่ส่งเอกสารไม่สำเร็จ แนบใหม่ได้ที่หน้าภาพรวม"); }
+    go("orgDash", { replace: true }); toast(msg);
+  }, err => { S.org.onboard.err = { name: orgErrText(err) }; emit(); });
 }
-export function obBack() { const ob = S.org.onboard; ob.err = {}; if (ob.step > 1 && !live()) { ob.step--; emit(); } else orgLogout(); }
-export function obSubmit() {
-  if (!obValid()) return;
-  const d = S.org.onboard.data, id = "shop-" + Date.now(), email = S.org.account.email;
-  const shop = { id, name: d.name.trim(), kind: d.kind, legal: d.legal, taxId: String(d.taxId).replace(/\D/g, ""), contactLine: d.line, phone: String(d.phone).replace(/\D/g, ""),
-    payoutPromptPay: String(d.pp).replace(/\D/g, ""), docName: d.docName, verification: "pending", team: [{ email, role: "owner" }] };
-  S.org.shops.push(shop); S.org.accounts[email].shopId = id; S.org.shop = shop; S.org.role = "owner"; S.org.onboard = { step: 1, data: {}, err: {} };
-  emit(); go("orgDash", { replace: true });
-  mockToast(tr("ส่งเอกสารเรียบร้อย ระบบจะดำเนินการอนุมัติให้โดยอัตโนมัติภายใน 3 วินาที"));
-  setTimeout(() => {
-    const sh = S.org && S.org.shops && S.org.shops.find((x: any) => x.id === id); if (!sh || sh.verification !== "pending") return;
-    sh.verification = "verified"; emit(); if (S.mode === "org" && S.org.shop && S.org.shop.id === id) toast(tr("ยืนยันร้านค้าเรียบร้อย สามารถเริ่มต้นเผยแพร่อีเวนต์ได้ทันที"));
-  }, 3000);
-}
+export function obBack() { orgLogout(); }
 
 /* ---------- team ---------- */
 export async function teamInvite(email: string, role: string) {
@@ -226,13 +197,13 @@ export function mkZone(name: string, kind: string, baht: number, cap: number, se
   return { id: newZoneId(), name, kind, price: Math.round(baht * 100), capacity: cap, sold: 0, held: 0, seatsPerUnit: seats || null, saleStartAt: null, saleEndAt: null, color: ZONE_COLORS[(i || 0) % ZONE_COLORS.length][0] };
 }
 export function newEvent() {
-  S.org.draft = { id: "org-" + Date.now().toString(36), shopId: S.org.shop.id, name: "", short: "", category: "ปาร์ตี้", description: "", venue: "", mapUrl: "", bg: POSTERS[0], image: null,
+  S.org.draft = { id: "draft-" + Date.now().toString(36), shopId: S.org.shop.id, name: "", short: "", category: "ปาร์ตี้", description: "", venue: "", mapUrl: "", bg: POSTERS[0], image: null,
     status: "draft", cancelReason: "", startAt: null, endAt: null, doorsAt: null, params: { ...ORG_PARAMS }, zones: [] };
   S.org.wizStep = 1; S.org.wizShow = false; S.org.wizDirty = false; emit(); go("orgWizard");
 }
 export function editEvent(id: string) { const e = orgEv(id); S.org.draft = JSON.parse(JSON.stringify(e)); S.org.wizStep = 1; S.org.wizShow = false; S.org.wizDirty = false; emit(); go("orgWizard"); }
 export function evDuplicate(id: string) {
-  const src = orgEv(id), c = OL.duplicateEvent(src, "org-" + Date.now().toString(36));
+  const src = orgEv(id), c = OL.duplicateEvent(src, "draft-" + Date.now().toString(36));
   c.image = src.image && !live() ? src.image : null;
   if (live()) { c.live = false; c.zones = c.zones.map((z: any) => ({ ...z, live: false })); } else S.org.events.push(c);
   S.org.draft = JSON.parse(JSON.stringify(c)); S.org.wizStep = 1; S.org.wizShow = false; emit(); toast(tr("คัดลอกอีเวนต์สำเร็จ สามารถระบุวันและเวลาใหม่ได้ทันที")); go("orgWizard");
@@ -555,13 +526,6 @@ export function annSend(zone: string, text: string) {
   S.org.announcements.push({ id: "an-" + Date.now(), eventId: e.id, at: Date.now(), text: text.trim(), recipients: n, zone });
   emit(); mockToast(tr("ส่งประกาศถึง {a} คนแล้ว", { a: n })); return "";
 }
-// announcements a buyer should see on a ticket: whole event, or their own zone
-export function ticketAnnouncements(bt: any) {
-  if (!bt || !isLocal(bt.ev) || !S.org) return [];
-  const ot = S.org.tickets.find((x: any) => x.ticketId === bt.orgTicketId);
-  return S.org.announcements.filter((a: any) => a.eventId === bt.ev && (a.zone === "all" || (ot && a.zone === ot.zoneId))).slice(-2).reverse();
-}
-
 /* ---------- finance ---------- */
 export function finRow(e: any, now: number) {
   const o = S.org;
@@ -698,11 +662,11 @@ export async function orgApi(method: string, path: string, body?: any) {
   if (!res.ok) { const err: any = new Error((data && data.error) || "http_" + res.status); err.status = res.status; err.data = data; throw err; }
   return data;
 }
-const ORG_ERR: Record<string, string> = tmap({ authentication_required: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง", forbidden: "บทบาทสิทธิ์ของผู้ใช้งานไม่สามารถทำรายการนี้ได้", shop_not_verified: "เผยแพร่ได้หลังทีมงานยืนยันร้าน",
+const ORG_ERR: Record<string, string> = tmap({ no_document: "ร้านนี้ยังไม่ได้แนบเอกสาร", already_verified: "ร้านนี้ยืนยันแล้ว ไม่ต้องส่งเอกสารใหม่", authentication_required: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง", forbidden: "บทบาทสิทธิ์ของผู้ใช้งานไม่สามารถทำรายการนี้ได้", shop_not_verified: "เผยแพร่ได้หลังทีมงานยืนยันร้าน",
   not_a_draft: "อีเวนต์นี้ผ่านการเผยแพร่ไปแล้ว", event_closed: "อีเวนต์นี้ปิดให้บริการหรือถูกยกเลิกแล้ว ไม่สามารถแก้ไขข้อมูลได้", changed_meanwhile: "มีผู้ซื้อบัตรเข้ามาในระหว่างการบันทึกข้อมูล ระบบได้โหลดข้อมูลล่าสุดแล้ว กรุณาลองใหม่อีกครั้ง",
   already_in_shop: "บัญชีผู้ใช้นี้สังกัดอยู่ภายใต้ร้านค้าอื่นแล้ว", already_cancelled: "อีเวนต์นี้ถูกยกเลิกไปแล้ว", event_not_found: "ไม่พบข้อมูลอีเวนต์นี้", no_shop: "บัญชีผู้ใช้นี้ยังไม่มีการสร้างร้านค้า", member_not_found: "ไม่พบข้อมูลสมาชิกรายนี้",
   invalid_image: "ไฟล์รูปภาพไม่ถูกต้อง รองรับเฉพาะสกุล JPG, PNG หรือ WebP เท่านั้น", image_too_large: "ขนาดไฟล์รูปภาพใหญ่เกิน 1 MB" });
-const FIELD_ERR: Record<string, string> = tmap({ unsafe_characters: "ห้ามใช้อักขระพิเศษ < > \" ' `", required: "ต้องกรอก", too_long: "ยาวเกินไป", in_past: "ต้องเป็นเวลาในอนาคต", before_start: "ต้องหลังเวลาเริ่ม",
+const FIELD_ERR: Record<string, string> = tmap({ type_mismatch: "ชนิดไฟล์ไม่ตรงกับเนื้อไฟล์", unsafe_characters: "ห้ามใช้อักขระพิเศษ < > \" ' `", required: "ต้องกรอก", too_long: "ยาวเกินไป", in_past: "ต้องเป็นเวลาในอนาคต", before_start: "ต้องหลังเวลาเริ่ม",
   duplicate: "ชื่อซ้ำซ้อนกับโซนที่นั่งอื่น", duplicate_name: "ชื่อซ้ำซ้อนกับโซนเดิม", locked_by_orders: "มีผู้ซื้อบัตรแล้ว ไม่สามารถเปลี่ยนแปลงข้อมูลได้", invalid: "ค่าข้อมูลไม่ถูกต้อง", too_many: "เกินจำนวนความจุที่รองรับได้",
   mismatch: "ข้อมูลไม่ตรงกัน", unknown_zone: "ไม่พบข้อมูลโซนนี้", not_editable: "ไม่สามารถแก้ไขข้อมูลโซนนี้ได้", too_large: "ไฟล์มีขนาดใหญ่เกิน 1 MB" });
 const FIELD_NAME: Record<string, string> = tmap({ name: "ชื่อ", venue: "สถานที่จัดงาน", category: "หมวดหมู่อีเวนต์", description: "รายละเอียดเพิ่มเติม", short: "ชื่อแสดงบนโปสเตอร์", poster: "โปสเตอร์ประชาสัมพันธ์", image: "รูปภาพโปสเตอร์", startsAt: "วันและเวลาเริ่มต้น", endsAt: "วันและเวลาสิ้นสุด",
@@ -719,7 +683,7 @@ export function orgErrText(err: any) {
 }
 const teamFrom = (team: any[], me: string) => team.map(m => ({ email: m.email || me, role: m.role }));
 function fromServerShop(s: any, email: string, role: string) {
-  return { id: s.id, name: s.name, kind: s.type || "other", contactLine: s.contactLine || "", phone: s.phone || "", verification: s.verification, verificationNote: s.verificationNote || "", team: [{ email, role }] };
+  return { id: s.id, name: s.name, kind: s.type || "other", contactLine: s.contactLine || "", phone: s.phone || "", ...verifyFields(s), team: [{ email, role }] };
 }
 // server event -> the shape the organizer screens use (money in satang, zones keep their server id)
 function fromServerEvent(e: any, shopId: string) {
@@ -751,7 +715,7 @@ function liveWizErrors(d: any) {
 }
 function liveOrgState(me: any) {
   const shop = me.shop ? fromServerShop(me.shop, me.user.email, me.role) : null;
-  return { live: true, account: { email: me.user.email, name: me.user.name || me.user.email }, accounts: {}, shops: shop ? [shop] : [], shop, role: me.role, authMode: "login",
+  return { live: true, admin: !!me.admin, account: { email: me.user.email, name: me.user.name || me.user.email }, accounts: {}, shops: shop ? [shop] : [], shop, role: me.role, authMode: "login",
     events: [], tickets: [], buyers: {}, ledger: [], checkinLog: [], promos: [], announcements: [], orders: {},
     oev: null, etab: "overview", evFilter: "all", draft: null, wizStep: 1, wizErr: {}, onboard: { step: 1, data: { kind: "bar", legal: "individual" }, err: {} },
     bq: "", bzone: "all", bstatus: "all", showEmails: false };
@@ -775,11 +739,12 @@ export async function liveStep(fn: () => Promise<void>, onErr?: (err: any) => vo
   } finally { liveBusy = false; S.busy = false; emit(); rerenderSheet(); }
 }
 export async function orgLiveStart() {
-  if (!S.auth.google) { toast(tr("ระบบงานจริงสามารถใช้งานได้เมื่อเปิดผ่านเว็บไซต์ทางการของ JONGLOEI เท่านั้น")); return; }
+  if (!S.auth.google) { googleLogin(); return; }
+  if (false) { toast(tr("ระบบงานจริงสามารถใช้งานได้เมื่อเปิดผ่านเว็บไซต์ทางการของ JONGLOEI เท่านั้น")); return; }
   if (!S.signedIn) { S.orgLiveWanted = true; S.afterSignup = "orglive"; googleLogin(); return; }
   await liveStep(async () => {
     const me = await orgApi("GET", "/api/org/me");
-    if (!live()) { if (!S.orgLive) ensureOrg(); S.orgLive = null; S.orgDemo = S.org; }
+    S.orgLive = null;
     S.org = liveOrgState(me); S.orgLiveWanted = true;
     if (S.org.shop) await orgLiveReload();
     closeSheet(); S.mode = "org"; emit();
@@ -787,9 +752,50 @@ export async function orgLiveStart() {
   });
 }
 export function orgLiveStop() {
-  if (live()) { S.org = S.orgDemo; S.orgDemo = null; }
-  S.orgLive = null; S.orgLiveWanted = false; if (!S.org) ensureOrg(); refreshEvents(); emit();
+  if (live()) S.org = null;
+  S.orgLive = null; S.orgLiveWanted = false; refreshEvents(); emit();
 }
+/* ---------- JONGLOEI admin: shop review queue (/api/admin/hosts, admins only, checked on the server) ---------- */
+export const orgIsAdmin = () => !!(S.org && S.org.live && S.org.admin);
+export function adminOpen() { S.org.adminHosts = undefined; go("orgAdmin"); }
+export function adminFilter(v: string) { S.org.adminFilter = v; S.org.adminHosts = undefined; emit(); }
+// undefined = not asked yet, null = loading, array = rows, { error } = failed
+export function adminHosts() {
+  const o = S.org, f = o.adminFilter || "pending";
+  if (o.adminHosts === undefined) {
+    o.adminHosts = null;
+    orgApi("GET", "/api/admin/hosts?status=" + f).then(d => { o.adminHosts = d.hosts.map((h: any) => ({ ...fromServerShop(h, h.ownerEmail, "owner"), ownerEmail: h.ownerEmail, createdAt: h.createdAt })); },
+      err => { o.adminHosts = { error: orgErrText(err) }; }).finally(() => { if (S.org === o) emit(); });
+  }
+  return o.adminHosts;
+}
+export const adminHost = (id: string) => { const l = S.org.adminHosts; return Array.isArray(l) ? l.find((h: any) => h.id === id) : null; };
+export function adminApprove(id: string) {
+  liveStep(async () => {
+    await orgApi("POST", "/api/admin/hosts/verify", { userId: id, status: "verified" });
+    const sh = adminHost(id); toast(tr("ยืนยันร้าน {a} แล้ว", { a: sh ? sh.name : "" }), "ok");
+    if (S.org.shop && S.org.shop.id === id) S.org.shop.verification = "verified";
+    S.org.adminHosts = undefined;
+  });
+}
+function AdminRejectSheet({ id }: { id: string }) {
+  const sh = adminHost(id), [note, setNote] = useState(""), [err, setErr] = useState("");
+  if (!sh) return null;
+  const go_ = () => {
+    if (UNSAFE_RE.test(note)) { setErr(tr(FIELD_ERR.unsafe_characters)); return; }
+    liveStep(async () => {
+      await orgApi("POST", "/api/admin/hosts/verify", { userId: id, status: "rejected", note });
+      closeSheet(); S.org.adminHosts = undefined; toast(tr("ส่งผลไม่อนุมัติให้ร้านแล้ว"), "ok");
+    }, e => setErr(orgErrText(e)));
+  };
+  return (<>
+    <h2 style={{ fontSize: 20 }}>{tr("ไม่อนุมัติ {a}", { a: sh.name })}</h2>
+    <Fld id="rej-note" label={tr("เหตุผลที่ร้านจะเห็น")} err={err} hint={tr("เช่น รูปไม่ชัด ชื่อในเอกสารไม่ตรงกับชื่อผู้ขาย")}><textarea id="rej-note" maxLength={300} value={note} onChange={e => setNote(e.target.value)} {...errA("rej-note", err, true)} /></Fld>
+    <button className="btn" disabled={!!S.busy} onClick={go_}>{tr("ไม่อนุมัติ")}</button><button className="btn plain" onClick={closeSheet}>{tr("ยกเลิก")}</button>
+  </>);
+}
+export const adminReject = (id: string) => sheet(() => <AdminRejectSheet id={id} />);
+
 function replaceLive(se: any) {
   const o = S.org, ev = fromServerEvent(se, o.shop.id);
   const i = o.events.findIndex((e: any) => e.id === ev.id); if (i < 0) o.events.unshift(ev); else o.events[i] = ev;

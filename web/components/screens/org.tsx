@@ -1,5 +1,5 @@
 "use client";
-// Organizer screens, ported from the mock-up's ORG_VIEWS. Demo actions say "(ข้อมูลจำลองระบบ)"; the real shop calls /api/org/*.
+// Organizer screens, ported from the mock-up's ORG_VIEWS. Everything calls /api/org/* (and /api/admin/hosts for JONGLOEI admins).
 import { useEffect, useRef, useState } from "react";
 import { S, OL, emit, DAY, POSTERS, orgEv, orgPerson, evTickets, evSum, myEventIds } from "@/lib/state";
 import { go } from "@/lib/nav";
@@ -20,14 +20,12 @@ export function OrgWelcome() {
   return (<>
     <section className="ohero"><div className="in"><h1>{tr("จำหน่ายบัตรได้อย่างราบรื่นโดยไม่ต้องตรวจสอบสลิป ไม่ต้องบริหารจัดการเรื่องการคืนเงินด้วยตนเอง")}</h1>
       <p>{tr("เหมาะสำหรับร้านค้า บาร์ ผู้จัดงาน Pop-up ครูผู้สอน Workshop และทีมจัดแฟนมีตที่ไม่มีทีมงานไอที ตั้งค่าอีเวนต์เสร็จสิ้นภายในไม่กี่นาที")}</p>
-      {S.auth.google ? <><div className="acts"><button className="pri" onClick={O.orgLiveStart} disabled={busy()}>{tr("ลงทะเบียนร้านค้าหรือเข้าสู่ระบบด้วยบัญชี Google")}</button><button className="sec" onClick={() => O.orgChooser("signup")}>{tr("ทดลองระบบ")}</button></div>
-        <p className="small">{tr("{a} · ร้านและงานถูกบันทึกจริง ส่วนเดโมเก็บข้อมูลไว้ในเบราว์เซอร์นี้", { a: S.signedIn ? tr("ใช้บัญชี {a} ที่เข้าสู่ระบบอยู่ในปัจจุบัน", { a: S.user.email }) : tr("ระบบจะนำท่านเข้าสู่ระบบผ่าน Google ก่อนดำเนินการต่อ") })}</p></>
-        : <><div className="acts"><button className="pri" onClick={() => O.orgChooser("signup")}>{tr("ลงทะเบียนร้านค้า")}</button><button className="sec" onClick={() => O.orgChooser("login")}>{tr("เข้าสู่ระบบผู้จัดงาน")}</button></div>
-          <p className="small">{tr("ระบบทดลอง: ข้อมูลทั้งหมดจะถูกจัดเก็บไว้ภายในเบราว์เซอร์นี้เท่านั้น")}</p></>}</div></section>
+      <div className="acts"><button className="pri" onClick={O.orgLiveStart} disabled={busy()}>{tr("ลงทะเบียนร้านค้าหรือเข้าสู่ระบบด้วยบัญชี Google")}</button></div>
+      <p className="small">{S.signedIn ? tr("ใช้บัญชี {a} ที่เข้าสู่ระบบอยู่ในปัจจุบัน", { a: S.user.email }) : tr("ระบบจะนำท่านเข้าสู่ระบบผ่าน Google ก่อนดำเนินการต่อ")}</p></div></section>
     <div className="wrap"><div className="wgrid">
       <section aria-labelledby="h-why" style={{ display: "flex", flexDirection: "column", gap: 16 }}><h2 id="h-why" className="h2">{tr("สิ่งที่ระบบดำเนินการแทนคุณ")}</h2>
         <ol className="benefits">
-          <li><span className="n num">1</span><div><b>{tr("ระบบตรวจสอบยอดเงินอัตโนมัติ")}</b><p>{tr("ผู้ซื้อชำระเงินผ่าน PromptPay ระบบดำเนินการตรวจสอบยอดกับผู้ให้บริการรับชำระเงินโดยตรง ไม่จำเป็นต้องตรวจสอบสลิปทีละรายการ")}</p></div></li>
+          <li><span className="n num">1</span><div><b>{tr("ระบบตรวจสอบยอดเงินอัตโนมัติ")}</b><p>{tr("ผู้ซื้อชำระเงินผ่าน Stripe ระบบยืนยันยอดอัตโนมัติ ไม่ต้องเปิดตรวจสลิปทีละรายการ")}</p></div></li>
           <li><span className="n num">2</span><div><b>{tr("ยกเลิกอีเวนต์และดำเนินการคืนเงินให้แก่ผู้ซื้อทั้งหมด")}</b><p>{tr("กรณีเกิดเหตุสุดวิสัย เช่น สภาพอากาศไม่เอื้ออำนวย หรือศิลปินป่วย สามารถกดยกเลิกได้เพียงครั้งเดียว ผู้ซื้อทั้งหมดจะได้รับเงินคืนเท่าที่จ่ายจริงโดยอัตโนมัติ")}</p></div></li>
           <li><span className="n num">3</span><div><b>{tr("ป้องกันปัญหาบัตรผีและการโก่งราคา")}</b><p>{tr("บัตรสามารถขายต่อได้เฉพาะภายในระบบเท่านั้น จำกัดเพดานราคาไม่เกิน 1.25 เท่า และตรวจสอบสิทธิ์การเข้างานเฉพาะผู้ถือบัตรจริงเท่านั้น")}</p></div></li>
         </ol></section>
@@ -35,43 +33,75 @@ export function OrgWelcome() {
         <aside className="pcard" aria-labelledby="h-fee"><h2 id="h-fee" style={{ fontSize: 18 }}>{tr("ค่าธรรมเนียมบริการ")}</h2><p style={{ margin: 0 }}>{tr("ค่าบริการ 5 บาท + 3% ต่อใบ จัดเก็บจากฝั่งร้านค้า ผู้ซื้อไม่มีค่าใช้จ่ายเพิ่มเติม")}</p>
           <dl className="fee num"><dt>{tr("บัตรเข้าชม")}</dt><dd>{tr("1,000฿")}</dd><dt>{tr("ค่าธรรมเนียมบริการ")}</dt><dd>{tr("35฿")}</dd><dt className="t">{tr("รายรับที่คุณได้รับต่อใบ")}</dt><dd>{tr("965฿")}</dd></dl>
           <p className="small muted" style={{ margin: 0 }}>{tr("ไม่มีค่าใช้จ่ายแรกเข้า ไม่มีค่าบริการรายเดือน และสามารถรับเงินได้ภายใน 24 ชั่วโมงหลังจบอีเวนต์")}</p></aside>
-        <div className="pcard"><b className="small">{tr("ทดลองใช้งานด้วยบัญชีตัวอย่าง (ระบบทดลอง)")}</b>
-          <button className="btn plain" onClick={() => O.orgLoginAs("owner@midnightsociety.example")}>{tr("เจ้าของร้าน Midnight Society")}</button>
-          <button className="btn plain" onClick={() => O.orgLoginAs("manager@example.com")}>{tr("ผู้จัดการระบบ")}</button>
-          <button className="btn plain" onClick={() => O.orgLoginAs("door.staff@example.com")}>{tr("เจ้าหน้าที่ปฏิบัติการหน้างาน")}</button></div>
       </div>
     </div></div>
   </>);
 }
 
 /* ---------- onboarding ---------- */
+function DocField({ d, e }: { d: any; e: any }) {
+  return (<div className="field"><label htmlFor="ob-doc">{tr("บัตรประชาชน (บุคคลธรรมดา) หรือหนังสือรับรองบริษัท")}</label>
+    <input id="ob-doc" type="file" accept={O.DOC_ACCEPT} aria-describedby="ob-doc-hint ob-doc-err" onChange={x => O.obDocChosen((x.target.files && x.target.files[0]) || null)} />
+    <span className="hint" id="ob-doc-hint">{d.docName ? tr("เลือกแล้ว: {a}", { a: d.docName }) : tr("รูปหรือ PDF ไม่เกิน 1 MB ทีมงาน JONGLOEI เท่านั้นที่เปิดดูได้")}</span><span className="hint err" id="ob-doc-err" role="alert">{tr(e.doc) || ""}</span></div>);
+}
 export function OrgOnboard() {
   const ob = S.org.onboard || (S.org.onboard = { step: 1, data: {}, err: {} }), d = ob.data, e = ob.err || {};
   const set = (k: string) => (x: any) => { d[k] = x.target.value; emit(); };
-  const labels = [tr("ข้อมูลร้านค้า"), tr("ข้อมูลผู้ขาย"), tr("บัญชีรับเงิน"), tr("การยืนยันตัวตน")];
   return (<div className="wrap narrow-w">
     <div className="titlerow"><button className="back" onClick={O.obBack} aria-label={tr("ย้อนกลับ")}><svg><use href="#i-back" /></svg></button><h1>{tr("ลงทะเบียนเป็นผู้จัดงาน")}</h1></div>
-    {live() ? <p className="small muted" style={{ margin: 0 }}>{tr("กรุณากรอกข้อมูลร้านค้าแล้วกดเปิดร้าน ทีมงาน JONGLOEI จะทำการตรวจสอบและอนุมัติก่อนเผยแพร่อีเวนต์")}</p> : <LineSteps labels={labels} cur={ob.step} />}
-    {ob.step === 1 && <><h2 style={{ fontSize: 18 }}>{tr("ข้อมูลร้านค้า")}</h2>
-      <Fld id="ob-name" label={tr("ชื่อร้านค้าหรือชื่อผู้จัดงาน")} err={tr(e.name)}><input id="ob-name" value={tr(d.name) || ""} onChange={set("name")} autoComplete="organization" {...errA("ob-name", e.name)} /></Fld>
-      <Fld id="ob-kind" label={tr("ประเภทธุรกิจ")}><select id="ob-kind" value={d.kind || "bar"} onChange={set("kind")}>{O.SHOP_KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Fld>
-      <Fld id="ob-line" label={tr("LINE Official Account (ไม่บังคับ)")} hint={tr("เช่น @midnightsociety ผู้ซื้อจะสามารถมองเห็นได้ในหน้าอีเวนต์")}><input id="ob-line" value={d.line || ""} onChange={set("line")} {...errA("ob-line", "", true)} /></Fld>
-      <Fld id="ob-phone" label={tr("หมายเลขโทรศัพท์ติดต่อ")} err={e.phone}><input id="ob-phone" type="tel" inputMode="tel" autoComplete="tel" value={d.phone || ""} onChange={set("phone")} {...errA("ob-phone", e.phone)} /></Fld></>}
-    {ob.step === 2 && <><h2 style={{ fontSize: 18 }}>{tr("ข้อมูลผู้ขาย")}</h2>
-      <Fld id="ob-legal" label={tr("ดำเนินการในนาม")}><select id="ob-legal" value={d.legal || "individual"} onChange={set("legal")}><option value="individual">{tr("บุคคลธรรมดา")}</option><option value="company">{tr("นิติบุคคล (บริษัท / หจก.)")}</option></select></Fld>
-      <Fld id="ob-tax" label={tr("เลขประจำตัวผู้เสียภาษีอากร")} err={e.tax} hint={tr("บุคคลธรรมดากรุณาใช้หมายเลขบัตรประจำตัวประชาชน 13 หลัก")}><input id="ob-tax" inputMode="numeric" maxLength={17} value={d.taxId || ""} onChange={set("taxId")} {...errA("ob-tax", e.tax, true)} /></Fld></>}
-    {ob.step === 3 && <><h2 style={{ fontSize: 18 }}>{tr("บัญชีรับเงิน")}</h2>
-      <Fld id="ob-pp" label={tr("บัญชี PromptPay สำหรับรับเงินยอดขาย")} err={e.pp} hint={tr("หมายเลขโทรศัพท์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก")}><input id="ob-pp" inputMode="numeric" value={d.pp || ""} onChange={set("pp")} {...errA("ob-pp", e.pp, true)} /></Fld>
-      <div className="card small" style={{ display: "flex", flexDirection: "column", gap: 6 }}><b>{tr("ชื่อบัญชีผู้รับเงินจะต้องตรงกับชื่อผู้ขายที่ผ่านการยืนยันตัวตน")}</b>
-        <span className="muted">{tr("รายรับจากอีเวนต์จะถูกโอนเข้าสู่บัญชีนี้ภายใน 24 ชั่วโมงหลังจบงาน ในกรณีที่อีเวนต์ถูกยกเลิก ระบบจะดำเนินการคืนเงินให้แก่ผู้ซื้อแทนการโอนให้ร้านค้า")}</span>
-        <span className="pill warn" style={{ alignSelf: "flex-start" }}>{tr("ระบบจำลอง: ยังไม่มีการตรวจสอบบัญชีจริง")}</span></div></>}
-    {ob.step === 4 && <><h2 style={{ fontSize: 18 }}>{tr("การยืนยันตัวตน")}</h2>
-      <p className="small muted" style={{ margin: 0 }}>{tr("แนบสำเนาบัตรประจำตัวประชาชน (สำหรับบุคคลธรรมดา) หรือหนังสือรับรองบริษัท (สำหรับนิติบุคคล) เพื่อป้องกันร้านค้าปลอมแปลง ผู้ซื้อจะพบเครื่องหมาย “ผ่านการอนุมัติ” แสดงผลในหน้าอีเวนต์")}</p>
-      <div className="field"><label htmlFor="ob-doc">{tr("เอกสารประกอบ")}</label><input id="ob-doc" type="file" accept="image/*,.pdf" aria-describedby="ob-doc-err" onChange={x => { const f = x.target.files && x.target.files[0]; d.docName = f ? f.name : ""; ob.err = {}; emit(); }} />
-        {d.docName && <span className="hint">{tr("เลือกแล้ว: {a}", { a: d.docName })}</span>}<span className="hint err" id="ob-doc-err" role="alert">{tr(e.doc) || ""}</span></div>
-      <span className="pill warn" style={{ alignSelf: "flex-start" }}>{tr("ระบบจำลอง: ไฟล์ไม่ถูกอัปโหลดจริง ระบบจะอนุมัติให้โดยอัตโนมัติภายใน 3 วินาที")}</span></>}
-    <div className="row"><button className="btn plain" onClick={O.obBack}>{ob.step === 1 || live() ? tr("ยกเลิก") : tr("ย้อนกลับ")}</button>
-      {ob.step < 4 ? <button className="btn" onClick={O.obNext} disabled={busy()}>{live() ? tr("เปิดร้านค้า") : tr("ถัดไป")}</button> : <button className="btn" onClick={O.obSubmit}>{tr("ส่งข้อมูลยืนยันตัวตน")}</button>}</div>
+    <p className="small muted" style={{ margin: 0 }}>{tr("กรุณากรอกข้อมูลร้านค้าแล้วกดเปิดร้าน ทีมงาน JONGLOEI จะทำการตรวจสอบและอนุมัติก่อนเผยแพร่อีเวนต์")}</p>
+    <h2 style={{ fontSize: 18 }}>{tr("ข้อมูลร้านค้า")}</h2>
+    <Fld id="ob-name" label={tr("ชื่อร้านค้าหรือชื่อผู้จัดงาน")} err={tr(e.name)}><input id="ob-name" value={tr(d.name) || ""} onChange={set("name")} autoComplete="organization" {...errA("ob-name", e.name)} /></Fld>
+    <Fld id="ob-kind" label={tr("ประเภทธุรกิจ")}><select id="ob-kind" value={d.kind || "bar"} onChange={set("kind")}>{O.SHOP_KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Fld>
+    <Fld id="ob-line" label={tr("LINE Official Account (ไม่บังคับ)")} hint={tr("เช่น @midnightsociety ผู้ซื้อจะสามารถมองเห็นได้ในหน้าอีเวนต์")}><input id="ob-line" value={d.line || ""} onChange={set("line")} {...errA("ob-line", "", true)} /></Fld>
+    <Fld id="ob-phone" label={tr("หมายเลขโทรศัพท์ติดต่อ")} err={e.phone}><input id="ob-phone" type="tel" inputMode="tel" autoComplete="tel" value={d.phone || ""} onChange={set("phone")} {...errA("ob-phone", e.phone)} /></Fld>
+    <h2 style={{ fontSize: 18 }}>{tr("ยืนยันตัวตน")}</h2>
+    <DocField d={d} e={e} />
+    {O.orgIsAdmin() && <button className="btn plain" onClick={O.adminOpen}>{tr("ทีมงาน JONGLOEI: ตรวจร้าน")}</button>}
+    <div className="row"><button className="btn plain" onClick={O.obBack}>{tr("ยกเลิก")}</button><button className="btn" onClick={O.obNext} disabled={busy()}>{tr("เปิดร้านค้า")}</button></div>
+  </div>);
+}
+
+// status for the shop's own team, with a file field when the owner still has to send (or resend) a document
+function VerifyBlock() {
+  const sh = S.org.shop;
+  if (sh.verification === "verified") return null;
+  const rej = sh.verification === "rejected", has = !!sh.docName, owner = S.org.role === "owner";
+  const title = rej ? tr("ทีมงานไม่อนุมัติเอกสาร") : has ? tr("ส่งเอกสารแล้ว รอทีมงาน JONGLOEI ตรวจ") : tr("ยังไม่ได้แนบเอกสารยืนยันตัวตน");
+  return (<>
+    <div className={"alert " + (rej ? "danger" : "warn")} role="status"><Icon id="i-alert" /><div><b>{title}</b><br />
+      {rej ? <>{sh.verificationNote ? <>{tr("เหตุผล: {a}", { a: sh.verificationNote })}<br /></> : null}{tr("แนบเอกสารใหม่แล้วร้านจะกลับเข้าคิวตรวจ")}</>
+        : has ? tr("ไฟล์ {a} · สร้างร่างอีเวนต์ได้ตามปกติ ปุ่มเผยแพร่จะใช้ได้หลังร้านผ่านการยืนยัน", { a: sh.docName })
+          : tr("แนบบัตรประชาชนหรือหนังสือรับรองบริษัท ทีมงานจะตรวจก่อนเปิดให้เผยแพร่อีเวนต์")}</div></div>
+    {owner && (rej || !has) && <div className="card"><div className="field"><label htmlFor="shop-doc">{rej ? tr("แนบเอกสารใหม่") : tr("แนบเอกสารยืนยันตัวตน")}</label>
+      <input id="shop-doc" type="file" accept={O.DOC_ACCEPT} aria-describedby="shop-doc-hint shop-doc-err" onChange={x => { const f = x.target.files && x.target.files[0]; if (f) O.shopDocChosen(f); }} />
+      <span className="hint" id="shop-doc-hint">{tr("รูปหรือ PDF ไม่เกิน 1 MB")}</span><span className="hint err" id="shop-doc-err" role="alert">{S.org.docErr || ""}</span></div></div>}
+  </>);
+}
+
+/* ---------- JONGLOEI admin: shop review ---------- */
+function AdminCard({ h }: { h: any }) {
+  const pend = h.verification === "pending";
+  const doc = !h.docName ? <span className="muted">{tr("ยังไม่แนบเอกสาร")}</span> : <a href={"/api/admin/hosts/" + encodeURIComponent(h.id) + "/document"} target="_blank" rel="noopener">{tr("เปิด {a}", { a: h.docName })}</a>;
+  return (<article className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="row between" style={{ alignItems: "flex-start" }}><div style={{ minWidth: 0 }}><b>{tr(h.name)}</b><div className="small muted">{h.ownerEmail || ""}</div></div><span className={"pill " + O.verifyClass(h)}>{O.verifyLabel(h)}</span></div>
+    <dl className="kv" style={{ margin: 0 }}><dt>{tr("ประเภท")}</dt><dd>{(O.SHOP_KINDS.find(k => k[0] === h.kind) || [0, h.kind || "—"])[1]}</dd>
+      <dt>{tr("เบอร์โทร")}</dt><dd className="num">{h.phone || "—"}</dd>
+      <dt>{tr("เอกสาร")}</dt><dd>{doc}</dd>
+      {h.verificationNote ? <><dt>{tr("เหตุผล")}</dt><dd>{h.verificationNote}</dd></> : null}</dl>
+    {pend && <div className="row"><button className="btn plain" onClick={() => O.adminReject(h.id)}>{tr("ไม่อนุมัติ")}</button>
+      <button className="btn" onClick={() => O.adminApprove(h.id)} disabled={!h.docName || busy()}>{tr("ยืนยันร้าน")}</button></div>}
+    {pend && !h.docName && <span className="small muted">{tr("ยืนยันได้หลังร้านแนบเอกสาร")}</span>}
+  </article>);
+}
+export function OrgAdmin() {
+  const f = S.org.adminFilter || "pending", list = O.adminHosts();
+  const seg = [["pending", tr("รอตรวจ")], ["verified", tr("ยืนยันแล้ว")], ["rejected", tr("ไม่ผ่าน")], ["all", tr("ทั้งหมด")]];
+  return (<div className="wrap narrow-w"><div className="titlerow"><button className="back" onClick={() => go(S.org.shop ? "orgDash" : "orgOnboard")} aria-label={tr("ย้อนกลับ")}><svg><use href="#i-back" /></svg></button><h1>{tr("ตรวจร้าน")}</h1></div>
+    <p className="small muted" style={{ margin: 0 }}>{tr("ทีมงาน JONGLOEI เปิดเอกสารของร้าน เทียบชื่อกับข้อมูลที่ร้านกรอก แล้วยืนยันหรือไม่อนุมัติ")}</p>
+    <div className="seg four" role="group" aria-label={tr("สถานะ")}>{seg.map(([v, l]) => <button key={v} className={f === v ? "on" : ""} aria-pressed={f === v} onClick={() => O.adminFilter(v)}>{l}</button>)}</div>
+    {list === null || list === undefined ? <div className="empty">{tr("กำลังโหลด…")}</div> : list.error ? <div className="empty">{list.error}</div>
+      : list.length ? <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{list.map((h: any) => <AdminCard key={h.id} h={h} />)}</div> : <div className="empty">{tr("ไม่มีร้านในรายการนี้")}</div>}
   </div>);
 }
 
@@ -135,7 +165,7 @@ export function OrgDash() {
   const days = OL.salesByDay(S.org.tickets.filter((t: any) => counted.some((e: any) => e.id === t.eventId)), now, 14), today = days[days.length - 1];
   const nextPay = counted.map((e: any) => ({ e, at: OL.payoutAt(e) })).filter((x: any) => x.at && x.at > now).sort((a: any, b: any) => a.at - b.at)[0];
   const todo: any[] = [];
-  if (sh.verification !== "verified") todo.push(<li key="v"><b>{tr("อยู่ระหว่างรอการอนุมัติร้านค้า")}</b><span className="small muted">  {tr("· สามารถเผยแพร่อีเวนต์ได้ภายหลังการอนุมัติเสร็จสิ้น")}</span></li>);
+  if (sh.verification !== "verified") todo.push(<li key="v"><b>{O.verifyLabel(sh)}</b><span className="small muted">  {tr("· สามารถเผยแพร่อีเวนต์ได้หลังทีมงานยืนยันร้าน")}</span></li>);
   for (const e of evs.filter((x: any) => x.status === "draft")) todo.push(<li key={"d" + e.id}><b>{tr(e.name) || tr("แบบร่างไม่มีชื่อ")}</b><span className="small muted">  {tr("· รายการร่างที่ยังไม่ได้เผยแพร่")}</span> <button className="linkbtn" onClick={() => O.editEvent(e.id)}>{tr("แก้ไขข้อมูล")}</button></li>);
   for (const e of evs.filter((x: any) => x.status === "on_sale" && x.startAt - now < DAY && x.endAt > now)) todo.push(<li key={"g" + e.id}><b>{tr(e.name)}</b><span className="small muted">  {tr("· เริ่ม{a}", { a: e.startAt <= now ? tr("ที่ผ่านมา") : tr("ภายใน 24 ชม.") })}</span> <button className="linkbtn" onClick={() => O.gate(e.id)}>{tr("เปิดจุดปฏิบัติการหน้างาน")}</button></li>);
   for (const e of evs.filter((x: any) => x.status === "on_sale")) {
@@ -144,7 +174,8 @@ export function OrgDash() {
   }
   const stat = (label: string, v: string, sub: string, locked?: boolean) => <div className={"stat" + (locked ? " locked" : "")}><span>{label}</span><b className="num">{v}</b><small>{sub}</small></div>;
   return (<div className="wrap org"><OrgHead title={tr("ภาพรวมระบบ")} action={<NewBtn />} />
-    {sh.verification !== "verified" && <div className="alert warn" role="status"><Icon id="i-alert" /><div><b>{tr("ร้านค้าอยู่ระหว่างรอการยืนยันตัวตน")}</b><br />{tr("สร้างร่างงานได้ตามปกติ ปุ่มเผยแพร่จะใช้ได้หลัง{a}ยืนยันร้านแล้ว", { a: live() ? tr("ทีมงานผู้สนับสนุน JONGLOEI ") : tr("ทีมงานผู้ดูแลระบบ") })}</div></div>}
+    <VerifyBlock />
+    {O.orgIsAdmin() && <button className="btn plain" style={{ alignSelf: "flex-start" }} onClick={O.adminOpen}>{tr("ทีมงาน JONGLOEI: ตรวจร้าน")}</button>}
     {live() && <div className="alert" role="note"><Icon id="i-info" /><div>{tr("ระบบจริงยังไม่ส่งยอดขายรายวันมาที่หน้านี้ ตัวเลขด้านล่างนับจากโซนของแต่ละงาน")}</div></div>}
     <div className="stats">{stat(tr("บัตรที่จำหน่ายได้ในวันนี้"), tr("{a} ใบ", { a: today.count }), B(today.amount))}
       {stat(tr("รายรับสุทธิรวมทั้งหมด"), mgr ? "—" : B(net), mgr ? lock : tr("ภายหลังหักค่าธรรมเนียมบริการ"), mgr)}
@@ -626,7 +657,7 @@ export function OrgFinance() {
       {stat(tr("ค่าธรรมเนียมบริการรวม"), B(rows.reduce((a: number, r: any) => a + r.fee, 0)), tr("5฿ + 3% ต่อใบ"))}{stat(tr("คืนเงินให้แก่ผู้ซื้อ"), B(refunded), tr("ยอดจากอีเวนต์ที่ยกเลิก"))}</div>
     <div className="pcard" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 16 }}><span className="acct-ic" aria-hidden="true"><svg><use href="#i-wallet" /></svg></span>
       <div style={{ flex: 1, minWidth: 160 }}><b>{tr("บัญชีรับเงิน (PromptPay)")}</b><div className="small muted mono">•••• •• {String(sh.payoutPromptPay || "").slice(-4)}</div></div>
-      {sh.verification === "verified" ? <span className="pill ok">{tr("ผ่านการยืนยันแล้ว")}</span> : <span className="pill warn">{tr("อยู่ระหว่างรอการยืนยัน")}</span>}
+      <span className={"pill " + O.verifyClass(sh)}>{O.verifyLabel(sh)}</span>
       <p className="small muted" style={{ margin: 0, flexBasis: "100%" }}>{tr("เงินจะโอนเข้าบัญชีภายใน 24 ชั่วโมงหลังจบอีเวนต์ เผื่อกรณีการยกเลิกหรือมีข้อพิพาท หากอีเวนต์ถูกยกเลิก ระบบจะดำเนินการคืนเงินให้ผู้ซื้อแทนการโอนให้ร้านค้า (ข้อมูลจำลอง)")}</p></div>
     <h2 className="h2">{tr("รายงานสรุปแยกตามอีเวนต์")}</h2>
     <div className="fgrid">{rows.map((r: any) => { const open = !!(o.finOpen && o.finOpen[r.e.id]); return (

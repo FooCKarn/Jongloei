@@ -7,17 +7,17 @@ import { S, useApp, load, ensureOrg, emit, evById, initial, orgEv } from "@/lib/
 import { bindRouter, go, back, SCREEN_OF } from "@/lib/nav";
 import { SheetHost, ToastHost, closeSheet } from "@/lib/ui";
 import { loadEvents, checkAuth, openSignup } from "@/lib/buyer";
-import { enterOrg, setMode, guardFor, orgTabsFor, orgHomeScreen, ROLE_LABEL, gateClose, callManager, camStop } from "@/lib/org";
+import { enterOrg, setMode, guardFor, verifyLabel, orgTabsFor, orgHomeScreen, ROLE_LABEL, gateClose, callManager, camStop } from "@/lib/org";
 import { initLang, useLang, tmap } from "@/lib/i18n";
 import { LangToggle } from "./bits";
 import { SPRITE } from "./sprite";
 import { tr } from "@/lib/i18n";
 
 const BUYER_TABS: [string, string, string][] = tmap([["home", "i-home", "หน้าแรก"], ["tickets", "i-ticket", "บัตรเข้าชมของฉัน"], ["market", "i-swap", "การจำหน่ายบัตร"], ["profile", "i-user", "โปรไฟล์ผู้ใช้งาน"]]);
-const FULL_FLOW = ["checkout", "pay", "minting", "orgWizard", "orgOnboard", "orgWelcome"];
-const PURCHASE = ["checkout", "pay", "minting", "success", "paymentSuccess"];
-const TITLES: Record<string, string> = tmap({ home: "JongLoei", checkout: "ตรวจสอบคำสั่งซื้อ", pay: "ชำระเงิน", minting: "กำลังออกบัตรเข้าชม", success: "ได้รับบัตรแล้ว", paymentSuccess: "สถานะการชำระเงิน",
-  tickets: "บัตรเข้าชมของฉัน", market: "ขายต่อ", profile: "โปรไฟล์ผู้ใช้งาน", orgWelcome: "สำหรับผู้จัดงาน", orgOnboard: "ลงทะเบียนผู้จัดงาน", orgTeam: "ทีมงาน", orgDash: "ภาพรวม",
+const FULL_FLOW = ["checkout", "pay", "orgWizard", "orgOnboard", "orgWelcome"];
+const PURCHASE = ["checkout", "pay", "success", "paymentSuccess"];
+const TITLES: Record<string, string> = tmap({ home: "JongLoei", checkout: "ตรวจสอบคำสั่งซื้อ", pay: "ชำระเงิน", success: "ได้รับบัตรแล้ว", paymentSuccess: "สถานะการชำระเงิน",
+  tickets: "บัตรเข้าชมของฉัน", market: "ขายต่อ", profile: "โปรไฟล์ผู้ใช้งาน", orgWelcome: "สำหรับผู้จัดงาน", orgOnboard: "ลงทะเบียนผู้จัดงาน", orgTeam: "ทีมงาน", orgAdmin: "ตรวจร้าน", orgDash: "ภาพรวม",
   orgEvents: "งานอีเวนต์ของฉัน", orgGatePick: "จุดปฏิบัติการหน้างาน", orgFinance: "การเงิน" });
 function titleOf(screen: string) {
   if (screen === "event") return tr((evById(S.ev) || {}).name || "") || tr("อีเวนต์");
@@ -83,8 +83,8 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   const org = S.mode === "org";
   const sideOn = org && S.desk && !!S.org.account && !!S.org.shop;
   const tabs = org ? orgTabsFor(S.org.role) : BUYER_TABS;
-  const top = org ? [...tabs.map(t => t[0]), "orgTeam", "orgWelcome", "orgOnboard"].includes(screen) : BUYER_TABS.some(t => t[0] === screen) || PURCHASE.includes(screen);
-  const tabOf = (s: string) => (org ? (s === "orgEvent" || s === "orgWizard" ? "orgEvents" : s === "orgGate" ? "orgGatePick" : s) : s === "event" ? "home" : s === "ticket" ? "tickets" : s);
+  const top = org ? [...tabs.map(t => t[0]), "orgTeam", "orgAdmin", "orgWelcome", "orgOnboard"].includes(screen) : BUYER_TABS.some(t => t[0] === screen) || PURCHASE.includes(screen);
+  const tabOf = (s: string) => (org ? (s === "orgAdmin" ? "orgDash" : s === "orgEvent" || s === "orgWizard" ? "orgEvents" : s === "orgGate" ? "orgGatePick" : s) : s === "event" ? "home" : s === "ticket" ? "tickets" : s);
   const active = tabOf(screen);
   const brand = (onClick: () => void, label: string) => (
     <button className="brand" onClick={onClick} aria-label={label}><svg aria-hidden="true"><use href="#logo" /></svg><span translate="no">JONGLOEI</span></button>);
@@ -120,7 +120,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
       <div className="devwrap"><div className={"device" + (sideOn ? " org-desk" : "")} id="device" data-theme-mode={theme()}>
         {sideOn && <aside className="side" id="side">
           <span className="side-logo"><svg aria-hidden="true"><use href="#logo-w" /></svg><span translate="no">JONGLOEI</span></span>
-          <div className="side-shop"><b>{tr(S.org.shop.name)}</b><span>{S.org.shop.verification === "verified" ? tr("ผ่านการยืนยันร้านค้า") : tr("รอการตรวจสอบตัวตน")}{S.org.role !== "owner" ? " · " + ROLE_LABEL[S.org.role] : ""}</span></div>
+          <div className="side-shop"><b>{tr(S.org.shop.name)}</b><span>{verifyLabel(S.org.shop)}{S.org.role !== "owner" ? " · " + ROLE_LABEL[S.org.role] : ""}</span></div>
           <nav className="side-nav" aria-label={tr("เมนูผู้จัดการอีเวนต์")}>{sideTabs.map(([k, icon, v]) => (
             <button key={k} aria-current={active === k ? "page" : undefined} onClick={() => { closeSheet(); go(k); }}><svg aria-hidden="true"><use href={"#" + icon} /></svg>{v}</button>))}</nav>
           <button className="side-back" onClick={() => setMode("buyer")}><svg aria-hidden="true"><use href="#i-back" /></svg>{tr("กลับสู่มุมมองผู้ซื้อ")}</button>

@@ -7,7 +7,7 @@ import { EN, EN_RE } from "./en";
 export type Lang = "th" | "en";
 const KEY = "jongloei-lang";
 
-let lang: Lang = "th", version = 0;
+let lang: Lang = "en", version = 0;
 const listeners = new Set<() => void>();
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 
@@ -19,10 +19,10 @@ function notify() { version++; listeners.forEach(l => l()); }
 export const getLang = () => lang;
 export const locale = () => (lang === "en" ? "en-GB" : "th-TH");
 
-// read the saved choice once on boot (the first render is always Thai so it matches the static HTML)
+// read the saved choice once on boot (the first render always uses the default, English, so it matches the static HTML)
 export function initLang() {
   const before = lang;
-  try { const v = localStorage.getItem(KEY); if (v === "en" || v === "th") lang = v; } catch (_) { /* private mode: stay on Thai */ }
+  try { const v = localStorage.getItem(KEY); if (v === "en" || v === "th") lang = v; } catch (_) { /* private mode: stay on the default */ }
   applyToDocument();
   if (lang !== before) notify();
 }

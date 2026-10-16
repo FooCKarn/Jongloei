@@ -2,13 +2,13 @@
 // Buyer screens, ported from the mock-up's VIEWS (same class names and copy).
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { S, EV, emit, fmt, short, isLocal, evById, minPrice, initial } from "@/lib/state";
+import { S, EV, emit, fmt, short, evById, minPrice, initial } from "@/lib/state";
 import { go, back } from "@/lib/nav";
 import { toast, mockToast } from "@/lib/ui";
-import { openEvent, buyUnit, buyTotal, startBuy, buyListing, toPay, paid, applyPromo, finishMint, openTicket, unlistTicket, simulateDoorScan,
+import { openEvent, buyUnit, buyTotal, startBuy, buyListing, toPay, paid, openTicket, unlistTicket,
   marketListings, copyWallet, toggleTheme, logout, filteredEvents, filtersActive, clearFilters, openFilter, PRICE_OPTS, TIME_OPTS, openSignup,
-  openResell, openTransfer, openReset, openRules, loadMyTickets, startStripeCheckout } from "@/lib/buyer";
-import { enterOrg, ticketAnnouncements } from "@/lib/org";
+  openResell, openTransfer, openRules, loadMyTickets, startStripeCheckout } from "@/lib/buyer";
+import { enterOrg } from "@/lib/org";
 import { Icon, LangToggle, Thumb, Pst, ZChip, TkPill, TitleRow, Crumb, NftCard, OkCircle, EntryQR, posterStyle, imgCls } from "../bits";
 import { OL } from "@/lib/state";
 import { tr, tmap, dateOf, timeOf } from "@/lib/i18n";
@@ -38,7 +38,7 @@ export function Home() {
         {!cur.image && <span className="mark" aria-hidden="true" translate="no">{cur.short}</span>}
         <div className="hero-in ev"><span className="date num">{tr(cur.date)}</span><h2>{tr(cur.name)}</h2><p className="num">{tr(cur.date)} · {cur.time} · {tr(cur.venue)}</p>
           <button className="cta num" onClick={() => openEvent(cur.id)}>{tr("ซื้อตั๋ว เริ่มต้น {a}", { a: fmt(minPrice(cur)) })}<Icon id="i-arrow" /></button></div></>
-        : <div className="hero-in"><h2>{tr("บัตรเข้าร่วมงานที่ปลอดภัย ป้องกันการปลอมแปลง พร้อมระบบซื้อขายต่อที่เป็นธรรม")}</h2><p>{tr("ชำระเงินสะดวกผ่าน PromptPay ไม่มีค่าธรรมเนียม พร้อมระบบคืนเงินอัตโนมัติเต็มจำนวนหากมีการยกเลิกงาน และควบคุมเพดานราคาขายต่อในระบบไม่เกิน 125%")}</p>
+        : <div className="hero-in"><h2>{tr("บัตรเข้าร่วมงานที่ปลอดภัย ป้องกันการปลอมแปลง พร้อมระบบซื้อขายต่อที่เป็นธรรม")}</h2><p>{tr("ชำระเงินสะดวกและปลอดภัยผ่าน Stripe Checkout พร้อมระบบคืนเงินอัตโนมัติเต็มจำนวนหากมีการยกเลิกงาน และควบคุมเพดานราคาขายต่อในระบบไม่เกิน 125%")}</p>
           <button className="cta" onClick={scrollTo}>{tr("ดูอีเวนต์ทั้งหมด")}<Icon id="i-arrow" /></button></div>}
       <div className="hero-ctl"><button className="arw l" onClick={() => setSlide(i - 1)} aria-label={tr("สไลด์ก่อนหน้า")}><svg><use href="#i-back" /></svg></button>
         <div className="dots" role="group" aria-label={tr("เลือกสไลด์")}>{slides.map((s, k) => (
@@ -80,13 +80,13 @@ export function EventScreen() {
   const z = e.zones[S.zone] || e.zones[0];
   const owned = S.tickets.filter((t: any) => t.ev === e.id).length, cap = Math.max(0, 4 - owned);
   const qty = Math.min(S.qty, Math.max(1, cap));
-  const local = isLocal(e.id), sub = z.p * qty, fee = local ? 0 : Math.round(sub * 0.03);
+  const sub = z.p * qty, fee = Math.round(sub * 0.03);
   const off = cap === 0 || z.left <= 0 || e.paused;
   const cta = e.paused ? tr("ระงับการจำหน่ายชั่วคราว") : cap === 0 ? tr("ครบกำหนดจำกัดสูงสุด 4 ใบต่อบัญชี") : z.left <= 0 ? tr("บัตรโซนนี้จำหน่ายหมดแล้ว") : tr("ดำเนินการชำระเงิน");
   const setQty = (d: number) => { S.qty = Math.max(1, Math.min(cap, qty + d)); emit(); };
   const zones = (<><div className="zrows" role="radiogroup" aria-label={tr("เลือกโซนที่ต้องการ")}>{e.zones.map((zz: any, i: number) => {
     const on = i === S.zone && zz.left > 0 && !e.paused;
-    return (<button key={tr(zz.z)} className="zr" role="radio" aria-checked={on} disabled={zz.left === 0 || e.paused} onClick={() => { S.zone = i; S.promo = null; emit(); }}>
+    return (<button key={tr(zz.z)} className="zr" role="radio" aria-checked={on} disabled={zz.left === 0 || e.paused} onClick={() => { S.zone = i; emit(); }}>
       <span className="box">{on && <svg><use href="#i-check" /></svg>}</span>
       <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}><b>{tr(zz.z)}</b><span className="left num">{zz.left === 0 ? tr("บัตรจำหน่ายหมดแล้ว กรุณาตรวจสอบในตลาดซื้อขายต่อ") : tr("เหลือ {a} ที่นั่ง", { a: zz.left })}</span></span>
       <span className="pr num">{fmt(zz.p)}</span></button>);
@@ -109,7 +109,7 @@ export function EventScreen() {
             <div><Icon id="i-shield" /><div><b>{tr("ป้องกันการปลอมแปลง 100%")}</b><p>{tr("ตรวจสอบความเป็นเจ้าของได้โปร่งใส")}</p></div></div>
             <div><Icon id="i-swap" /><div><b>{tr("ควบคุมราคาขายต่อไม่เกิน 1.25 เท่า")}</b><p><button className="lnk" style={{ fontSize: 13 }} onClick={openRules}>{tr("อ่านเงื่อนไขขายต่อ")}</button></p></div></div>
             <div><Icon id="i-refund" /><div><b>{tr("ระบบยกเลิกและคืนเงินอัตโนมัติกรณีอีเวนต์ยกเลิก")}</b><p>{tr("รับเงินคืนเต็มจำนวนตามยอดที่ชำระจริง")}</p></div></div>
-            <div><Icon id="i-qrpay" /><div><b>{tr("รองรับการชำระผ่าน PromptPay")}</b><p>{tr("สะดวก รวดเร็ว ไม่ต้องส่งสลิปหลักฐานการโอน")}</p></div></div>
+            <div><Icon id="i-qrpay" /><div><b>{tr("ชำระเงินผ่าน Stripe Checkout")}</b><p>{tr("สะดวก รวดเร็ว ไม่ต้องส่งสลิปหลักฐานการโอน")}</p></div></div>
           </section>
           <section aria-labelledby="h-about" style={{ display: "flex", flexDirection: "column", gap: 8 }}><h2 id="h-about" className="h2">{tr("รายละเอียดอีเวนต์")}</h2><p className="muted" style={{ margin: 0, fontSize: 15 }}>{about}</p></section>
           <section className="vstack d-hide" aria-labelledby="h-zones-m"><h2 id="h-zones-m" className="h2">{tr("เลือกโซนที่ต้องการ")}</h2>{zones}</section>
@@ -120,7 +120,7 @@ export function EventScreen() {
           <div className="qtyrow"><div style={{ display: "flex", flexDirection: "column" }}><span style={{ fontWeight: 500 }}>{tr("จำนวน")}</span><span className="small muted num">{tr("{a}ซื้อได้อีก {b} ใบ (ไม่เกิน 4 ใบต่อคน)", { a: owned ? tr("มีอยู่ในครอบครองแล้ว {a} ใบ · ", { a: owned }) : "", b: cap })}</span></div>
             <div className="stepper"><button onClick={() => setQty(-1)} aria-label={tr("ลดจำนวนลง")} disabled={qty <= 1}><svg width="18" height="18"><use href="#i-minus" /></svg></button><output className="num" aria-live="polite">{qty}</output>
               <button onClick={() => setQty(1)} aria-label={tr("เพิ่มจำนวนขึ้น")} disabled={qty >= cap}><svg width="18" height="18"><use href="#i-plus" /></svg></button></div></div>
-          <dl className="sum num"><dt>{tr(z.z)} × {qty}</dt><dd>{fmt(sub)}</dd><dt>{tr("ค่าบริการ{a}", { a: local ? "" : " 3%" })}</dt><dd>{fmt(fee)}</dd><dt>{tr("ค่าธรรมเนียมเครือข่าย")}</dt><dd>{tr("ไม่มีค่าใช้จ่าย")}</dd><dt className="tot">{tr("ยอดรวมทั้งสิ้น")}</dt><dd>{fmt(sub + fee)}</dd></dl>
+          <dl className="sum num"><dt>{tr(z.z)} × {qty}</dt><dd>{fmt(sub)}</dd><dt>{tr("ค่าบริการ{a}", { a: " 3%" })}</dt><dd>{fmt(fee)}</dd><dt>{tr("ค่าธรรมเนียมเครือข่าย")}</dt><dd>{tr("ไม่มีค่าใช้จ่าย")}</dd><dt className="tot">{tr("ยอดรวมทั้งสิ้น")}</dt><dd>{fmt(sub + fee)}</dd></dl>
           <button className="bigbtn m-hide" onClick={() => { S.qty = qty; startBuy(); }} disabled={off}>{cta}{!off && <Icon id="i-arrow" />}</button>
           <p className="small muted" style={{ margin: 0 }}>{tr("ระบบสำรองที่นั่งให้ท่านเป็นเวลา 10 นาทีภายหลังกดทำรายการชำระเงิน")}</p>
         </aside>
@@ -133,64 +133,40 @@ export function EventScreen() {
 function purchase() {
   const L = S.buyingListing, e = evById(L ? L.ev : S.ev);
   if (!e) return null;
-  const zone = L ? L.zone : e.zones[S.zone].z, qty = L ? 1 : S.qty, local = isLocal(e.id), face = L ? L.price : e.zones[S.zone].p;
-  const sub = L ? L.price : buyTotal(e), fee = local || L ? 0 : Math.round(sub * 0.03);   // organizer events: the shop pays the fee; resale: the seller pays 6%
-  return { L, e, zone, qty, local, face, sub, fee, total: sub + fee, disc: face * qty - sub };
+  const zone = L ? L.zone : e.zones[S.zone].z, qty = L ? 1 : S.qty, face = L ? L.price : e.zones[S.zone].p;
+  const sub = L ? L.price : buyTotal(e), fee = L ? 0 : Math.round(sub * 0.03);   // resale: the seller pays the 6% commission
+  return { L, e, zone, qty, face, sub, fee, total: sub + fee, disc: face * qty - sub };
 }
 export function Checkout() {
-  const p = purchase(); const [code, setCode] = useState(S.promo && S.promo.ev === S.ev ? S.promo.code : ""), [msg, setMsg] = useState("");
+  const p = purchase();
   if (!p) return <div className="wrap narrow-w"><div className="empty">{tr("ยังไม่ได้เลือกบัตรเข้าชม")} <button className="linkbtn" onClick={() => go("home")}>{tr("เลือกอีเวนต์")}</button></div></div>;
-  const { L, e, zone, qty, local, face, sub, fee, disc } = p;
+  const { L, e, zone, qty, face, sub, fee, disc } = p;
   return (<div className="wrap narrow-w">
     <TitleRow title={tr("ตรวจสอบความถูกต้องของคำสั่งซื้อ")} fallback="event" />
     <section className="ocard" aria-label={tr("รายการสินค้าที่สั่งซื้อ")}><Thumb e={e} />
       <div className="info"><b>{tr(e.name)}</b><span className="num muted">{tr("{a} · {b} น.", { a: tr(e.date), b: e.time })}</span><span className="muted">{tr(e.venue)}</span><span className="num">{tr("จำนวน {a} ใบ", { a: qty })}</span>{L && <span className="pill info" style={{ alignSelf: "flex-start", marginTop: 4 }}>{tr("ตลาดซื้อขายต่อบัตร")}</span>}</div>
       <ZChip e={e} name={zone} /></section>
     <section className="sect"><h2>{tr("ช่องทางชำระเงิน")}</h2>
-      {local ? <button className="payopt" aria-pressed="true"><span className="lg">QR</span><span><b>PromptPay</b> <span className="pill warn">{tr("ระบบจำลองการทำรายการ")}</span><br /><span className="small muted">{tr("อีเวนต์ตัวอย่างจากผู้จัดงานในระบบทดลอง ไม่มีการหักเงินจริง")}</span></span><span className="rd" /></button>
-        : <button className="payopt" aria-pressed="true"><span className="lg">STRIPE</span><span><b>Stripe Checkout</b>{!S.auth.google && <> <span className="pill warn">{tr("ระบบจำลองการทำรายการ")}</span></>}<br /><span className="small muted">{S.auth.google ? tr("ชำระผ่าน PromptPay หรือบัตรเครดิตผ่านหน้าต่าง Stripe") : tr("เครื่องนี้ยังไม่ได้เชื่อมต่อระบบ Stripe ระบบจะใช้การจำลองการชำระเงินแทน")}</span></span><span className="rd" /></button>}
+      <button className="payopt" aria-pressed="true"><span className="lg">STRIPE</span><span><b>Stripe Checkout</b><br /><span className="small muted">{tr("ชำระผ่านระบบ Stripe Checkout อย่างปลอดภัย")}</span></span><span className="rd" /></button>
     </section>
-    {local && !L && <div className="field"><label htmlFor="promo-input">{tr("รหัสส่วนลดโปรโมชัน")}</label><div className="row"><input id="promo-input" value={code} onChange={x => setCode(x.target.value)} autoComplete="off" style={{ flex: 1 }} aria-describedby="promo-msg" />
-      <button className="btn plain" style={{ width: "auto", padding: "10px 14px", fontSize: 14 }} onClick={() => setMsg(applyPromo(code))}>{tr("ใช้รหัสส่วนลด")}</button></div>
-      <span className={"hint" + (msg ? " err" : "")} id="promo-msg" role="status">{msg || (S.promo && S.promo.ev === e.id ? S.promo.msg : "")}</span></div>}
     <dl className="sum num" style={{ padding: 16, borderRadius: 12, background: "var(--surface)", border: "1px solid var(--line-soft)" }}>
       <dt>{tr("ราคาบัตร {a} ใบ", { a: qty })}</dt><dd>{fmt(face * qty)}</dd>{disc > 0 && <><dt className="disc">{tr("ส่วนลดที่ได้รับ")}</dt><dd>−{fmt(disc)}</dd></>}
-      <dt>{tr("ค่าบริการ{a}", { a: local || L ? "" : " 3%" })}</dt><dd>{L ? tr("ไม่มีค่าใช้จ่ายเพิ่มเติม (ผู้ขายเป็นผู้รับผิดชอบค่าคอมมิชชัน)") : fmt(fee)}</dd><dt>{tr("ค่าธรรมเนียมเครือข่าย")}</dt><dd>{tr("ไม่มีค่าใช้จ่าย")}</dd><dt className="tot">{tr("ยอดชำระสุทธิ")}</dt><dd>{fmt(sub + fee)}</dd></dl>
+      <dt>{tr("ค่าบริการ{a}", { a: L ? "" : " 3%" })}</dt><dd>{L ? tr("ไม่มีค่าใช้จ่ายเพิ่มเติม (ผู้ขายเป็นผู้รับผิดชอบค่าคอมมิชชัน)") : fmt(fee)}</dd><dt>{tr("ค่าธรรมเนียมเครือข่าย")}</dt><dd>{tr("ไม่มีค่าใช้จ่าย")}</dd><dt className="tot">{tr("ยอดชำระสุทธิ")}</dt><dd>{fmt(sub + fee)}</dd></dl>
     <button className="bigbtn" onClick={toPay} disabled={S.paying}>{S.paying ? tr("กำลังเชื่อมต่อระบบ Stripe…") : tr("ดำเนินการชำระเงิน")}</button>
     <p className="note">{tr("(ภายหลังกดทำรายการ ระบบจะสำรองที่นั่งให้ 10 นาที โดยยังไม่มีการหักยอดเงินทันที)")}</p>
   </div>);
 }
 export function Pay() {
   const p = purchase();
-  const [left, setLeft] = useState(600), [seed, setSeed] = useState(() => "pp" + Date.now());
-  useEffect(() => { const t = setInterval(() => setLeft(s => Math.max(0, s - 1)), 1000); return () => clearInterval(t); }, [seed]);
-  if (!p) return <div className="wrap narrow-w"><div className="empty">{tr("ยังไม่ได้เลือกตั๋ว")} <button className="linkbtn" onClick={() => go("home")}>{tr("เลือกอีเวนต์")}</button></div></div>;
-  const { e, zone, qty, total, local } = p;
+  if (!p) return <div className="wrap narrow-w"><div className="empty">{tr("ยังไม่ได้เลือกบัตรเข้าชม")} <button className="linkbtn" onClick={() => go("home")}>{tr("เลือกอีเวนต์")}</button></div></div>;
+  const { e, zone, qty, total } = p;
   return (<div className="wrap narrow-w ctr">
     <TitleRow title={tr("ดำเนินการชำระเงิน")} fallback="checkout" />
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}><p style={{ margin: 0, fontSize: 15 }}>{tr("ระบบได้ทำการสำรองที่นั่งให้ท่านเรียบร้อยแล้ว")}</p>
-      <p className="cd">{left > 0 ? <>{tr("เหลือ")} <b className="num">{String(Math.floor(left / 60)).padStart(2, "0")}:{String(left % 60).padStart(2, "0")}</b>  {tr("กรุณาดำเนินการก่อนหมดเวลา")}</> : <b>{tr("หมดอายุ")}</b>}</p></div>
-    <div className="qrcard"><div className="tqr"><span>THAI QR PAYMENT</span><span>PromptPay</span></div>
-      <QRCodeSVG value={seed} size={200} marginSize={1} role="img" aria-label={tr("ตัวอย่าง QR Code PromptPay")} style={{ width: 200, height: 200, opacity: left > 0 ? 1 : 0.25 }} />
-      <div style={{ lineHeight: 1.3 }}><div style={{ fontSize: 13, color: "#6E6265" }}>{tr("บริษัท จองเลย จำกัด (ตัวอย่าง)")}</div><div className="amt num">{fmt(total)}</div></div></div>
+    <div className="card"><b>Stripe Checkout</b><p className="small muted" style={{ margin: "4px 0 0" }}>{tr("ยอดชำระ {a} · ระบบจะเปิดหน้าชำระเงินของ Stripe", { a: fmt(total) })}</p></div>
     <dl className="rows num"><dt style={{ fontWeight: 600 }}>{tr(e.name)}</dt><dd style={{ fontWeight: 600 }}>{fmt(total)}</dd><dt>{tr("ที่นั่ง {a}", { a: zone })}</dt><dd>{tr("จำนวน {a} ใบ", { a: qty })}</dd></dl>
-    <p className="small muted" style={{ margin: 0 }}>{tr("เปิดแอปพลิเคชันธนาคารและสแกน QR Code ยอดเงินจะปรากฏอัตโนมัติ ไม่จำเป็นต้องจัดส่งสลิปหลักฐาน")}</p>
-    <div className="btncol">{left <= 0 ? <button className="bigbtn" onClick={() => { setSeed("pp" + Date.now()); setLeft(600); toast(tr("สร้าง QR Code ชุดใหม่เรียบร้อย ขยายเวลาสำรองที่นั่งออกไปอีก 10 นาที"), "ok"); }}>{tr("สร้าง QR Code ใหม่")}</button>
-      : <button className="bigbtn" onClick={paid}>{local ? tr("จำลองการชำระเงิน (ระบบทดลอง)") : tr("ชำระผ่านระบบ Stripe")}</button>}
+    <p className="small muted" style={{ margin: 0 }}>{tr("Stripe จะยืนยันการชำระเงินผ่าน webhook ก่อนออกบัตรเข้าชม")}</p>
+    <div className="btncol"><button className="bigbtn" onClick={paid} disabled={S.paying}>{S.paying ? tr("กำลังเชื่อมต่อระบบ Stripe…") : tr("ไปชำระเงินด้วย Stripe")}</button>
       <button className="bigbtn plain" onClick={() => back("checkout")}>{tr("ยกเลิก")}</button></div>
-  </div>);
-}
-export function Minting() {
-  const pp = isLocal(S.buyingListing ? S.buyingListing.ev : S.ev);
-  const [i, setI] = useState(0);
-  useEffect(() => { let k = 0; const t = setInterval(() => { k++; setI(k); if (k >= 4) { clearInterval(t); finishMint(); } }, 1100); return () => clearInterval(t); }, []);
-  const st = (n: number) => (n < i ? "done" : n === i ? "active" : "");
-  const steps: [string, string][] = [[pp ? tr("ได้รับการชำระเงินผ่านระบบ PromptPay") : tr("ได้รับการชำระเงินผ่านระบบ Stripe"), pp ? tr("ผู้ให้บริการรับชำระเงินแจ้งยอดเรียบร้อยแล้ว (จำลอง)") : tr("ระบบได้รับการยืนยันสถานะจาก Stripe (จำลอง)")],
-    [tr("ตรวจยอดเงิน"), pp ? tr("ตรวจสอบยอดเงิน หมายเลขอ้างอิง และอายุคำสั่งซื้อ") : tr("ตรวจสอบรายการลงนามที่ถูกต้องและไม่ซ้ำซ้อน")], [tr("ออกบัตรเข้าชมบนเทคโนโลยีบล็อกเชน"), tr("ออกบัตรเข้าชมที่ปลอดภัยและล็อกที่นั่งให้ท่าน")], [tr("โอนเข้าสู่บัญชีผู้ใช้งานของท่าน"), short(S.user.wallet)]];
-  return (<div className="wrap narrow-w ctr">
-    <span className="pill ok">{tr("การชำระเงินสำเร็จ (ระบบจำลอง)")}</span>
-    <h1 className="ftitle">{tr("กำลังออกบัตรเข้าชม")}</h1><p className="muted" style={{ margin: 0 }}>{tr("กรุณาอย่าปิดหน้าต่างนี้ กระบวนการใช้เวลาไม่เกิน 1 นาที")}</p>
-    <ol className="steps" aria-live="polite">{steps.map(([b, s], n) => <li key={b} className={st(n)}><span className="s"><svg><use href="#i-check" /></svg></span><span><b>{b}</b><small className={n === 3 ? "mono" : ""}>{s}</small></span></li>)}</ol>
   </div>);
 }
 export function Success() {
@@ -245,16 +221,16 @@ export function Tickets() {
 export function Ticket() {
   const t = S.sel, e = t && evById(t.ev);
   if (!t || !e) return <div className="wrap"><div className="empty">{tr("ไม่พบข้อมูลบัตรเข้าชมนี้")} <button className="linkbtn" onClick={() => go("tickets")}>{tr("ไปที่บัตรเข้าชมของฉัน")}</button></div></div>;
-  const locked = t.status !== "active" || t.minting || t.failed, ann = ticketAnnouncements(t);
+  const locked = t.status !== "active" || t.minting || t.failed;
   const qr = t.minting || t.failed ? <div className="qrstate">{t.minting ? <>{tr("กำลังดำเนินการออกบัตรบนบล็อกเชน")}<br />{tr("QR Code จะแสดงผลเมื่อกระบวนการออกบัตรเสร็จสิ้น")}</> : <>{tr("พบข้อขัดข้องในการออกบัตรเข้าชม")}<br />{tr("ทีมงานกำลังตรวจสอบข้อมูล")}</>}</div>
     : t.status === "refunded" ? <div className="qrstate" style={{ color: "#DC2626", fontWeight: 600 }}>{tr("อีเวนต์นี้ถูกยกเลิก")}<br /><span style={{ fontWeight: 400, color: "#6E6265" }}>{tr("คืนเงิน {a} แล้ว ตั๋วใบนี้ใช้เข้างานไม่ได้", { a: fmt(t.refundAmount || 0) })}</span></div>
-    : t.status === "listed" ? <div className="qrstate">{tr("บัตรอยู่ระหว่างประกาศขาย")}<br />{tr("ยกเลิกการลงประกาศขายเพื่อใช้งาน QR Code")}</div>
+    : t.status === "listed" ? (t.listingSold
+      ? <div className="qrstate">{t.listingOrderStatus === "needs_review" ? tr("ขายบัตรแล้ว รอตรวจสอบการโอน") : tr("ขายบัตรแล้ว กำลังโอนสิทธิ์ให้ผู้ซื้อ")}<br /><span className="small">{tr("เมื่อโอนบนบล็อกเชนเสร็จสิ้น บัตรจะออกจากบัญชีนี้")}</span></div>
+      : <div className="qrstate">{tr("บัตรอยู่ระหว่างประกาศขาย")}<br />{tr("ยกเลิกการลงประกาศขายเพื่อใช้งาน QR Code")}</div>)
     : t.status === "used" ? <div className="qrstate" style={{ color: "#1D7A48", fontWeight: 600 }}>{tr("บันทึกการเข้างานเรียบร้อย")}<br /><span style={{ fontWeight: 400, color: "#6E6265" }}>{tr("บัตรถูกล็อกสถานะ ไม่สามารถโอนหรือขายต่อได้")}</span></div>
     : <EntryQR t={t} onGone={loadMyTickets} />;
   return (<div className="wrap">
     <Crumb label={tr("บัตรเข้าชมของฉัน")} fallback="tickets" />
-    {ann.length > 0 && <div className="card" style={{ display: "flex", flexDirection: "column", gap: 6 }} role="status"><b>{tr("ประกาศสำคัญจากผู้จัดงาน")}</b>
-      {ann.map((a: any) => <div key={a.id} className="small">{a.text}<div className="muted">{tr("{a} · {b} น.", { a: dateOf(a.at), b: timeOf(a.at) })}</div></div>)}</div>}
     <div className="tgrid2">
       <div className="vstack" style={{ gap: 16 }}>
         <div className="qrcard"><div style={{ textAlign: "center", lineHeight: 1.4 }}><b style={{ fontFamily: "var(--f-display)", fontSize: 17 }}>{tr(e.name)}</b><div style={{ fontSize: 13, color: "#6E6265" }}>{tr("{a} · {b} น. · {c}", { a: tr(e.date), b: e.time, c: t.zone })}</div></div>{qr}</div>
@@ -264,9 +240,8 @@ export function Ticket() {
         <NftCard t={t} full />
         <div className="btncol row2"><button className="bigbtn sec" onClick={openResell} disabled={locked}>{tr("ประกาศขายต่อ")}</button>
           <button className="bigbtn sec" onClick={openTransfer} disabled={locked || t.real || t.transfers >= 2}>{tr("โอนสิทธิ์ให้เพื่อน")}</button></div>
-        {t.status === "listed" && <button className="bigbtn plain" onClick={unlistTicket}>{tr("ยกเลิกการประกาศขาย")}</button>}
-        {t.real ? <p className="small muted" style={{ margin: 0 }}>{tr("สามารถลงประกาศขายได้ภายหลังได้รับบัตร 6 ชั่วโมง สำหรับฟังก์ชันการโอนให้เพื่อนจะเปิดให้บริการในเวอร์ชันถัดไป")}</p>
-          : <button className="bigbtn plain" onClick={simulateDoorScan} disabled={t.status !== "active"}>{tr("ระบบจำลอง: เจ้าหน้าที่ทำการสแกนหน้างาน")}</button>}
+        {t.status === "listed" && !t.listingSold && <button className="bigbtn plain" onClick={unlistTicket}>{tr("ยกเลิกการประกาศขาย")}</button>}
+        <p className="small muted" style={{ margin: 0 }}>{tr("สามารถลงประกาศขายได้ภายหลังได้รับบัตร 6 ชั่วโมง สำหรับฟังก์ชันการโอนให้เพื่อนจะเปิดให้บริการในเวอร์ชันถัดไป")}</p>
       </div>
     </div></div>);
 }
@@ -322,7 +297,6 @@ export function Profile() {
         <div className="pcard"><b className="small">{tr("สำหรับผู้ใช้งานที่มีความคุ้นเคยกับกระเป๋าเงินดิจิทัล")}</b><span className="small muted">{tr("เชื่อมต่อกระเป๋าเงินดิจิทัลส่วนตัวของคุณ หรือย้ายบัตรไปจัดเก็บยังช่องทางอื่น ซึ่งไม่จำเป็นสำหรับการใช้งานทั่วไป")}</span>
           <button className="bigbtn plain" onClick={() => toast(tr("ฟังก์ชันการเชื่อมต่อกระเป๋าเงินเดิมอยู่ระหว่างแผนพัฒนาในลำดับถัดไป"))}>{tr("เชื่อมต่อกระเป๋าเงินของฉัน")}</button></div>
         <button className="bigbtn plain" onClick={logout}>{tr("ออกจากระบบ")}</button>
-        <button className="lnk" onClick={openReset} style={{ alignSelf: "center" }}>{tr("ล้างข้อมูลระบบทดลองทั้งหมด")}</button>
       </div>
     </div></div>);
 }

@@ -2,10 +2,9 @@
 // Buyer actions: events, sign-in, purchase (demo PromptPay or Stripe), tickets, resale, filters.
 // Ported from the mock-up; every button either calls the Worker API or, in the demo, says it is simulated.
 import { useState } from "react";
-import { S, EV, OL, emit, save, fmt, short, isLocal, evById, refreshEvents, ledgerAdd, orgTicketStatus, replaceOrgEvent, orgEv,
-  rand, initial, resetDemo, HOUR, DAY } from "./state";
+import { S, EV, emit, save, fmt, short, evById, refreshEvents, initial, HOUR, DAY } from "./state";
 import { go, back, currentScreen } from "./nav";
-import { toast, mockToast, sheet, closeSheet } from "./ui";
+import { toast, sheet, closeSheet } from "./ui";
 import { enterOrg, orgLiveStart } from "./org";
 import { tr, tmap, locale } from "./i18n";
 
@@ -21,15 +20,16 @@ export async function readJsonResponse(response: Response, endpoint: string) {
 }
 
 export async function loadEvents(quiet = false) {
-  if (!isWeb()) return;
+  if (!isWeb()) { toast(tr("กรุณาเปิดเว็บผ่าน URL ของ Worker")); return; }
   try {
     const response = await fetch("/api/events", { credentials: "same-origin" });
     const data = await readJsonResponse(response, "/api/events");
-    if (!Array.isArray(data) || !data.length) throw new Error("empty_event_list");
+    if (!Array.isArray(data)) throw new Error("invalid_event_list");
     EV.base = data.map((e: any) => ({ ...e, image: e.posterUrl || e.image || null })); refreshEvents(); emit();
   } catch (err) {
     console.error("Event API failed", err);
-    if (!quiet) toast(tr("โหลดรายการอีเวนต์จากระบบไม่สำเร็จ กำลังใช้งานข้อมูลสำรอง"));
+    EV.base = []; refreshEvents(); emit();
+    if (!quiet) toast(tr("โหลดรายการอีเวนต์จากระบบไม่สำเร็จ กรุณาลองใหม่"));
   }
 }
 
@@ -60,8 +60,7 @@ export async function checkAuth() {
   if (S.orgLiveWanted && me.user && S.mode === "org" && !(S.org && S.org.live)) orgLiveStart();
   loadMyTickets();
   handleCheckoutReturn();
-  if (result === "new" && me.user) walletCreating();
-  else if (result === "ok" && me.user) { toast(tr("เข้าสู่ระบบสำเร็จ")); if (S.afterSignup) { const n = S.afterSignup; S.afterSignup = null; resumeAfter(n); } }
+  if (result === "ok" && me.user) { toast(tr("เข้าสู่ระบบสำเร็จ")); if (S.afterSignup) { const n = S.afterSignup; S.afterSignup = null; resumeAfter(n); } }
   else if (result === "error") toast(tr("เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
 }
 export function resumeAfter(n: string) { if (n === "orgmode") enterOrg(); else if (n === "orglive") orgLiveStart(); else go(n); }
@@ -73,28 +72,33 @@ function realTicket(t: any) {
     minting: t.status === "minting", failed: t.status === "mint_failed", transfers: t.transfers,
     tx: t.txHash ? short(t.txHash) : tr("กำลังส่งคำขอทำธุรกรรม"), explorer: t.explorer, real: true };
 }
+let mintPolls = 0, mintTimer: any = 0;
 export async function loadMyTickets() {
   if (!S.auth.google || !S.signedIn) return;
   try {
     const response = await fetch("/api/tickets", { credentials: "same-origin" });
     const data = await readJsonResponse(response, "/api/tickets");
     if (!response.ok || !Array.isArray(data.tickets)) return;
+    const before = JSON.stringify([S.tickets, S.realListings]);
     S.tickets = data.tickets.map(realTicket);
     if (S.sel && S.sel.real) S.sel = S.tickets.find((x: any) => x.key === S.sel.key) || S.sel;
     await loadResale();
-    if (S.tickets.some((t: any) => t.minting)) setTimeout(loadMyTickets, 5000);
+    // redraw only when something changed, so a ticket that is still minting does not flash the page on every poll
+    if (JSON.stringify([S.tickets, S.realListings]) !== before) emit();
+    clearTimeout(mintTimer);
+    if (!S.tickets.some((t: any) => t.minting)) mintPolls = 0;
+    else if (++mintPolls <= 120) mintTimer = setTimeout(loadMyTickets, 5000);
   } catch (err) { console.error("Ticket API failed", err); }
 }
 
-/* ---------- resale: Worker listings when signed in with Google, demo listings otherwise ---------- */
-export function marketListings(): any[] { return S.auth.google ? (S.realListings || []) : S.listings; }
+/* ---------- resale: listings always come from the Worker ---------- */
+export function marketListings(): any[] { return S.realListings || []; }
 export async function loadResale() {
   try {
     const [market, mine] = await Promise.all(["/api/resale/listings", "/api/resale/listings?mine=1"].map(u => fetch(u, { credentials: "same-origin" }).then(r => (r.ok ? r.json() : { listings: [] }))));
     S.realListings = market.listings.map((l: any) => ({ lid: l.id, ev: l.eventId, zone: l.zone, face: l.facePrice, price: l.price, seller: l.seller, transfers: l.transfers, tid: l.tokenId, held: l.held, mine: l.mine, real: true }));
-    for (const l of mine.listings) { const t = S.tickets.find((x: any) => x.key === l.ticketId); if (t) { t.listPrice = l.price; t.listingId = l.id; t.listingSold = l.status === "sold"; } }
+    for (const l of mine.listings) { const t = S.tickets.find((x: any) => x.key === l.ticketId); if (t) { t.listPrice = l.price; t.listingId = l.id; t.listingSold = l.status === "sold"; t.listingOrderStatus = l.orderStatus; t.listingReviewReason = l.orderReviewReason; } }
   } catch (err) { console.error("Resale API failed", err); }
-  emit();
 }
 const RESALE_ERRORS: Record<string, string> = tmap({ holding_period: "สามารถลงประกาศขายต่อได้ภายหลังได้รับบัตรครบ 6 ชั่วโมง", transfer_closed: "ปิดระบบการขายต่อแล้ว (เปิดให้ดำเนินการก่อนอีเวนต์เริ่ม 1 ชั่วโมง)", invalid_price: "ราคาจำหน่ายเกินเพดานกำหนด 125% ของราคาหน้าบัตร",
   already_listed: "บัตรเข้าชมใบนี้อยู่ระหว่างประกาศขายต่อแล้ว", ticket_not_listable: "บัตรเข้าชมใบนี้ไม่สามารถลงประกาศขายต่อได้", event_not_open: "อีเวนต์นี้ปิดให้บริการหรือถูกยกเลิกแล้ว", event_time_unknown: "อีเวนต์นี้ยังไม่มีการกำหนดเวลาเริ่มต้นที่ชัดเจน",
@@ -113,33 +117,15 @@ async function resaleCall(method: string, path: string, body?: any) {
 /* ---------- buying ---------- */
 export function openEvent(id: string) {
   const e = evById(id); if (!e) { toast(tr("ไม่พบข้อมูลอีเวนต์นี้")); return; }
-  S.ev = id; S.promo = null; S.zone = Math.max(0, e.zones.findIndex((z: any) => z.left > 0)); S.qty = 1; emit(); go("event", { id });
+  S.ev = id; S.zone = Math.max(0, e.zones.findIndex((z: any) => z.left > 0)); S.qty = 1; emit(); go("event", { id });
 }
-// price a buyer pays per ticket for an organizer event, with an applied promo code (baht)
-export function buyUnit(e: any) {
-  const z = e.zones[S.zone];
-  if (isLocal(e.id) && S.promo && S.promo.ev === e.id) { const r = OL.applyPromo(S.promo.code, S.org.promos, z.zoneId, Math.round(z.p * 100), Date.now()); if (r.ok) return r.price / 100; }
-  return z.p;
-}
-// total for S.qty tickets: a promo code with fewer uses left than S.qty discounts only that many
-export function buyTotal(e: any) {
-  const z = e.zones[S.zone], unit = buyUnit(e);
-  if (unit === z.p) return unit * S.qty;
-  const p = S.org.promos.find((x: any) => x.code === S.promo.code), n = Math.min(S.qty, Math.max(0, p.maxUses - (p.used || 0)));
-  return unit * n + z.p * (S.qty - n);
-}
+// price a buyer pays per ticket (baht); promo codes are not part of Stripe checkout
+export const buyUnit = (e: any) => e.zones[S.zone].p;
+export const buyTotal = (e: any) => buyUnit(e) * S.qty;
 export function startBuy() { S.buyingListing = null; emit(); if (!S.signedIn) { openSignup("checkout"); return; } go("checkout"); }
 export function buyListing(l: any) { S.buyingListing = l; emit(); if (!S.signedIn) { openSignup("checkout"); return; } go("checkout"); }
-const buyingEv = () => (S.buyingListing ? S.buyingListing.ev : S.ev);
-export function toPay() { if (isLocal(buyingEv())) go("pay"); else startStripeCheckout(); }
-export function paid() { if (isLocal(buyingEv())) go("minting", { replace: true }); else startStripeCheckout(); }
-export function applyPromo(code: string) {
-  const e = evById(S.ev), z = e.zones[S.zone];
-  const r = OL.applyPromo(code, S.org.promos.filter((p: any) => !p.eventId || p.eventId === e.id), z.zoneId, Math.round(z.p * 100), Date.now());
-  const WHY: Record<string, string> = { not_found: tr("ไม่พบรหัสส่วนลดนี้ หรือถูกระงับการใช้งาน"), expired: tr("รหัสส่วนลดหมดอายุหรือยังไม่ถึงกำหนดเริ่มต้นใช้งาน"), used_up: tr("รหัสส่วนลดถูกใช้งานครบจำนวนสิทธิ์แล้ว"), wrong_zone: tr("รหัสส่วนลดนี้ไม่สามารถใช้งานร่วมกับโซนนี้ได้") };
-  if (!r.ok) { S.promo = null; emit(); return WHY[r.reason]; }
-  S.promo = { ev: e.id, code: code.toUpperCase(), msg: tr("ใช้โค้ด {a} แล้ว ลดเหลือ {b} ต่อใบ", { a: code.toUpperCase(), b: fmt(r.price / 100) }) }; emit(); return "";
-}
+export const toPay = startStripeCheckout;
+export const paid = startStripeCheckout;
 
 const STRIPE_ERR: Record<string, string> = tmap({
   authentication_required: "เซสชันการใช้งานหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง", sold_out: "ที่นั่งโซนนี้จำหน่ายหมดแล้ว หรือมีผู้กำลังทำรายการชำระเงินอยู่ กรุณาเลือกโซนอื่นหรือลองใหม่อีกครั้งในภายหลัง",
@@ -151,11 +137,6 @@ const STRIPE_ERR: Record<string, string> = tmap({
 });
 export async function startStripeCheckout() {
   if (!isWeb()) { toast(tr("กรุณาเปิดใช้งานเว็บไซต์ผ่าน URL ของ Cloudflare Worker")); return; }
-  if (!S.auth.google) {
-    // no Worker / Google here: base events cannot be paid, so the purchase runs as a simulation
-    mockToast(tr("เครื่องนี้ยังไม่ได้เชื่อมต่อระบบ Stripe ระบบจะใช้การจำลองการชำระเงินแทน"));
-    go("minting", { replace: currentScreen() === "pay" }); return;
-  }
   const listing = S.buyingListing, eventId = listing ? listing.ev : S.ev;
   const zone = listing ? listing.zone : evById(S.ev).zones[S.zone].z, quantity = listing ? 1 : S.qty;
   S.paying = true; emit();
@@ -204,41 +185,6 @@ async function handleCheckoutReturn() {
   toast(tr("บัตรเข้าชมยังออกไม่เสร็จสมบูรณ์ ระบบจะออกให้โดยอัตโนมัติ สามารถตรวจสอบได้ที่เมนูบัตรเข้าชมของฉัน"));
 }
 
-// demo purchase (organizer events, or base events without Stripe here): record the sale, issue tickets
-export function finishMint() {
-  let t: any;
-  if (S.buyingListing) {
-    const L = S.buyingListing; S.listings = S.listings.filter((x: any) => x.lid !== L.lid);
-    t = { tid: L.tid, ev: L.ev, zone: L.zone, price: L.face, status: "active", transfers: L.transfers + 1, tx: "0x" + rand(4) + "…" + rand(4), orgTicketId: L.orgTicketId };
-    const ot = L.orgTicketId && S.org.tickets.find((x: any) => x.ticketId === L.orgTicketId);
-    if (ot) {
-      const paidSatang = L.price * 100; ot.hops.push({ idx: ot.hops.length, payerId: "me", paid: paidSatang, at: Date.now() }); ot.holderId = "me"; ot.status = "valid";
-      ledgerAdd({ type: "PAYMENT_IN", eventId: ot.eventId, ticketId: ot.ticketId, amount: paidSatang, party: "me", idempotencyKey: "in:" + ot.ticketId + ":" + (ot.hops.length - 1) });
-    }
-    S.tickets.unshift(t); S.buyingListing = null;
-  } else {
-    const e = evById(S.ev); const z = e.zones[S.zone];
-    let sold: any[] | null = null;
-    if (isLocal(e.id)) {
-      const r = OL.recordPrimarySale(orgEv(e.id), z.zoneId, S.qty, "me", S.tickets.filter((x: any) => x.ev === e.id).length, Date.now());
-      if (!r.ok) {
-        toast(({ sold_out: tr("พื้นที่นั่งในโซนนี้ไม่เพียงพอ"), over_limit: tr("จำกัดสิทธิ์ซื้อไม่เกิน 4 ใบต่อบัญชีผู้ใช้งาน"), not_on_sale: tr("อีเวนต์นี้อยู่ระหว่างระงับการจำหน่ายชั่วคราว"), invalid_qty: tr("จำนวนบัตรเข้าชมไม่ถูกต้อง") } as any)[r.reason], "err");
-        go("event", { replace: true }); return;
-      }
-      if (S.promo && S.promo.ev === e.id) for (const ot of r.tickets) {
-        const res = OL.applyPromo(S.promo.code, S.org.promos, ot.zoneId, ot.hops[0].paid, Date.now());
-        if (res.ok) { ot.hops[0].paid = res.price; const p = S.org.promos.find((x: any) => x.code === S.promo.code); if (p) p.used = (p.used || 0) + 1; }
-      }
-      S.promo = null;
-      replaceOrgEvent(r.event); S.org.tickets.push(...r.tickets); sold = r.tickets;
-      for (const ot of r.tickets) if (ot.hops[0].paid > 0) ledgerAdd({ type: "PAYMENT_IN", eventId: e.id, ticketId: ot.ticketId, amount: ot.hops[0].paid, party: "me", idempotencyKey: "in:" + ot.ticketId + ":0" });
-    } else z.left = Math.max(0, z.left - S.qty);
-    for (let k = 0; k < S.qty; k++) { t = { tid: S.nextTid++, ev: e.id, zone: z.z, price: z.p, status: "active", transfers: 0, tx: "0x" + rand(4) + "…" + rand(4), orgTicketId: sold ? sold[k].ticketId : undefined }; S.tickets.unshift(t); }
-    t = S.tickets[S.qty - 1];
-  }
-  S.sel = t; S.mtab = "active"; emit(); go("success", { replace: true });
-}
-
 /* ---------- ticket actions ---------- */
 export function openTicket(t: any) { S.sel = t; emit(); go("ticket", { id: String(t.key || t.tid) }); }
 export async function listTicket(price: number) {
@@ -248,9 +194,6 @@ export async function listTicket(price: number) {
     catch (err: any) { toast(err.message, "err"); }
     return;
   }
-  tk.status = "listed"; tk.listPrice = price; orgTicketStatus(tk, "listed");
-  S.listings.unshift({ lid: Date.now(), ev: tk.ev, zone: tk.zone, face: tk.price, price, seller: short(S.user.wallet), transfers: tk.transfers, tid: tk.tid, orgTicketId: tk.orgTicketId });
-  closeSheet(); emit(); mockToast(tr("ลงขายแล้ว ดูได้ในตลาดขายต่อ"));
 }
 export async function unlistTicket() {
   const tk = S.sel;
@@ -260,13 +203,10 @@ export async function unlistTicket() {
     catch (err: any) { toast(err.message, "err"); }
     return;
   }
-  tk.status = "active"; orgTicketStatus(tk, "valid"); S.listings = S.listings.filter((l: any) => l.tid !== tk.tid); emit(); mockToast(tr("ยกเลิกการลงขายแล้ว"));
 }
 export function transferTicket(to: string) {
-  const t = S.sel; S.tickets = S.tickets.filter((x: any) => x !== t); closeSheet(); emit();
-  mockToast(tr("โอน Token #{a} ให้ {b} แล้ว", { a: t.tid, b: to })); go("tickets", { replace: true });
+  closeSheet(); toast(tr("ฟังก์ชันการโอนสิทธิ์ให้เพื่อนยังไม่เปิดให้บริการ"));
 }
-export function simulateDoorScan() { S.sel.status = "used"; orgTicketStatus(S.sel, "used"); emit(); mockToast(tr("สแกนผ่าน บันทึกเข้างานเรียบร้อย บัตรถูกล็อกสถานะแล้ว")); }
 
 /* ---------- profile ---------- */
 export function copyWallet() {
@@ -344,35 +284,13 @@ export function openSignup(after?: string) {
   S.afterSignup = after || null;
   sheet(() => (<>
     <div className="row" style={{ gap: 12 }}><svg width="44" height="44"><use href="#logo" /></svg><div><h2 style={{ fontSize: 19 }}>{tr("เข้าสู่ระบบ JONGLOEI")}</h2><div className="small muted">{tr("ซื้อ ขาย และจัดเก็บบัตรเข้าชมไว้ในที่เดียว")}</div></div></div>
-    <button className="social" onClick={() => { if (S.auth.google) { googleLogin(); return; } walletCreating(); }}><span className="g" style={{ background: "#4285F4" }}>G</span>{tr("ดำเนินการต่อด้วยบัญชี Google")}</button>
-    <button className="social" onClick={() => { if (S.auth.google) { toast(tr("ระบบเข้าสู่ระบบด้วยอีเมลจะเปิดให้บริการเร็วๆ นี้ ท่านสามารถใช้งานผ่านบัญชี Google ไปก่อนได้")); return; } walletCreating(); }}>{tr("เข้าสู่ระบบด้วยอีเมลและรหัส OTP")}</button>
-    {!S.auth.google && <span className="pill warn" style={{ alignSelf: "center" }}>{tr("ระบบจำลอง: เครื่องนี้ยังไม่ได้เชื่อมต่อระบบ Google จริง")}</span>}
-    <p className="small muted" style={{ margin: 0, textAlign: "center" }}>{tr("ไม่จำเป็นต้องมีกระเป๋าเงินดิจิทัล ระบบจะสร้างกระเป๋าจัดเก็บบัตรให้ท่านโดยอัตโนมัติ")}</p>
+    <button className="social" onClick={googleLogin}><span className="g" style={{ background: "#4285F4" }}>G</span>{tr("ดำเนินการต่อด้วยบัญชี Google")}</button>
+    <p className="small muted" style={{ margin: 0, textAlign: "center" }}>{tr("เข้าสู่ระบบด้วย Google เพื่อใช้งานบัญชีและรับบัตรเข้าชมจากระบบ")}</p>
     <div style={{ textAlign: "center" }}><button className="linkbtn" onClick={() => toast(tr("ฟังก์ชันการเชื่อมต่อกระเป๋าเงินเดิมอยู่ระหว่างแผนพัฒนาในลำดับถัดไป"))}>{tr("มีกระเป๋าเงินดิจิทัลอยู่แล้ว? เชื่อมต่อกระเป๋าเงิน")}</button></div>
     <div className="card row between" style={{ gap: 12 }}><div className="small"><b>{tr("ต้องการจัดอีเวนต์เองใช่หรือไม่?")}</b><br /><span className="muted">{tr("ลงทะเบียนหรือเข้าสู่ระบบด้วยบัญชีผู้จัดงาน แยกอิสระจากบัญชีผู้ซื้อ")}</span></div>
       <button className="btn ghost" style={{ width: "auto", padding: "10px 14px", fontSize: 14, whiteSpace: "nowrap" }} onClick={() => { closeSheet(); enterOrg(); }}>{tr("สำหรับผู้จัดงาน")}</button></div>
   </>));
 }
-function WalletSteps() {
-  const [i, setI] = useState(0);
-  useState(() => {
-    let k = 0;
-    const iv = setInterval(() => { k++; setI(k); if (k >= 3) { clearInterval(iv); S.signedIn = true; emit(); } }, 900);
-    return iv;
-  });
-  const st = (n: number) => (n < i ? "done" : n === i ? "active" : "");
-  return (<>
-    <h2 style={{ fontSize: 19, textAlign: "center" }}>{tr("กำลังเตรียมบัญชีผู้ใช้งานของท่าน")}</h2>
-    <ol className="steps">
-      <li className={st(0)}><span className="s"><svg><use href="#i-check" /></svg></span><span><b>{tr("ยืนยันตัวตนผ่านบัญชี Google")}</b><small>{S.user.email}</small></span></li>
-      <li className={st(1)}><span className="s"><svg><use href="#i-check" /></svg></span><span><b>{tr("สร้างกระเป๋าจัดเก็บบัตร (Wallet) ให้อัตโนมัติ")}</b><small>{tr("ทำงานผ่านระบบ thirdweb ไม่ต้องจดจำ Seed Phrase")}</small></span></li>
-      <li className={st(2)}><span className="s"><svg><use href="#i-check" /></svg></span><span><b>{tr("พร้อมใช้งานทันที")}</b><small className="mono">{short(S.user.wallet)}</small></span></li>
-    </ol>
-    {i >= 3 && <button className="btn" onClick={() => { closeSheet(); toast(tr("สร้างกระเป๋าจัดเก็บบัตรเรียบร้อยแล้ว")); if (S.afterSignup) { const n = S.afterSignup; S.afterSignup = null; resumeAfter(n); } }}>{tr("เริ่มต้นใช้งาน")}</button>}
-  </>);
-}
-export function walletCreating() { sheet(() => <WalletSteps />); }
-
 function ResellSheet() {
   const t = S.sel, cap = Math.floor(t.price * 1.25), cut = (v: number) => Math.round(v * 6) / 100;
   const [v, setV] = useState(String(t.price));
@@ -383,8 +301,7 @@ function ResellSheet() {
       <input id="rprice" type="number" inputMode="numeric" value={v} min={1} max={cap} onChange={e => setV(e.target.value)} aria-invalid={!ok} />
       <span className={"hint" + (ok ? "" : " err")}>{ok ? tr("ราคาหน้าบัตร {a} · กำหนดสูงสุดได้ไม่เกิน {b} (125%)", { a: fmt(t.price), b: fmt(cap) }) : tr("ตั้งราคาจำหน่ายได้ระหว่าง 1฿ ถึง {a} เพื่อป้องกันการตั้งราคาสูงเกินจริง", { a: fmt(cap) })}</span></div>
     <dl className="kv card small num" style={{ margin: 0 }}><dt>{tr("ค่าคอมมิชชันแพลตฟอร์ม 6%")}</dt><dd>{fmt(cut(n))}</dd><dt><b style={{ color: "var(--ink)" }}>{tr("ยอดสุทธิที่คุณจะได้รับ")}</b></dt><dd style={{ fontWeight: 700, color: "var(--red)" }}>{fmt(n - cut(n))}</dd></dl>
-    <div className="small muted">{tr("{a} ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม", { a: t.real ? tr("ระบบจะจัดเก็บเงินของท่านไว้และโอนให้ภายหลังจบอีเวนต์ 24 ชั่วโมง (ดำเนินการโอนโดยทีมงาน)") : tr("ยอดเงินจะถูกโอนเข้าสู่บัญชี PromptPay ของท่านหลังจบอีเวนต์") })}</div>
-    {!t.real && <span className="pill warn" style={{ alignSelf: "flex-start" }}>{tr("ระบบทดลอง: บัตรจำลอง ไม่มีการทำธุรกรรมการเงินจริง")}</span>}
+    <div className="small muted">{tr("{a} ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม", { a: tr("ระบบจะจัดเก็บเงินของท่านไว้และโอนให้ภายหลังจบอีเวนต์ 24 ชั่วโมง (ดำเนินการโอนโดยทีมงาน)") })}</div>
     <button className="btn" disabled={!ok} onClick={() => listTicket(n)}>{tr("ประกาศจำหน่ายในตลาดซื้อขายต่อ")}</button>
     <button className="btn plain" onClick={closeSheet}>{tr("ยกเลิก")}</button>
   </>);
@@ -392,7 +309,7 @@ function ResellSheet() {
 export const openResell = () => sheet(() => <ResellSheet />);
 
 function TransferSheet() {
-  const t = S.sel; const [to, setTo] = useState("pim.s@gmail.com");
+  const t = S.sel; const [to, setTo] = useState("");
   return (<>
     <h2 style={{ fontSize: 19 }}>{tr("โอนสิทธิ์บัตรให้เพื่อน")}</h2>
     <div className="field"><label htmlFor="tto">{tr("อีเมลหรือหมายเลขโทรศัพท์ของเพื่อน")}</label><input id="tto" value={to} onChange={e => setTo(e.target.value)} placeholder={tr("เช่น friend@gmail.com หรือ 081-234-5678")} />
@@ -404,12 +321,6 @@ function TransferSheet() {
 }
 export const openTransfer = () => sheet(() => <TransferSheet />);
 
-export function openReset() {
-  sheet(() => (<>
-    <h2 style={{ fontSize: 20 }}>{tr("ต้องการล้างข้อมูลระบบทดลองหรือไม่?")}</h2><p className="muted" style={{ margin: 0 }}>{tr("ข้อมูลบัตร รายการขายต่อ และประวัติทั้งหมดในระบบทดลองนี้จะถูกล้างและเริ่มต้นใหม่ ไม่สามารถย้อนกลับได้")}</p>
-    <button className="btn org-danger-btn" onClick={() => { resetDemo(); location.href = "/"; }}>{tr("ล้างข้อมูลระบบทดลอง")}</button><button className="btn plain" onClick={closeSheet}>{tr("ยกเลิก")}</button>
-  </>));
-}
 export function openRules() {
   sheet(() => (<>
     <h2 style={{ fontSize: 20 }}>{tr("เงื่อนไขและข้อกำหนดการซื้อขายต่อ")}</h2>
