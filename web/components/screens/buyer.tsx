@@ -206,14 +206,22 @@ export function Tickets() {
   if (!S.signedIn) return <SignInFirst title={tr("เข้าสู่ระบบเพื่อตรวจสอบบัตรเข้าชม")} sub={tr("ใช้บัญชี Google เพียงบัญชีเดียว จัดเก็บบัตรได้ครบทุกอุปกรณ์")} />;
   const groups: Record<string, string> = { active: tr("สถานะพร้อมใช้งาน"), listed: tr("กำลังลงประกาศขายต่อ"), used: tr("ผ่านการใช้งานแล้ว"), refunded: tr("ดำเนินการคืนเงินแล้ว") };
   const list = S.tickets.filter((t: any) => t.status === S.mtab);
+  const pending = S.mtab === "active" ? S.pendingResales.filter((o: any) => o.status !== "fulfilled") : [];
+  const pendingCards = pending.map((o: any) => {
+    const e = evById(o.eventId), review = o.status === "needs_review";
+    return (<div key={o.id || o.orderId} className="card" role="status"><div className="row between"><b>{e ? tr(e.name) : tr("บัตรขายต่อ")}</b>
+      <span className="pill warn">{review ? tr("ต้องตรวจสอบการโอน") : o.status === "paid" ? tr("กำลังโอนบัตร") : tr("รอการยืนยันการชำระเงิน")}</span></div>
+      <div className="small muted">{tr("{a} · ยอดชำระ {b}", { a: o.zone, b: fmt(o.price || Math.round((o.amountSatang || 0) / 100)) })}</div>
+      <div className="small muted">{review ? tr("ระบบกำลังตรวจสอบธุรกรรมเพื่อป้องกันการโอนซ้ำ") : tr("ชำระเงินแล้ว บัตรจะแสดงที่นี่เมื่อโอนเสร็จสิ้น")}</div></div>);
+  });
   return (<div className="wrap">
     <div className="row between"><h1 className="ftitle">{tr("บัตรเข้าชมของฉัน")}</h1>{S.auth.google && <button className="lnk" onClick={() => { loadMyTickets(); toast(tr("กำลังโหลดข้อมูลบัตรล่าสุด")); }}>{tr("โหลดข้อมูลใหม่")}</button>}</div>
     <div className="chips" role="group" aria-label={tr("สถานะบัตรเข้าชม")}>{Object.entries(groups).map(([k, v]) => (
       <button key={k} className={"chip " + (S.mtab === k ? "on" : "")} aria-pressed={S.mtab === k} onClick={() => { S.mtab = k; emit(); }}>{v} <span className="num">{S.tickets.filter((t: any) => t.status === k).length}</span></button>))}</div>
-    {list.length ? <div className="tklist">{list.map((t: any) => { const e = evById(t.ev) || { name: "—", short: "", bg: "", date: "", time: "", zones: [] }; return (
+    {pendingCards}{list.length ? <div className="tklist">{list.map((t: any) => { const e = evById(t.ev) || { name: "—", short: "", bg: "", date: "", time: "", zones: [] }; return (
       <button key={t.key || t.tid} className="tk" onClick={() => openTicket(t)}><Thumb e={e} />
         <div className="info"><h3>{tr(e.name)}</h3><span className="meta num">{tr("{a} · {b} น.", { a: tr(e.date), b: e.time })}</span><span><ZChip e={e} name={t.zone} /></span></div><TkPill t={t} /></button>); })}</div>
-      : <div className="empty">{S.mtab === "active" ? tr("ยังไม่มีบัตรเข้าชม บัตรที่ท่านซื้อหรือได้รับโอนจะแสดงผล ณ ที่นี้ พร้อม QR Code สำหรับเข้างาน") : tr("ไม่พบบัตรเข้าชมในหมวดหมู่นี้")}
+      : pendingCards.length ? null : <div className="empty">{S.mtab === "active" ? tr("ยังไม่มีบัตรเข้าชม บัตรที่ท่านซื้อหรือได้รับโอนจะแสดงผล ณ ที่นี้ พร้อม QR Code สำหรับเข้างาน") : tr("ไม่พบบัตรเข้าชมในหมวดหมู่นี้")}
         {S.mtab === "active" && <><br /><br /><button className="btn" onClick={() => go("home")} style={{ maxWidth: 280, margin: "0 auto" }}>{tr("ดูอีเวนต์ทั้งหมด")}</button></>}</div>}
     <p className="small muted" style={{ margin: 0 }}>{tr("บัตรทุกใบจัดเก็บปลอดภัยในบัญชีที่ระบบสร้างให้โดยอัตโนมัติ ไม่จำเป็นต้องจำรหัสกู้คืนหรือชำระค่าธรรมเนียมเครือข่ายเอง")}</p>
   </div>);

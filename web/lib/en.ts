@@ -1102,6 +1102,13 @@ export const EN: Record<string, string> = {
   "บัตรวันเดียว": "One-day ticket",
   "บัตร 2 วัน": "2-day ticket",
   "ธันเดอร์โดม เมืองทองธานี": "Thunder Dome, Muang Thong Thani",
+  "บัตรขายต่อ": "Resale ticket",
+  "ต้องตรวจสอบการโอน": "Transfer needs review",
+  "กำลังโอนบัตร": "Transferring ticket",
+  "รอการยืนยันการชำระเงิน": "Awaiting payment confirmation",
+  "{a} · ยอดชำระ {b}": "{a} · amount paid {b}",
+  "ระบบกำลังตรวจสอบธุรกรรมเพื่อป้องกันการโอนซ้ำ": "We are checking the transaction to prevent a duplicate transfer",
+  "ชำระเงินแล้ว บัตรจะแสดงที่นี่เมื่อโอนเสร็จสิ้น": "Payment received. The ticket will appear here once the transfer finishes",
 };
 
 export const EN_RE: [RegExp, string][] = [

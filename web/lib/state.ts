@@ -28,7 +28,7 @@ export const S: any = {
   listings: [] as any[],
   sel: null, nextTid: 1311, buyingListing: null, mtab: "active",
   mode: "buyer", org: null as any, orgLive: null, orgLiveWanted: false,
-  order: null, promo: null, realListings: null, desk: false, copied: false, hideMarketNote: false,
+  order: null, promo: null, realListings: null, pendingResales: [] as any[], desk: false, copied: false, hideMarketNote: false,
 };
 
 // event list: always loaded from /api/events (D1); there is no browser-only fallback

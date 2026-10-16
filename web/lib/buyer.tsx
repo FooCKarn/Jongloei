@@ -79,12 +79,12 @@ export async function loadMyTickets() {
     const response = await fetch("/api/tickets", { credentials: "same-origin" });
     const data = await readJsonResponse(response, "/api/tickets");
     if (!response.ok || !Array.isArray(data.tickets)) return;
-    const before = JSON.stringify([S.tickets, S.realListings]);
+    const before = JSON.stringify([S.tickets, S.realListings, S.pendingResales]);
     S.tickets = data.tickets.map(realTicket);
     if (S.sel && S.sel.real) S.sel = S.tickets.find((x: any) => x.key === S.sel.key) || S.sel;
     await loadResale();
     // redraw only when something changed, so a ticket that is still minting does not flash the page on every poll
-    if (JSON.stringify([S.tickets, S.realListings]) !== before) emit();
+    if (JSON.stringify([S.tickets, S.realListings, S.pendingResales]) !== before) emit();
     clearTimeout(mintTimer);
     if (!S.tickets.some((t: any) => t.minting)) mintPolls = 0;
     else if (++mintPolls <= 120) mintTimer = setTimeout(loadMyTickets, 5000);
@@ -95,9 +95,11 @@ export async function loadMyTickets() {
 export function marketListings(): any[] { return S.realListings || []; }
 export async function loadResale() {
   try {
-    const [market, mine] = await Promise.all(["/api/resale/listings", "/api/resale/listings?mine=1"].map(u => fetch(u, { credentials: "same-origin" }).then(r => (r.ok ? r.json() : { listings: [] }))));
+    const [market, mine, orders] = await Promise.all(["/api/resale/listings", "/api/resale/listings?mine=1", "/api/resale/orders"].map(u => fetch(u, { credentials: "same-origin" }).then(r => (r.ok ? r.json() : { listings: [], orders: [] }))));
+    S.pendingResales = orders.orders || [];
     S.realListings = market.listings.map((l: any) => ({ lid: l.id, ev: l.eventId, zone: l.zone, face: l.facePrice, price: l.price, seller: l.seller, transfers: l.transfers, tid: l.tokenId, held: l.held, mine: l.mine, real: true }));
     for (const l of mine.listings) { const t = S.tickets.find((x: any) => x.key === l.ticketId); if (t) { t.listPrice = l.price; t.listingId = l.id; t.listingSold = l.status === "sold"; t.listingOrderStatus = l.orderStatus; t.listingReviewReason = l.orderReviewReason; } }
+    if (S.pendingResales.some((o: any) => o.status === "paid")) setTimeout(loadMyTickets, 5000);
   } catch (err) { console.error("Resale API failed", err); }
 }
 const RESALE_ERRORS: Record<string, string> = tmap({ holding_period: "สามารถลงประกาศขายต่อได้ภายหลังได้รับบัตรครบ 6 ชั่วโมง", transfer_closed: "ปิดระบบการขายต่อแล้ว (เปิดให้ดำเนินการก่อนอีเวนต์เริ่ม 1 ชั่วโมง)", invalid_price: "ราคาจำหน่ายเกินเพดานกำหนด 125% ของราคาหน้าบัตร",
