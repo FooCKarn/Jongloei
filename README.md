@@ -209,7 +209,7 @@ The ticket checkout uses a Stripe-hosted Checkout Session in THB, so the guest c
 
 Setup:
 
-1. Apply the migrations to the **remote** database: `npx wrangler d1 migrations apply jongloei-db --remote`.
+1. Apply the migrations to the **remote** database: `npx wrangler d1 migrations apply jongloei-db --remote`. Migration `0009_local_events_stripe.sql` promotes the five organizer events that were previously mock-up-only into D1, preserving their `org-*` IDs so existing links can use Stripe Checkout.
 2. Add a restricted Stripe key as the secret `STRIPE_SECRET_KEY` (an `rk_` key with write access to Checkout Sessions).
 3. Add a Stripe webhook at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`, and store its signing secret as `STRIPE_WEBHOOK_SECRET`.
 4. `THIRDWEB_SECRET_KEY` must be set for minting. Optional: `FUJI_RPC_URL` overrides the public Fuji RPC. `MINT_GUARD_ADDRESS` sends mints through the mint guard (`contracts/README.md`, "Mint guard").

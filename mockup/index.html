@@ -974,7 +974,8 @@ function ensureOrg(){
 function refreshEvents(){
   const o=demoOrg();
   const pub=o?o.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status)).map(e=>toBuyerEvent(e)):[];
-  EVENTS=BASE_EVENTS.concat(pub);
+  const loaded=new Set(BASE_EVENTS.map(e=>e.id));
+  EVENTS=BASE_EVENTS.concat(pub.filter(e=>!loaded.has(e.id)));
 }
 const orgEv=id=>S.org.events.find(e=>e.id===id);
 function replaceOrgEvent(ev){S.org.events=S.org.events.map(e=>e.id===ev.id?ev:e);refreshEvents()}
