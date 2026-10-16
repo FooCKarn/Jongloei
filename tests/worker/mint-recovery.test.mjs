@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../../src/worker.js';
 import { makeD1 } from './d1-shim.mjs';
+import { keccak256, toHex } from '../../src/evm.js';
 
 const MIN = 60000;
 const CONTRACT = '0xef36fcbdED316dEd4367636a6c85d73bFD5e2735';
@@ -32,12 +33,12 @@ function setup({ age, quantity = 1 }) {
 
 // thirdweb answers `status` for the queued write; the RPC has `minted` [tokenId, eventId, to?] logs.
 function mockNetwork({ status, minted = [], thirdwebDown = false, rpcError = null }) {
-  const sent = { writes: 0, getLogs: [] };
+  const sent = { writes: 0, bodies: [], getLogs: [] };
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const reply = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
     if (url.host === 'api.thirdweb.com' && url.pathname === '/v1/contracts/write') {
-      sent.writes++;
+      sent.writes++; sent.bodies.push(JSON.parse(init.body));
       return reply({ result: { transactionIds: ['tw-tx-2'] } });
     }
     if (url.host === 'api.thirdweb.com' && url.pathname.startsWith('/v1/transactions/')) {
@@ -158,4 +159,24 @@ test('an RPC error on the chain check is kept on the order and nothing else chan
   assert.equal(row.mint_tx_id, 'tw-tx-1');
   assert.match(row.mint_error, /chain check: .*too many blocks/);
   assert.equal(sent.writes, 0);
+});
+
+test('with the mint guard set, each ticket is minted once by its order key', async () => {
+  const GUARD = '0x' + '9'.repeat(40);
+  for (const guard of [GUARD, undefined]) {
+    const { DB, env } = setup({ age: 0, quantity: 2 });
+    if (guard) env.MINT_GUARD_ADDRESS = guard;
+    DB.raw.prepare(`UPDATE payment_orders SET mint_tx_id = NULL, mint_attempts = 0 WHERE id = 'po1'`).run();
+    const sent = mockNetwork({ status: 'SUBMITTED' });
+    await cron(env);
+    const calls = sent.bodies[0].calls;
+    if (guard) {
+      assert.deepEqual(calls.map(c => c.contractAddress), [GUARD, GUARD]);
+      assert.match(calls[0].method, /mintOnce\(address to, uint256 eventId, bytes32 ticketKey\)/);
+      assert.deepEqual(calls.map(c => c.params), [0, 1].map(i => [WALLET, '4', toHex(keccak256('po1:' + i))]));
+    } else {
+      assert.deepEqual(calls.map(c => c.contractAddress), [CONTRACT, CONTRACT]);
+      assert.deepEqual(calls[0].params, [WALLET, '4']);
+    }
+  }
 });
