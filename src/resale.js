@@ -28,9 +28,10 @@ import { readChain } from './checkin.js';
 const ONE_TICKET_LIMIT = 4; // same per-account, per-event limit as first sales
 const MAX_TRANSFER_ATTEMPTS = 3;
 const DISPUTE_WINDOW_MS = 24 * 3600000;
-// Same as the first-sale mint: thirdweb can keep a write pending after it landed, so after a few
-// minutes the ticket's owner is read on chain, and after 30 minutes the order goes to review.
-const TRANSFER_CHAIN_CHECK_AFTER_MS = 3 * 60000;
+// thirdweb can keep a write pending long after it landed (on prod every resale so far), so each
+// pass reads the ticket's owner on chain: as soon as the buyer holds it the order settles. A
+// failed write is retried only while the seller still holds it, and after 30 minutes the order
+// goes to review.
 const TRANSFER_REVIEW_AFTER_MS = 30 * 60000;
 const LISTING_STATUSES_LIVE = `('active', 'sold')`;
 
@@ -480,13 +481,13 @@ async function settleTransfer(env, orderId, deps, polls = 1) {
       return; // RPC may lag behind thirdweb; the next pass checks again
     }
   } else {
-    if (tx.status !== 'FAILED' && age < TRANSFER_CHAIN_CHECK_AFTER_MS) return; // still on its way
-    // Failed or stuck at thirdweb: the chain decides. Sending again after a transfer that did land
-    // would leave the order unable to settle, so only a ticket still with the seller is retried.
+    // Not confirmed by thirdweb (yet): the chain decides. Sending again after a transfer that did
+    // land would leave the order unable to settle, so only a ticket still with the seller is retried.
     let owner;
     try {
       owner = (await readChain(env, order.token_id)).owner;
     } catch (err) {
+      if (tx.status !== 'FAILED' && age < TRANSFER_REVIEW_AFTER_MS) return; // try again next pass
       await env.DB.prepare(`UPDATE resale_orders SET transfer_error = ? WHERE id = ? AND status = 'paid'`)
         .bind(('chain check: ' + (err && err.message || err)).slice(0, 500), orderId).run();
       return;
