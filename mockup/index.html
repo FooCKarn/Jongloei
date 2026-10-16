@@ -3202,12 +3202,12 @@ async function loadMyTickets(){
     const response=await fetch('/api/tickets',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/tickets');
     if(!response.ok||!Array.isArray(data.tickets))return;
-    const before=JSON.stringify([S.tickets,S.realListings]);
+    const before=JSON.stringify([S.tickets,S.realListings,S.pendingResales]);
     S.tickets=data.tickets.map(realTicket);
     await loadResale();
     // Redraw only when something changed, so a ticket still minting does not make the page flash every poll;
     // keep the scroll position too, so the redraw doesn't jump back to the top like a page refresh.
-    if(JSON.stringify([S.tickets,S.realListings])!==before)render(true);
+    if(JSON.stringify([S.tickets,S.realListings,S.pendingResales])!==before)render(true);
     clearTimeout(mintTimer);
     if(!S.tickets.some(t=>t.minting))mintPolls=0;
     else if(++mintPolls<=120)mintTimer=setTimeout(loadMyTickets,5000);
