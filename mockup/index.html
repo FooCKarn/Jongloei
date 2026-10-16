@@ -852,6 +852,7 @@ const S={
   tickets:[],
   q:'',cat:'ทั้งหมด',mcat:'all',
   listings:[],
+  pendingResales:[],
   sel:null,qrTimer:null,payTimer:null,nextTid:1311,buyingListing:null,ticketView:'qr',mtab:'active',
   mode:'buyer',org:null,
 };
@@ -1224,12 +1225,18 @@ tickets(){
     <h1 class="h2">เข้าสู่ระบบเพื่อดูตั๋ว</h1><p class="muted" style="margin:0">ใช้บัญชี Google บัญชีเดียว ตั๋วอยู่ครบทุกเครื่อง</p><button class="bigbtn" data-act="signup" style="max-width:320px">เข้าสู่ระบบ</button></div>`;
   const groups={active:'ใช้งานได้',listed:'ลงขายอยู่',used:'ใช้แล้ว',refunded:'คืนเงินแล้ว'};
   const list=S.tickets.filter(t=>t.status===S.mtab);
+  const pendingResales=S.mtab==='active'?S.pendingResales.filter(o=>o.status!=='fulfilled'):[];
+  const pendingCards=pendingResales.map(o=>{
+    const e=evById(o.eventId),status=o.status==='needs_review'?'ต้องตรวจสอบการโอน':o.status==='paid'?'กำลังโอนตั๋ว':'รอการยืนยันการชำระเงิน';
+    const note=o.status==='needs_review'?'ระบบกำลังตรวจสอบธุรกรรมเพื่อป้องกันการโอนซ้ำ':'ชำระเงินแล้ว ตั๋วจะแสดงที่นี่เมื่อโอนบนบล็อกเชนสำเร็จ';
+    return `<div class="card" role="status"><div class="row between"><b>${esc(e?e.name:'ตั๋วขายต่อ')}</b><span class="pill warn">${status}</span></div><div class="small muted">${esc(o.zone)} · ยอดชำระ ${fmt((o.amountSatang||0)/100)}</div><div class="small muted">${note}</div></div>`;
+  }).join('');
   return `<div class="wrap">
   <h1 class="ftitle">ตั๋วของฉัน</h1>
   <div class="chips" role="group" aria-label="สถานะตั๋ว">${Object.entries(groups).map(([k,v])=>`<button class="chip ${S.mtab===k?'on':''}" data-mtab="${k}" aria-pressed="${S.mtab===k}">${v} <span class="num">${S.tickets.filter(t=>t.status===k).length}</span></button>`).join('')}</div>
-  ${list.length?`<div class="tklist">${list.map(t=>{const e=evById(t.ev);return `<button class="tk" data-ticket="${t.key||t.tid}">${thumb(e)}
+  ${pendingCards}${list.length?`<div class="tklist">${list.map(t=>{const e=evById(t.ev);return `<button class="tk" data-ticket="${t.key||t.tid}">${thumb(e)}
       <div class="info"><h3>${e.name}</h3><span class="meta num">${e.date} · ${e.time} น.</span><span>${zchip(e,t.zone)}</span></div>${tkPill(t)}</button>`}).join('')}</div>`
-    :`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ตั๋วที่ซื้อหรือได้รับโอนจะขึ้นที่นี่ พร้อม QR สำหรับเข้างาน':'ไม่มีตั๋วในหมวดนี้'}${S.mtab==='active'?'<br><br><button class="btn" data-act="home" style="max-width:280px;margin:0 auto">ดูงานทั้งหมด</button>':''}</div>`}
+    :pendingCards?'' :`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ตั๋วที่ซื้อหรือได้รับโอนจะขึ้นที่นี่ พร้อม QR สำหรับเข้างาน':'ไม่มีตั๋วในหมวดนี้'}${S.mtab==='active'?'<br><br><button class="btn" data-act="home" style="max-width:280px;margin:0 auto">ดูงานทั้งหมด</button>':''}</div>`}
   <p class="small muted" style="margin:0">ตั๋วทุกใบเก็บในบัญชีที่ระบบสร้างให้ตอนสมัคร ไม่ต้องจำรหัสกู้คืนหรือจ่ายค่า gas เอง</p>
   </div>`;
 },
@@ -3201,12 +3208,14 @@ let mintPolls=0,mintTimer=0;
 
 /* Resale listings are always loaded from the Worker. */
 function marketListings(){return S.realListings||[]}
-async function loadResale(){
+ async function loadResale(){
   try{
-    const [market,mine]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[]})));
+  const [market,mine,orders]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1','/api/resale/orders'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[],orders:[]})));
     S.realListings=market.listings.map(l=>({lid:l.id,ev:l.eventId,zone:l.zone,face:l.facePrice,price:l.price,seller:l.seller,transfers:l.transfers,tid:l.tokenId,held:l.held,mine:l.mine,real:true}));
-    for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold';t.listingOrderStatus=l.orderStatus;t.listingReviewReason=l.orderReviewReason}}
-  }catch(err){console.error('Resale API failed',err)}
+  S.pendingResales=orders.orders||[];
+  for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold';t.listingOrderStatus=l.orderStatus;t.listingReviewReason=l.orderReviewReason}}
+  if(S.pendingResales.some(o=>o.status==='paid'))setTimeout(loadMyTickets,5000);
+}catch(err){console.error('Resale API failed',err)}
 }
 const RESALE_ERRORS={holding_period:'ลงขายได้หลังได้ตั๋วครบ 6 ชั่วโมง',transfer_closed:'ปิดการขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',invalid_price:'ราคาเกินเพดาน 125% ของราคาหน้าบัตร',
   already_listed:'ตั๋วใบนี้ลงขายอยู่แล้ว',ticket_not_listable:'ตั๋วใบนี้ลงขายไม่ได้',event_not_open:'งานนี้ปิดหรือถูกยกเลิกแล้ว',event_time_unknown:'งานนี้ยังไม่มีเวลาเริ่มที่ชัดเจน',
