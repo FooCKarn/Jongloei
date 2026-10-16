@@ -49,6 +49,13 @@ const HOLD_MS = 10 * 60000; // seat hold while the guest pays (context: 10 minut
 const SERVICE_FEE = 0.03;
 const MAX_TICKETS_PER_EVENT = 4;
 const MAX_MINT_ATTEMPTS = 3;
+// thirdweb can keep a mint "pending" after it landed (its bundler failing receipt lookups with
+// RECEIPT_QUERY_FAILED retries forever), so after a few minutes the mint is looked up on chain,
+// and after 30 minutes with nothing found the order goes to review instead of waiting forever.
+const MINT_CHAIN_CHECK_AFTER_MS = 3 * 60000;
+const MINT_REVIEW_AFTER_MS = 30 * 60000;
+const TICKET_MINTED_TOPIC = '0x5c1c9352d51031acc9a558d7cdcca15b0ce5fe4f46d7315cca355248175b0a37'; // TicketMinted(uint256,address,uint256)
+const LOG_SPAN = 2000; // blocks per eth_getLogs call (the public Fuji RPC caps the range)
 // Seats a buyer can still take in zone z: not sold (remaining, reduced on verified payment by
 // 0004) and not held by a pending order (the 10-minute hold).
 const AVAILABLE_SEATS = `(z.remaining - (SELECT COALESCE(SUM(o.quantity), 0) FROM payment_orders o
@@ -551,40 +558,61 @@ async function mintOrder(env, orderId) {
 }
 
 // Checks the queued mint. Confirmed: reads the token ids from the receipt and fulfils the order.
-// Failed: frees the order for another attempt, or sends it to review after the last one.
+// Not confirmed after a few minutes, or failed: looks for the mint on chain first, since thirdweb
+// can lose track of a write that landed and minting again would give the buyer two tickets.
+// Failed and not on chain: frees the order for another attempt, or sends it to review after the
+// last one. Still pending and not on chain after 30 minutes: review, never a second send.
 async function settleMint(env, orderId, polls = 1) {
   const order = await env.DB.prepare(
-    `SELECT id, mint_tx_id, mint_attempts, quantity FROM payment_orders WHERE id = ? AND status = 'paid'`,
+    `SELECT o.id, o.mint_tx_id, o.mint_attempts, o.quantity, o.updated_at, e.chain_event_id
+     FROM payment_orders o JOIN events e ON e.id = o.event_id WHERE o.id = ? AND o.status = 'paid'`,
   ).bind(orderId).first();
   if (!order?.mint_tx_id || order.mint_tx_id === 'sending') return;
   const results = [];
   for (const id of order.mint_tx_id.split(',')) results.push(await waitForTransaction(env.THIRDWEB_SECRET_KEY, id, polls));
   const failed = results.find(r => r.status === 'FAILED');
-  if (failed) {
-    const last = order.mint_attempts >= MAX_MINT_ATTEMPTS;
-    await env.DB.batch([
-      env.DB.prepare(
-        `UPDATE payment_orders SET mint_tx_id = NULL, mint_error = ?, status = ?, review_reason = ?, updated_at = ?
-         WHERE id = ? AND mint_tx_id = ?`,
-      ).bind(String(failed.error || 'mint failed').slice(0, 500), last ? 'needs_review' : 'paid',
-        last ? 'mint failed ' + MAX_MINT_ATTEMPTS + ' times' : null, Date.now(), orderId, order.mint_tx_id),
-      ...(last ? [env.DB.prepare(`UPDATE tickets SET status = 'mint_failed' WHERE order_id = ? AND status = 'minting'`).bind(orderId)] : []),
-    ]);
-    return;
-  }
-  if (!results.every(r => r.status === 'CONFIRMED' && r.hash)) return; // still on its way
+  const confirmed = !failed && results.every(r => r.status === 'CONFIRMED' && r.hash);
+  // updated_at is when mint_tx_id was recorded; nothing else touches a paid order until it settles.
+  const age = Date.now() - order.updated_at;
+  if (!confirmed && !failed && age < MINT_CHAIN_CHECK_AFTER_MS) return; // still on its way
 
   const tickets = (await env.DB.prepare(
     `SELECT id, owner_wallet FROM tickets WHERE order_id = ? AND status = 'minting' ORDER BY id`,
   ).bind(orderId).all()).results || [];
-  const tokens = [];
-  for (const r of results) {
-    for (const tokenId of await mintedTokenIds(env, r.hash, tickets[0]?.owner_wallet)) tokens.push({ tokenId, hash: r.hash });
+  let tokens = [];
+  if (confirmed) {
+    for (const r of results) {
+      for (const tokenId of await mintedTokenIds(env, r.hash, tickets[0]?.owner_wallet)) tokens.push({ tokenId, hash: r.hash });
+    }
+    if (tokens.length < tickets.length) {
+      console.error('mint receipt has fewer tokens than tickets', orderId, tokens.length, tickets.length);
+      return; // retried on the next pass; RPC may lag behind thirdweb
+    }
+  } else {
+    if (!tickets.length) return;
+    tokens = await unclaimedMintsOnChain(env, tickets[0].owner_wallet, order.chain_event_id, age);
+    if (tokens.length >= tickets.length) {
+      console.error('mint found on chain while thirdweb says', results.map(r => r.status).join(','), orderId);
+    } else if (failed) {
+      const last = order.mint_attempts >= MAX_MINT_ATTEMPTS;
+      await env.DB.batch([
+        env.DB.prepare(
+          `UPDATE payment_orders SET mint_tx_id = NULL, mint_error = ?, status = ?, review_reason = ?, updated_at = ?
+           WHERE id = ? AND mint_tx_id = ?`,
+        ).bind(String(failed.error || 'mint failed').slice(0, 500), last ? 'needs_review' : 'paid',
+          last ? 'mint failed ' + MAX_MINT_ATTEMPTS + ' times' : null, Date.now(), orderId, order.mint_tx_id),
+        ...(last ? [env.DB.prepare(`UPDATE tickets SET status = 'mint_failed' WHERE order_id = ? AND status = 'minting'`).bind(orderId)] : []),
+      ]);
+      return;
+    } else {
+      if (age >= MINT_REVIEW_AFTER_MS) {
+        await markNeedsReview(env.DB, orderId,
+          `mint not confirmed by thirdweb after 30 min (${results.map(r => r.status).join(',')}) and not found on chain; check the relayer before retrying`);
+      }
+      return;
+    }
   }
-  if (tokens.length < tickets.length) {
-    console.error('mint receipt has fewer tokens than tickets', orderId, tokens.length, tickets.length);
-    return; // retried on the next pass; RPC may lag behind thirdweb
-  }
+
   const now = Date.now();
   await env.DB.batch([
     ...tickets.map((t, i) => env.DB.prepare(
@@ -592,8 +620,46 @@ async function settleMint(env, orderId, polls = 1) {
     ).bind(tokens[i].tokenId, tokens[i].hash, now, t.id)),
     env.DB.prepare(
       `UPDATE payment_orders SET status = 'fulfilled', mint_tx_hash = ?, fulfilled_at = ?, updated_at = ? WHERE id = ?`,
-    ).bind(results[0].hash, now, now, orderId),
+    ).bind(tokens[0]?.hash || results[0].hash, now, now, orderId),
   ]);
+}
+
+// Tickets of this event minted to `wallet` within the last `ageMs` (plus a margin) that no
+// ticket row holds yet, oldest first, from the contract's TicketMinted logs.
+async function unclaimedMintsOnChain(env, wallet, chainEventId, ageMs) {
+  if (!wallet || chainEventId == null) return [];
+  const latest = Number(BigInt(await fujiRpc(env, 'eth_blockNumber', [])));
+  // Fuji makes a block every ~2 s, so one block per second of age reaches back far enough.
+  const span = Math.min(Math.ceil(ageMs / 1000) + 300, LOG_SPAN * 10);
+  const pad = v => '0x' + BigInt(v).toString(16).padStart(64, '0');
+  const logs = [];
+  for (let from = Math.max(0, latest - span); from <= latest; from += LOG_SPAN) {
+    logs.push(...await fujiRpc(env, 'eth_getLogs', [{
+      address: TICKET_CONTRACT,
+      fromBlock: '0x' + from.toString(16),
+      toBlock: '0x' + Math.min(from + LOG_SPAN - 1, latest).toString(16),
+      topics: [TICKET_MINTED_TOPIC, null, pad(wallet), pad(chainEventId)],
+    }]) || []);
+  }
+  const found = logs.map(l => ({ tokenId: Number(BigInt(l.topics[1])), hash: l.transactionHash }));
+  if (!found.length) return [];
+  const taken = new Set(((await env.DB.prepare(
+    `SELECT token_id FROM tickets WHERE token_id IN (${found.map(() => '?').join(',')})`,
+  ).bind(...found.map(t => t.tokenId)).all()).results || []).map(r => r.token_id));
+  return found.filter(t => !taken.has(t.tokenId)).sort((a, b) => a.tokenId - b.tokenId);
+}
+
+async function fujiRpc(env, method, params) {
+  const res = await fetch(env.FUJI_RPC_URL || FUJI_RPC, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new Error(`fuji rpc ${res.status}`);
+  const body = await res.json();
+  if (body?.error) throw new Error(`fuji rpc ${method}: ${body.error.message || body.error.code}`);
+  return body?.result;
 }
 
 // Token ids minted to `wallet` by the ticket contract in this transaction (ERC-721 Transfer from 0x0).
