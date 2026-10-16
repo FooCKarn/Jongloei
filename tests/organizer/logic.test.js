@@ -33,8 +33,8 @@ test('toSatang converts baht and rejects bad input', () => {
 });
 
 test('fmtBaht shows satang only when needed', () => {
-  assert.equal(L.fmtBaht(100000), '฿1,000');
-  assert.equal(L.fmtBaht(100050), '฿1,000.50');
+  assert.equal(L.fmtBaht(100000), '1,000฿');
+  assert.equal(L.fmtBaht(100050), '1,000.50฿');
 });
 
 const threeHops = () => ({

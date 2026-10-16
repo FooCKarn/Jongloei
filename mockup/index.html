@@ -8,36 +8,48 @@
 <body>
 <title>JongLoei App Mock-up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Prompt:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap">
 <style>
-/* Layout: a phone-sized app on the right, a clickable user-flow index on the left (stacks on phones). */
+/* Tokens follow design/tokens.css (handoff 2026-10-16). Dark is the default; light only with <html data-theme="light">. */
 :root{
+  color-scheme:light;
   --brand:#A00018;          /* logo crimson, fixed in both themes */
-  --red:#A00018;            /* interactive accent */
+  --red:#A00018;            /* primary button, link, selected, price */
   --red-strong:#7E0013;
-  --red-soft:#FBEBED;       /* tinted fills */
-  --bg:#F6F3F3;             /* page ground, red-biased neutral */
+  --on-red:#FFFFFF;
+  --red-soft:var(--surface-2); /* no tinted red any more: selected = solid --red */
+  --bg:#F6F3F3;
   --surface:#FFFFFF;
   --surface-2:#FAF7F7;
   --ink:#1E1416;
   --muted:#6E6265;
   --line:#ECE4E5;
+  --line-soft:color-mix(in oklab,var(--ink) 8%,transparent);
   --ok:#1D7A48; --ok-soft:#E5F3EB;
   --warn:#9A5B00; --warn-soft:#FBF0DD;
+  /* solid status fills: same in both themes, white text */
+  --ok-solid:#22BB33; --warn-solid:#FFC107; --danger-solid:#DC2626; --info-solid:#2563EB; --red-solid:#D0021B; --neutral-solid:#898989;
+  --scan-ok:#22BB33; --scan-bad:#DC2626;
+  --zone-1:#2A78D6; --zone-2:#EB6834; --zone-3:#1BAF7A; --zone-4:#EDA100; --zone-5:#E87BA4;
+  --side:#7E0013; --on-side:#FFFFFF;
+  --scrim:rgb(18 12 13 / .56);
   --qr-bg:#FFFFFF; --qr-ink:#1E1416;
-  --shadow:0 1px 2px rgba(60,10,16,.06),0 8px 24px rgba(60,10,16,.08);
-  --f-display:"Prompt","IBM Plex Sans Thai",system-ui,sans-serif;
-  --f-body:"IBM Plex Sans Thai","Prompt",system-ui,sans-serif;
+  --shadow:0 1px 2px rgb(60 10 16 / .06),0 12px 32px rgb(60 10 16 / .14);
+  --f-display:"General Sans","Prompt",system-ui,sans-serif;
+  --f-body:"General Sans","Anuphan",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --red:#E8485A;--red-strong:#FF6B7B;--red-soft:#3A1519;--bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
-  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;--ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}}
-:root[data-theme="dark"]{
-  --red:#E8485A;--red-strong:#FF6B7B;--red-soft:#3A1519;--bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
-  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;--ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}
+:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
+  --red:#E8485A;--red-strong:#FF6B7B;--on-red:#120C0D;
+  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;
+  --ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
+  --zone-1:#3987E5;--zone-2:#D95926;--zone-3:#199E70;--zone-4:#C98500;--zone-5:#D55181;
+  --side:#3A1519;--on-side:#F5ECED;
+  --scrim:rgb(0 0 0 / .64);
+  --shadow:0 1px 2px rgb(0 0 0 / .3),0 12px 32px rgb(0 0 0 / .45)}
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
@@ -62,7 +74,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .flow button:hover{background:var(--surface)}
 .flow button.on{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow)}
 .flow .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:13px;background:var(--red-soft);color:var(--red)}
-.flow button.on .n{background:var(--red);color:#fff}
+.flow button.on .n{background:var(--red);color:var(--on-red)}
 .flow b{display:block;font-weight:600}
 .flow small{color:var(--muted);font-size:13px}
 .legend{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
@@ -75,7 +87,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .appbar svg.logo{width:30px;height:30px}
 .iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
 .iconbtn svg{width:18px;height:18px}
-.walletchip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12px;font-weight:600;border:0}
+.walletchip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:transparent;color:var(--red);font-size:12px;font-weight:600;border:1px solid var(--red)}
 .scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
 .screen{padding:16px 18px 24px;display:flex;flex-direction:column;gap:16px;animation:in .25s ease}
 @keyframes in{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -86,26 +98,31 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .tabbar button.on{color:var(--red);font-weight:600}
 
 /* ---------- shared bits ---------- */
-.btn{border:0;border-radius:14px;padding:14px 18px;font-weight:600;font-family:var(--f-display);font-size:16px;background:var(--red);color:#fff;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn{border:0;border-radius:8px;min-height:48px;padding:12px 18px;font-weight:600;font-family:var(--f-display);font-size:16px;background:var(--red);color:var(--on-red);width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s var(--ease,ease-out)}
+.btn:active{transform:scale(.97)}
 .btn:hover{background:var(--red-strong)}
-.btn.ghost{background:var(--surface);color:var(--red);border:1.5px solid var(--red)}
-.btn.ghost:hover{background:var(--red-soft)}
-.btn.plain{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
-.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+.btn.ghost:hover{background:transparent;opacity:.85}
+.btn.plain{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.btn.plain:hover{background:var(--surface-2)}
+.btn[disabled]{background:var(--neutral-solid);color:#fff;box-shadow:none;cursor:not-allowed}
 .row{display:flex;gap:10px;align-items:center}
 .between{justify-content:space-between}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+.card{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:16px}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--red-soft);color:var(--red);white-space:nowrap}
-.pill.ok{background:var(--ok-soft);color:var(--ok)}
-.pill.warn{background:var(--warn-soft);color:var(--warn)}
-.pill.grey{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+/* pills: solid fill, white text, no dot */
+.pill{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--red-solid);color:#fff;white-space:nowrap}
+.pill.ok{background:var(--ok-solid);color:#fff}
+.pill.warn{background:var(--warn-solid);color:#fff}
+.pill.grey{background:var(--neutral-solid);color:#fff;border:0}
+.pill.info{background:var(--info-solid);color:#fff}
+/* chips: red outline on the page colour; selected = solid red */
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
-.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:13.5px;white-space:nowrap}
-.chip.on{background:var(--red);color:#fff;border-color:var(--red)}
-.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;color:var(--muted)}
+.chip{border:1px solid var(--red);background:var(--bg);color:var(--red);border-radius:999px;min-height:36px;padding:6px 14px;font-size:14px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--red);color:var(--on-red);border-color:var(--red)}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--muted)}
 .search svg{width:18px;height:18px}
 .search input{border:0;background:none;outline:none;flex:1;font:inherit;color:var(--ink);min-width:0}
 hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
@@ -121,38 +138,40 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .poster.lg{min-height:200px}.poster.lg .pbig{font-size:28px}
 
 .evlist{display:flex;flex-direction:column;gap:12px}
-.ev{display:grid;grid-template-columns:92px 1fr;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;width:100%}
+.ev{display:grid;grid-template-columns:92px 1fr;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:10px;width:100%}
 .ev .poster{min-height:92px;padding:8px;border-radius:12px}
 .ev .poster .pbig{font-size:13px}
 .ev h3{font-size:15.5px;font-weight:600}
 .ev .meta{font-size:13px;color:var(--muted)}
-.ev .price{font-family:var(--f-display);font-weight:600;color:var(--red)}
+.ev .price{font-family:var(--f-display);font-weight:600;font-size:17px;color:var(--ink)}
 .ev>div{min-width:0;display:flex;flex-direction:column;gap:3px}
 
 .zones{display:flex;flex-direction:column;gap:8px}
-.zone{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;width:100%}
+.zone{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;min-height:60px;padding:0 16px;border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:8px;background:var(--surface);text-align:left;width:100%}
 .zone .dot{width:12px;height:12px;border-radius:4px;background:var(--zc)}
-.zone.on{border-color:var(--red);background:var(--red-soft)}
+.zone.on{background:var(--red);color:var(--on-red);box-shadow:inset 0 0 0 2px var(--red)}
+.zone.on .muted{color:inherit;opacity:.85}
+.zone.on .dot{box-shadow:0 0 0 2px var(--on-red)}
 .zone b{font-family:var(--f-display);font-weight:600}
-.zone[disabled]{opacity:.5}
+.zone[disabled]{background:var(--surface-2);color:var(--muted)}
 .qty{display:flex;align-items:center;gap:14px}
-.qty button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:18px}
+.qty button{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:18px}
 
 .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.trust div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;font-size:12.5px;line-height:1.35}
+.trust div{background:var(--bg);border:0;border-radius:8px;padding:10px;font-size:12.5px;line-height:1.35}
 .trust svg{width:20px;height:20px;color:var(--red);display:block;margin-bottom:4px}
 
 .sticky-cta{position:sticky;bottom:0;background:linear-gradient(to top,var(--surface-2) 85%,transparent);padding:14px 18px 16px;margin:0 -18px -24px;display:flex;gap:10px;align-items:center}
 .sticky-cta .tot{flex:none;display:flex;flex-direction:column;line-height:1.2}
 .sticky-cta .tot b{font-family:var(--f-display);font-size:20px}
 
-.pay{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;width:100%}
+.pay{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);text-align:left;width:100%}
 .pay.on{border-color:var(--red)}
 .pay .logo{width:40px;height:28px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff;background:#113566}
 .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line)}
 .pay.on .radio{border:6px solid var(--red)}
 
-.qrbox{background:var(--qr-bg);border-radius:18px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line);color:#1E1416}
+.qrbox{background:var(--qr-bg);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line);color:#1E1416}
 .qrbox canvas{width:220px;height:220px;max-width:100%;image-rendering:pixelated}
 .tqr{width:100%;background:#113566;color:#fff;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:13px}
 
@@ -162,7 +181,7 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .steps li.done:not(:last-child)::before{background:var(--red)}
 .steps .s{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;background:var(--surface)}
 .steps .s svg{width:16px;height:16px}
-.steps li.done .s{background:var(--red);border-color:var(--red);color:#fff}
+.steps li.done .s{background:var(--red);border-color:var(--red);color:var(--on-red)}
 .steps li.active .s{border-color:var(--red)}
 .steps li.active .s::after{content:"";width:12px;height:12px;border-radius:50%;border:2px solid var(--red);border-right-color:transparent;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -170,7 +189,7 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .steps small{color:var(--muted);font-size:13px}
 
 /* NFT ticket card */
-.nft{border-radius:22px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
+.nft{border-radius:12px;background:var(--surface);border:1px solid var(--line-soft);overflow:hidden}
 .nft .poster{border-radius:0;min-height:150px}
 .nft .stub{position:relative;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .nft .stub::before,.nft .stub::after{content:"";position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line)}
@@ -178,21 +197,21 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .nft .perf{position:absolute;top:0;left:16px;right:16px;border-top:2px dashed var(--line)}
 .tokenid{font-family:var(--f-mono);font-weight:500;font-size:13px;color:var(--red)}
 
-.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:4px;gap:4px}
 .seg.three{grid-template-columns:repeat(3,1fr)}
-.seg button{border:0;background:none;border-radius:9px;padding:8px;font-size:13.5px;font-weight:600;color:var(--muted)}
-.seg button.on{background:var(--red);color:#fff}
+.seg button{border:0;background:none;border-radius:8px;min-height:40px;padding:8px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--red);color:var(--on-red)}
 
 .ring{display:flex;align-items:center;gap:8px;font-size:13px;color:#6E6265}
 .ring svg{width:22px;height:22px;transform:rotate(-90deg)}
 
-.mticket{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.mticket{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:10px}
 .mticket .poster{min-height:70px;padding:6px;border-radius:10px}
 .mticket .poster .pbig{font-size:11px}
 .mticket>div{min-width:0}
 .mticket h3{font-size:15px;font-weight:600}
 
-.listing{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.listing{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .listing .top{display:grid;grid-template-columns:64px 1fr;gap:12px}
 .listing .poster{min-height:64px;padding:6px;border-radius:10px}.listing .poster .pbig{font-size:10px}
 .listing .top>div{min-width:0}
@@ -201,25 +220,27 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:13px;font-weight:600}
-.field input{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;font:inherit;color:var(--ink);width:100%}
+.field input{border:1.5px solid var(--line);background:var(--bg);border-radius:8px;min-height:48px;padding:12px;font:inherit;font-size:16px;color:var(--ink);width:100%}
 .field input:focus{border-color:var(--red);outline:none}
-.hint{font-size:12.5px;color:var(--muted)}
-.hint.err{color:var(--red)}
+.hint{font-size:13px;color:var(--muted)}
+.hint.err{color:var(--danger-solid);font-weight:600}
 
-.sheet-wrap{position:absolute;inset:0;background:rgba(20,6,8,.45);display:flex;align-items:flex-end;z-index:5}
-.sheet{background:var(--surface);width:100%;border-radius:24px 24px 0 0;padding:10px 18px 22px;display:flex;flex-direction:column;gap:14px;max-height:92%;overflow-y:auto;animation:up .25s ease}
+.sheet-wrap{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-end;z-index:20}
+.sheet{background:var(--surface);width:100%;border-radius:16px 16px 0 0;padding:10px 18px 22px;display:flex;flex-direction:column;gap:14px;max-height:92%;overflow-y:auto;box-shadow:var(--shadow);animation:up .25s ease}
 @keyframes up{from{transform:translateY(40px)}to{transform:none}}
 .grab{width:40px;height:4px;border-radius:9px;background:var(--line);margin:0 auto}
 .social{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:13px;font-weight:600;width:100%}
 .social .g{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
 .linkbtn{border:0;background:none;color:var(--red);font-weight:600;padding:0;font-size:13.5px;text-decoration:underline;text-underline-offset:3px}
 
-.toast{position:absolute;left:18px;right:18px;bottom:76px;background:var(--ink);color:var(--surface);border-radius:14px;padding:12px 14px;font-size:14px;z-index:9;display:flex;gap:8px;align-items:center;animation:up .2s ease}
+.toast{position:absolute;left:18px;right:18px;bottom:76px;background:var(--ok-solid);color:#fff;border-radius:12px;min-height:52px;padding:12px 16px;font-size:15px;z-index:30;display:flex;gap:8px;align-items:center;box-shadow:var(--shadow);animation:up .2s ease}
+.toast.err{background:var(--danger-solid)}
 .hero-ok{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-top:6px}
-.hero-ok .big{width:64px;height:64px;border-radius:20px;background:var(--red);color:#fff;display:grid;place-items:center}
+.hero-ok .big{width:72px;height:72px;border-radius:999px;background:var(--ok-solid);color:#fff;display:grid;place-items:center;animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
 .hero-ok .big svg{width:34px;height:34px}
 .empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
-.wallet-addr{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.wallet-addr{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .wallet-addr .mono{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adv{border:1px dashed var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
 .devwrap{position:sticky;top:max(16px,env(safe-area-inset-top,0px));min-width:0}
@@ -259,9 +280,9 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .dnav{gap:4px}
 .dnav button{border:0;background:none;padding:8px 14px;border-radius:10px;font-weight:600;color:var(--muted)}
 .dnav button:hover{background:var(--surface-2);color:var(--ink)}
-.dnav button.on{color:var(--red);background:var(--red-soft)}
+.dnav button.on{color:var(--on-red);background:var(--red)}
 .dsearch.search{flex:1;max-width:340px;margin-left:auto;padding:8px 12px}
-.avatar{width:36px;height:36px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--f-display);font-weight:600;flex:none}
+.avatar{width:36px;height:36px;border-radius:999px;border:0;background:var(--red);color:var(--on-red);font-family:var(--f-display);font-weight:600;flex:none}
 .stage.desk .screen{max-width:1140px;margin:0 auto;width:100%;padding:28px 32px 48px;gap:24px}
 .stage.desk .ev.feature{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
 .stage.desk .feature .poster{min-height:300px;border-radius:0}
@@ -328,9 +349,10 @@ body{padding:0}
 }
 /* scan result: fixed colours in both themes so a door scan reads the same everywhere */
 .org-result{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;color:#fff;text-align:center}
-.org-result.ok{background:#1D7A48}.org-result.bad{background:#A00018}
+.org-result.ok{background:var(--scan-ok)}.org-result.bad{background:var(--scan-bad)}
 .org-result svg{color:#fff}
-.org-danger{border-color:var(--red)}.btn.org-danger-btn{background:var(--red-strong);color:#fff}
+.org-danger{border-color:var(--danger-solid);box-shadow:inset 0 0 0 1px var(--danger-solid)}.btn.org-danger-btn{background:var(--danger-solid);color:#fff}
+.org-danger .btn.org-danger-btn{width:auto;align-self:flex-end}
 .org-progress{display:flex;gap:6px}.org-progress i{flex:1;height:6px;border-radius:9px;background:var(--line)}.org-progress i.on{background:var(--red)}
 </style>
 
@@ -381,20 +403,20 @@ body{padding:0}
 <script>
 (function(){
 const $=s=>document.querySelector(s);
-const fmt=n=>'฿'+n.toLocaleString('th-TH');
+const fmt=n=>n.toLocaleString('th-TH')+'฿';
 const CONTRACT='0x7a3F9e21B4c0D58aE6f1b2C9d04E7f3A15b8c91E';
 const OL=window.OrgLogic;
 
 /* events from /api/events (or this fallback); organizer events are added by refreshEvents() */
 let BASE_EVENTS=[
   {id:'neon',name:'BKK Neon Nights 2026',short:'NEON\nNIGHTS',tag:'คอนเสิร์ต',date:'ส. 21 พ.ย. 2569',time:'19:00',venue:'อิมแพ็ค อารีนา เมืองทองธานี',bg:'linear-gradient(140deg,#A00018,#4A0010 70%,#1E0508)',
-   zones:[{z:'Standing A',p:2500,left:182,c:'#E8485A'},{z:'Seat B',p:3800,left:64,c:'#A00018'},{z:'VIP Front',p:5500,left:9,c:'#4A0010'}],sold:86},
+   zones:[{z:'Standing A',p:2500,left:182,c:'var(--zone-1)'},{z:'Seat B',p:3800,left:64,c:'var(--zone-2)'},{z:'VIP Front',p:5500,left:9,c:'var(--zone-3)'}],sold:86},
   {id:'jazz',name:'Siam River Jazz Festival',short:'RIVER\nJAZZ',tag:'เทศกาล',date:'ส. 5 ธ.ค. 2569',time:'16:00',venue:'ลานริมน้ำ เจริญกรุง',bg:'linear-gradient(160deg,#C2412D,#7E0013 60%,#2B0A0E)',
-   zones:[{z:'บัตรวันเดียว',p:1800,left:420,c:'#E8485A'},{z:'บัตร 2 วัน',p:3200,left:150,c:'#A00018'}],sold:58},
+   zones:[{z:'บัตรวันเดียว',p:1800,left:420,c:'var(--zone-1)'},{z:'บัตร 2 วัน',p:3200,left:150,c:'var(--zone-2)'}],sold:58},
   {id:'fan',name:'Starlight Fan Meeting in Bangkok',short:'STAR\nLIGHT',tag:'แฟนมีตติ้ง',date:'อา. 13 ธ.ค. 2569',time:'17:30',venue:'ธันเดอร์โดม เมืองทองธานี',bg:'linear-gradient(150deg,#D6455A,#A00018 45%,#3D0710)',
-   zones:[{z:'Zone C',p:2900,left:0,c:'#E8485A'},{z:'Zone B',p:4200,left:31,c:'#A00018'},{z:'Hi-Touch A',p:6900,left:4,c:'#4A0010'}],sold:97},
+   zones:[{z:'Zone C',p:2900,left:0,c:'var(--zone-1)'},{z:'Zone B',p:4200,left:31,c:'var(--zone-2)'},{z:'Hi-Touch A',p:6900,left:4,c:'var(--zone-3)'}],sold:97},
   {id:'standup',name:'Late Night Stand-up Special',short:'LATE\nNIGHT',tag:'สแตนด์อัป',date:'ศ. 9 ม.ค. 2570',time:'20:00',venue:'สามย่านมิตรทาวน์ ฮอลล์',bg:'linear-gradient(130deg,#8A1020,#2A0A0D)',
-   zones:[{z:'Regular',p:1500,left:240,c:'#E8485A'},{z:'Front Row',p:2600,left:22,c:'#A00018'}],sold:41},
+   zones:[{z:'Regular',p:1500,left:240,c:'var(--zone-1)'},{z:'Front Row',p:2600,left:22,c:'var(--zone-2)'}],sold:41},
 ];
 let EVENTS=BASE_EVENTS;
 // organizer events that left the buyer list (cancelled / ended) still resolve, so tickets for them keep rendering
@@ -856,7 +878,7 @@ profile(){
   return `<div class="cols even">
   <div class="col">
     ${orgCard}
-    <div class="row"><div style="width:56px;height:56px;border-radius:18px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-size:22px;font-weight:600">${esc(initial())}</div>
+    <div class="row"><div style="width:56px;height:56px;border-radius:999px;background:var(--red);color:var(--on-red);display:grid;place-items:center;font-family:var(--f-display);font-size:22px;font-weight:600">${esc(initial())}</div>
       <div><h2 style="font-size:19px">${esc(S.user.name)}</h2><div class="small muted">${esc(S.user.email)} · เข้าสู่ระบบด้วย Google</div></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <div class="row between"><b>กระเป๋าตั๋วของคุณ</b><span class="pill ok">สร้างอัตโนมัติ</span></div>
@@ -1152,7 +1174,7 @@ function zoneTotals(d){
 function wizSummaryHtml(d){
   const t=zoneTotals(d),B=OL.fmtBaht;
   return `<dl class="kv card num" style="margin:0"><dt>ความจุรวม</dt><dd>${t.cap} ที่</dd><dt>รายได้สูงสุดที่เป็นไปได้</dt><dd>${B(t.rev)}</dd>
-    <dt>ค่าบริการ (฿5 + 3% ต่อใบ)</dt><dd>${B(t.fees)}</dd><dt style="font-weight:600;color:var(--ink)">รายรับสุทธิสูงสุด</dt><dd style="font-weight:700;color:var(--red)">${B(t.net)}</dd></dl>`;
+    <dt>ค่าบริการ (5฿ + 3% ต่อใบ)</dt><dd>${B(t.fees)}</dd><dt style="font-weight:600;color:var(--ink)">รายรับสุทธิสูงสุด</dt><dd style="font-weight:700;color:var(--red)">${B(t.net)}</dd></dl>`;
 }
 function capExample(d){
   const z=d.zones.find(x=>x.kind!=='comp'&&x.price>0),face=z?z.price:100000,cap=OL.resaleCap(face,d.params.capMultiplier);
@@ -1496,7 +1518,7 @@ function finPrintDoc(r){
       <dt>สถานะงาน</dt><dd>${statusPill(e.status)}</dd><dt>ออกเอกสาร</dt><dd>${OL.thaiDate(Date.now())}</dd></dl>
     <dl class="kv card num" style="margin:0">${r.kind==='cancelled'
       ?`<dt>เหตุผลที่ยกเลิก</dt><dd>${esc(e.cancelReason||'—')}</dd><dt>คืนเงินผู้ซื้อ</dt><dd>${B(r.refunded)}</dd><dt>ยอดที่ร้านได้รับ</dt><dd>—</dd>`
-      :`<dt>จำนวนตั๋วที่ขาย</dt><dd>${r.tickets.filter(t=>t.hops[0]&&t.hops[0].paid>0).length} ใบ</dd><dt>ยอดขายรวม</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ (฿5 + 3% ต่อใบ)</dt><dd>${B(r.fee)}</dd>
+      :`<dt>จำนวนตั๋วที่ขาย</dt><dd>${r.tickets.filter(t=>t.hops[0]&&t.hops[0].paid>0).length} ใบ</dd><dt>ยอดขายรวม</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ (5฿ + 3% ต่อใบ)</dt><dd>${B(r.fee)}</dd>
         <dt style="color:var(--ink);font-weight:600">รายรับสุทธิ</dt><dd style="font-weight:700">${B(r.net)}</dd><dt>วันรับเงิน</dt><dd>${r.payAt?OL.thaiDate(r.payAt):'—'} (${r.label})</dd>`}</dl>
   </div>`;
 }
@@ -1660,7 +1682,7 @@ Object.assign(ORG_ACTIONS,{
     else if(S.org.promos.some(p=>p.code===code))errs['pm-code']='มีโค้ดนี้อยู่แล้ว';
     let value=Number(raw);
     if(kind==='percent'){if(!Number.isInteger(value)||value<1||value>100)errs['pm-value']='เปอร์เซ็นต์ต้องเป็นจำนวนเต็ม 1-100'}
-    else{value=OL.toSatang(raw);if(Number.isNaN(value)||value<100)errs['pm-value']='ใส่จำนวนเงินอย่างน้อย ฿1'}
+    else{value=OL.toSatang(raw);if(Number.isNaN(value)||value<100)errs['pm-value']='ใส่จำนวนเงินอย่างน้อย 1฿'}
     if(!start)errs['pm-start']='ใส่วันเวลาเริ่มใช้';
     if(!end)errs['pm-end']='ใส่วันเวลาหมดอายุ';else if(start&&end<=start)errs['pm-end']='หมดอายุต้องหลังวันเริ่มใช้';
     if(!Number.isInteger(max)||max<1)errs['pm-max']='จำนวนครั้งต้องเป็นจำนวนเต็มอย่างน้อย 1';
@@ -1738,7 +1760,7 @@ orgWelcome(){
   <div class="col side">
     <div class="card" style="display:flex;flex-direction:column;gap:6px"><b>ค่าบริการ</b>
       <span style="font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--red)">5 บาท + 3% ต่อใบ</span>
-      <span class="small muted">ตั๋วราคา ฿1,000 เสียค่าบริการ ฿35 · ไม่มีค่ารายเดือน · ไม่ขายก็ไม่เสีย</span></div>
+      <span class="small muted">ตั๋วราคา 1,000฿ เสียค่าบริการ 35฿ · ไม่มีค่ารายเดือน · ไม่ขายก็ไม่เสีย</span></div>
     <button class="btn" data-o="orgSignup">สมัครผู้จัดงานด้วย Google</button>
     <button class="btn ghost" data-o="orgLogin">เข้าสู่ระบบผู้จัดงาน</button>
     <p class="small muted" style="margin:0;text-align:center">บัญชีผู้จัดงานแยกจากบัญชีผู้ซื้อ ไม่ต้องเข้าสู่ระบบผู้ซื้อก่อน</p>
@@ -1885,7 +1907,7 @@ orgFinance(){
   <div class="org-stats">
     ${stat('pending','รอจ่ายรวม',B(sum(r=>!r.paid&&r.kind!=='cancelled')),'งานที่ยังไม่จบหรืออยู่ในช่วงตรวจสอบ')}
     ${stat('paid','จ่ายแล้ว',B(sum(r=>r.paid)),'โอนเข้าบัญชีพร้อมเพย์แล้ว')}
-    ${stat('fees','ค่าบริการรวม',B(rows.reduce((a,r)=>a+r.fee,0)),'฿5 + 3% ต่อใบ')}
+    ${stat('fees','ค่าบริการรวม',B(rows.reduce((a,r)=>a+r.fee,0)),'5฿ + 3% ต่อใบ')}
     ${stat('refunded','คืนผู้ซื้อ',B(refunded),'จากงานที่ยกเลิก')}</div>
   <div class="card row between"><div><b>บัญชีรับเงิน (พร้อมเพย์)</b><div class="small muted mono">••••${esc(String(sh.payoutPromptPay||'').slice(-4))}</div></div>
     ${sh.verification==='verified'?'<span class="pill ok">ยืนยันแล้ว</span>':'<span class="pill warn">รอยืนยัน</span>'}</div>
@@ -2058,7 +2080,7 @@ function openResell(){
   <button class="btn" data-act="list" id="rlist">ลงขายในตลาดรีเซล</button>
   <button class="btn plain" data-act="close">ยกเลิก</button>`);
   $('#rprice').addEventListener('input',ev=>{const v=+ev.target.value||0;const ok=v>0&&v<=cap;
-    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)`:`ตั้งราคาได้ระหว่าง ฿1 ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
+    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)`:`ตั้งราคาได้ระหว่าง 1฿ ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
     $('#rfee').textContent=fmt(Math.round(v*.05));$('#rget').textContent=fmt(v-Math.round(v*.05));$('#rlist').disabled=!ok});
 }
 function openTransfer(){
@@ -2069,8 +2091,10 @@ function openTransfer(){
   <div class="card small" style="display:flex;flex-direction:column;gap:4px"><b>Token #${t.tid} · ${evById(t.ev).name}</b><span class="muted">โอนแล้ว ${t.transfers}/2 ครั้ง · หลังโอน QR เดิมของคุณจะใช้ไม่ได้ทันที</span></div>
   <button class="btn" data-act="dotransfer">ยืนยันการโอน</button><button class="btn plain" data-act="close">ยกเลิก</button>`);
 }
-function toast(msg){const old=$('.toast');if(old)old.remove();const d=document.createElement('div');d.className='toast';d.setAttribute('role','status');
-  d.innerHTML=`<svg width="18" height="18" style="flex:none"><use href="#i-check"/></svg>${msg}`;$('#device').appendChild(d);setTimeout(()=>d.remove(),2600)}
+// error toasts (red, alert icon) are spotted from the wording so existing call sites keep working
+function toast(msg,kind){const old=$('.toast');if(old)old.remove();const bad=kind==='err'||(kind===undefined&&/ไม่สำเร็จ|ไม่ได้|ผิดพลาด/.test(String(msg)));
+  const d=document.createElement('div');d.className='toast'+(bad?' err':'');d.setAttribute('role',bad?'alert':'status');
+  d.innerHTML=`<svg width="18" height="18" style="flex:none"><use href="#${bad?'i-alert':'i-check'}"/></svg>${msg}`;$('#device').appendChild(d);setTimeout(()=>d.remove(),2600)}
 
 /* ---------- actions ---------- */
 $('#device').addEventListener('click',e=>{
