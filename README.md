@@ -250,11 +250,22 @@ Rules that keep the paid flow consistent:
 - Event ids start with `ev-`. The mock-up treats `org-` ids as its own demo events.
 - Names, venues and zone names cannot contain the characters <code>&lt; &gt; " ' &#96;</code>, because buyer screens put them into HTML. Posters and zone colours come from fixed lists.
 - A payment that arrives after its event was cancelled goes to `needs_review` and is not minted. **Refunds are not automatic yet:** cancelling returns the number and total of paid orders to refund by hand in Stripe.
-- Not built yet: comp tickets and promo codes (a zone price must be above 0), door check-in (needs the signed QR, A6), payouts.
+- Not built yet: comp tickets and promo codes (a zone price must be above 0), payouts. Door check-in is below.
 
 Apply `0006_organizer.sql` to the remote database before or right after deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Until it is applied the buyer event list and the payment webhook keep working, but the organizer routes return errors.
 
 Tests: `node --test tests/worker/*.test.mjs` (validation), and `tests/worker/organizer-api.e2e.mjs` runs 46 checks against `wrangler dev` with a fresh local D1 (steps at the top of the file).
+
+### Entry QR and door check-in (A6)
+
+Code: `src/checkin.js` (routes), `src/evm.js` (keccak, EIP-712, signer recovery; no npm dependencies), `db/migrations/0007_checkin.sql`, the live door screen in `mockup/index.html` (`liveGateView`).
+
+- **Buyer:** a real ticket in "ตั๋วของฉัน" shows a QR from `GET /api/tickets/:id/qr`. The Worker asks thirdweb (`/v1/wallets/sign-typed-data`) to sign EIP-712 `EntryPass { tokenId, ts }` with the owner's server wallet, and refuses to hand out a signature that does not recover to that wallet. The code is `JL1.<tokenId>.<ts>.<signature>`, valid 60 s; the page fetches a new one 10 s before it runs out.
+- **Door:** the organizer "หน้างาน" tab in live mode ("ใช้ระบบจริง"), or "ไปหน้างาน" on an event. Shop owner, manager and gate staff can scan their shop's events (gate staff see only this tab); admins can also call the API for any event, including the four platform events. Camera through `BarcodeDetector`, or `mockup/vendor/jsQR.js` where the browser lacks it, or paste the code.
+- **Checks, in order** (`POST /api/checkin/events/:id/scan`): format; age (older than 60 s, or more than 15 s ahead); the ticket exists; the signature recovers to the ticket's owner wallet (so a seller's old QR fails); the event matches and is not cancelled or over; the ticket is `active` (not `used`, `listed` or still minting); then on chain `ownerOf`, `used` and `eventOf` on every scan (if the RPC does not answer, the guest is not let in and the reason says to scan again). Then one guarded `UPDATE … WHERE status = 'active'` moves it to `used`, so two doors can never both let the same ticket in. Every scan is logged in `ticket_scans`.
+- **markUsed** is sent right after a pass from the relayer and retried by the cron (up to 3 attempts); `tickets.mark_used_*` follow it. D1 is what stops a second entry, so the door never waits for the chain.
+
+Apply `0007_checkin.sql` before deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Tests: `node --test tests/worker/*.test.mjs`, and `tests/worker/checkin-api.e2e.mjs` runs 27 checks against `wrangler dev` with a mock thirdweb and Fuji RPC that sign with real keys (steps at the top of the file).
 
 ### Resale (backend)
 

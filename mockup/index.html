@@ -825,6 +825,7 @@ body{padding:0}
 </div>
 
 <script src="organizer-logic.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script>
 (function(){
 try{if(localStorage.getItem('jongloei-theme')==='light')document.documentElement.dataset.theme='light'}catch(_){}
@@ -999,7 +1000,7 @@ const TABS=BUYER_TABS.concat(ORG_TABS).map(t=>t[0]).concat(['orgTeam']);
 // which organizer tabs each team role may open (context: gate staff only scan)
 function orgTabsFor(role){
   // a real shop has only what the backend serves yet: overview and events (door staff: events only)
-  if(S.org&&S.org.live)return ORG_TABS.filter(([k])=>role==='gate'?k==='orgEvents':['orgDash','orgEvents'].includes(k));
+  if(S.org&&S.org.live)return ORG_TABS.filter(([k])=>role==='gate'?k==='orgGatePick':['orgDash','orgEvents','orgGatePick'].includes(k));
   return ORG_TABS.filter(([k])=>role==='gate'?k==='orgGatePick':role==='manager'?k!=='orgFinance':true)}
 function go(screen,reset){
   stopTimers();
@@ -1050,10 +1051,10 @@ function guardMode(){
   // organizer sign-in is its own state: no account -> log-in screen, account without a shop -> onboarding
   if(!S.org.account){if(cur!=='orgWelcome')reset('orgWelcome','orgDash');return}
   if(!S.org.shop){if(cur!=='orgOnboard')reset('orgOnboard','orgDash');return}
-  const live=S.org.live,gateHome=live?'orgEvents':'orgGatePick';
+  const live=S.org.live,gateHome='orgGatePick';
   if(!isOrg||cur==='orgWelcome'||cur==='orgOnboard')return reset(S.org.role==='gate'?gateHome:'orgDash');
-  if(S.org.role==='gate'&&!(live?['orgEvents','orgEvent']:['orgGatePick','orgGate']).includes(cur))return reset(gateHome);
-  if(live&&['orgGatePick','orgGate','orgFinance'].includes(cur))return reset('orgDash');
+  if(S.org.role==='gate'&&!['orgGatePick','orgGate'].includes(cur))return reset(gateHome);
+  if(live&&cur==='orgFinance')return reset('orgDash');
   if(S.org.role!=='owner'&&['orgFinance','orgTeam'].includes(cur))return reset('orgDash');
 }
 
@@ -1518,7 +1519,7 @@ const ORG_ACTIONS={
   orgHome(){go(S.org.role==='gate'?'orgGatePick':'orgDash',true)},
   evMenu(el){const e=orgEv(el.dataset.id);if(!e)return;const id=e.id;
     const it=(o,icon,label)=>`<button class="btn plain" style="justify-content:flex-start;gap:14px" data-o="${o}" data-id="${id}"><svg width="20" height="20"><use href="#${icon}"/></svg>${label}</button>`;
-    sheet(`<h2 style="font-size:20px">${esc(e.name)}</h2><div role="menu" style="display:flex;flex-direction:column;gap:8px">${it('openEvent','i-chart','เปิดจัดการงาน')}${['draft','on_sale','paused','sold_out'].includes(e.status)?it('editEvent','i-ticket','แก้ไขงาน'):''}${it('evDuplicate','i-copy','ทำซ้ำเป็นงานใหม่')}${['on_sale','sold_out'].includes(e.status)&&!S.org.live?it('gate','i-qr','ไปหน้างาน'):''}</div><button class="btn plain" data-act="close">ปิด</button>`)},
+    sheet(`<h2 style="font-size:20px">${esc(e.name)}</h2><div role="menu" style="display:flex;flex-direction:column;gap:8px">${it('openEvent','i-chart','เปิดจัดการงาน')}${['draft','on_sale','paused','sold_out'].includes(e.status)?it('editEvent','i-ticket','แก้ไขงาน'):''}${it('evDuplicate','i-copy','ทำซ้ำเป็นงานใหม่')}${['on_sale','sold_out'].includes(e.status)?it('gate','i-qr','ไปหน้างาน'):''}</div><button class="btn plain" data-act="close">ปิด</button>`)},
   useDemoShop(){useShop('owner@rooftop88.example')},
   demoManager(){useShop('manager@example.com')},
   demoGate(){useShop('door.staff@example.com')},
@@ -1955,6 +1956,91 @@ function gateShow(r,ticket,ev){
   if(r.valid){if(navigator.vibrate)navigator.vibrate(60);setTimeout(()=>{if(div.isConnected)div.remove()},2000)}
   else if(navigator.vibrate)navigator.vibrate([80,60,80]);
 }
+/* ---------- organizer: live door (src/checkin.js) ----------
+   The real scanner: camera (BarcodeDetector, or vendor/jsQR.js), or paste the code. The server
+   checks the owner's signature, the ticket and the chain, then marks it used. */
+const LIVE_REASON={
+  malformed:'ไม่ใช่ QR ตั๋วของ JONGLOEI',expired:'QR หมดอายุ (เกิน 60 วินาที) อาจเป็นภาพแคปหน้าจอ ให้ผู้ถือเปิดตั๋วในแอปใหม่',
+  future:'เวลาใน QR ล้ำหน้าเกิน 15 วินาที ให้ผู้ถือตรวจเวลาในเครื่อง',unknown_ticket:'ไม่พบตั๋วใบนี้ในระบบ',
+  bad_signature:'ลายเซ็นไม่ตรงกับเจ้าของตั๋วปัจจุบัน เช่น QR ของผู้ขายเดิม',wrong_event:'ตั๋วนี้เป็นของงานอื่น',
+  event_cancelled:'งานนี้ถูกยกเลิกแล้ว',event_ended:'งานจบแล้ว',already_used:'ตั๋วใบนี้ใช้เข้างานไปแล้ว',
+  listed:'ตั๋วกำลังลงขายต่อ ให้ผู้ถือยกเลิกการขายก่อน',not_issued:'ตั๋วยังออกไม่เสร็จ',
+  chain_mismatch:'เจ้าของบนบล็อกเชนไม่ตรงกับในระบบ',chain_unavailable:'ตรวจบนบล็อกเชนไม่ได้ชั่วคราว ลองสแกนอีกครั้ง'};
+const gateCam={stream:null,detector:null,busy:false,last:'',lastAt:0};
+function liveGateView(e){
+  const g=S.org.liveGate&&S.org.liveGate.id===e.id?S.org.liveGate:null,t=S.org.gtab==='log'?'log':'scan';
+  const pct=g&&g.total?Math.round(g.used*100/g.total):0;
+  const tabs=[['scan','สแกน QR'],['log','ประวัติ']];
+  S.full=true;
+  return `<div class="wrap narrow-w"><button class="crumb m-hide" data-act="back"><svg aria-hidden="true"><use href="#i-back"/></svg>เลือกงาน</button>
+    <div class="gcount"><span class="small muted">${esc(e.name)}</span>
+      <div id="gate-count" class="num">${g?`เข้างานแล้ว ${g.used} / ${g.total}`:'กำลังโหลด…'}</div>
+      <div class="pbar-t" role="progressbar" aria-valuetext="${pct}%"><span style="width:${pct}%">${pct}%</span></div></div>
+    <div class="seg" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="gtab" data-t="${k}">${v}</button>`).join('')}</div>
+    ${t==='scan'?`<div class="cam">${gateCam.stream?'<video id="gate-video" playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>':''}
+        <svg class="frame" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M2 18V6a4 4 0 0 1 4-4h12M82 2h12a4 4 0 0 1 4 4v12M98 82v12a4 4 0 0 1-4 4H82M18 98H6a4 4 0 0 1-4-4V82"/></svg>
+        ${gateCam.stream?'<span class="line"></span>':''}<span class="hint2">${gateCam.stream?'เล็ง QR ในตั๋วของผู้เข้าร่วมให้อยู่ในกรอบ':'กดเปิดกล้องเพื่อเริ่มสแกน'}</span></div>
+      <button class="btn" data-o="camToggle" style="min-height:64px;font-size:18px;border-radius:12px">${gateCam.stream?'ปิดกล้อง':'เปิดกล้อง'}</button>
+      <form id="gate-form" class="field" autocomplete="off"><label for="gate-code">ไม่มีกล้อง หรือใช้เครื่องสแกนแบบเสียบ: วางรหัสใน QR</label>
+        <div class="row"><input id="gate-code" placeholder="JL1.…" style="flex:1"><button class="btn" type="submit" style="width:auto;padding:10px 18px">ตรวจ</button></div></form>
+      <div class="small muted">QR ของผู้ถือตั๋วเปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอใช้ไม่ได้</div>`
+    :g&&g.scans.length?`<div style="overflow-x:auto"><table id="gate-log" class="org-table"><thead><tr><th scope="col">เวลา</th><th scope="col">ตั๋ว</th><th scope="col">ผล</th><th scope="col">เหตุผล</th><th scope="col">ผู้สแกน</th></tr></thead>
+      <tbody>${g.scans.map(l=>`<tr><th scope="row">${OL.thaiTime(l.at)}</th><td style="text-align:left" class="num">${l.tokenId!=null?'#'+l.tokenId:'—'}${l.zone?' · '+esc(l.zone):''}</td><td style="text-align:left">${l.valid?'ผ่าน':'ไม่ผ่าน'}</td><td style="text-align:left">${l.valid?'—':esc(LIVE_REASON[l.reason]||l.reason||'')}</td><td style="text-align:left">${esc(l.staff||'')}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div class="empty">ยังไม่มีการสแกนในงานนี้</div>'}</div>`;
+}
+async function liveGateLoad(){
+  const id=S.org.oev;
+  try{const d=await orgApi('GET','/api/checkin/events/'+encodeURIComponent(id));
+    if(S.org.oev!==id)return;S.org.liveGate={id,used:d.used,total:d.total,scans:d.scans};
+    if(S.stack[S.stack.length-1]==='orgGate'&&S.org.gtab==='log')render();
+    else{const c=$('#gate-count');if(c)c.textContent=`เข้างานแล้ว ${d.used} / ${d.total}`;const p=document.querySelector('.gcount .pbar-t span');if(p){const v=d.total?Math.round(d.used*100/d.total):0;p.style.width=v+'%';p.textContent=v+'%'}}
+  }catch(err){console.error('check-in counts failed',err);if(err.status===404)toast('บัญชีนี้สแกนงานนี้ไม่ได้')}
+}
+async function liveGateCounts(){
+  S.org.gateCountsAt=Date.now();
+  try{const d=await orgApi('GET','/api/checkin/events');S.org.gateCounts=Object.fromEntries(d.events.map(e=>[e.id,{used:e.used,total:e.total}]));
+    if(S.stack[S.stack.length-1]==='orgGatePick')render()}catch(err){console.error('check-in list failed',err)}
+}
+async function gateCheck(code,typed){
+  code=String(code||'').trim();const ev=orgEv(S.org.oev);
+  if(!code||!ev||gateCam.busy)return;
+  // the camera sees the same QR many times a second; a repeat within 4 s is the same scan
+  if(!typed&&code===gateCam.last&&Date.now()-gateCam.lastAt<4000)return;
+  gateCam.last=code;gateCam.lastAt=Date.now();gateCam.busy=true;
+  try{
+    const r=await orgApi('POST','/api/checkin/events/'+encodeURIComponent(ev.id)+'/scan',{code});
+    gateShow({valid:r.valid,reason:r.reason},null,ev);
+    const box=$('#org-result');
+    if(box){box.querySelector('.rtext').textContent=r.valid?(r.ticket&&r.ticket.holder||''):(LIVE_REASON[r.reason]||r.reason)+(r.reason==='already_used'&&r.ticket&&r.ticket.usedAt?` เมื่อ ${OL.thaiTime(r.ticket.usedAt)} น.`:'');
+      if(r.valid&&r.ticket){const z=document.createElement('span');z.className='rzone';z.textContent=`${r.ticket.zone} · Token #${r.ticket.tokenId}`;box.querySelector('.rtitle').after(z)}}
+  }catch(err){console.error('scan failed',err);toast(orgErrText(err))}
+  finally{gateCam.busy=false;liveGateLoad()}
+}
+async function gateCamStart(){
+  try{gateCam.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})}
+  catch(err){toast('เปิดกล้องไม่ได้ ใช้ช่องวางรหัสแทน');return}
+  if('BarcodeDetector' in window){try{gateCam.detector=new BarcodeDetector({formats:['qr_code']})}catch(_){gateCam.detector=null}}
+  if(!gateCam.detector&&!window.jsQR){try{await new Promise((ok,no)=>{const s=document.createElement('script');s.src='vendor/jsQR.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}catch(_){toast('โหลดตัวอ่าน QR ไม่ได้');gateCamStop();return}}
+  render();gateCamLoop();
+}
+function gateCamStop(){if(gateCam.stream)gateCam.stream.getTracks().forEach(t=>t.stop());gateCam.stream=null;if(S.stack[S.stack.length-1]==='orgGate')render()}
+const gateCanvas=document.createElement('canvas'),gateCtx=gateCanvas.getContext('2d',{willReadFrequently:true});
+async function gateCamLoop(){
+  if(!gateCam.stream)return;
+  // leaving the door screen turns the camera off
+  if(S.mode!=='org'||S.stack[S.stack.length-1]!=='orgGate'||S.org.gtab==='log'){gateCamStop();return}
+  const v=$('#gate-video');
+  if(v&&v.readyState>=2&&!gateCam.busy&&!$('#org-result')){
+    try{
+      let text=null;
+      if(gateCam.detector){const f=await gateCam.detector.detect(v);text=f[0]&&f[0].rawValue}
+      else{const w=Math.min(640,v.videoWidth),h=Math.round(v.videoHeight*w/v.videoWidth);gateCanvas.width=w;gateCanvas.height=h;
+        gateCtx.drawImage(v,0,0,w,h);const r=jsQR(gateCtx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});text=r&&r.data}
+      if(text)await gateCheck(text,false);
+    }catch(err){console.error('scan frame failed',err)}
+  }
+  setTimeout(gateCamLoop,150);
+}
 function simCase(c){
   const e=orgEv(S.org.oev),T=evTickets(e.id),now=Date.now();
   const pick=pred=>T.find(pred),other=S.org.tickets.find(t=>t.eventId!==e.id),cx=S.org.events.find(x=>x.status==='cancelled');
@@ -2306,7 +2392,7 @@ orgDash(){
   const todo=[];
   if(sh.verification!=='verified')todo.push(`<li><b>รอยืนยันร้าน</b><span class="small muted"> · เผยแพร่งานได้หลังยืนยันเสร็จ</span></li>`);
   for(const e of evs.filter(x=>x.status==='draft'))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · ร่างที่ยังไม่เผยแพร่</span> <button class="linkbtn" data-o="editEvent" data-id="${e.id}">แก้ไข</button></li>`);
-  if(!S.org.live)for(const e of evs.filter(x=>x.status==='on_sale'&&x.startAt-now<DAY&&x.endAt>now))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · เริ่ม${e.startAt<=now?'แล้ว':'ภายใน 24 ชม.'}</span> <button class="linkbtn" data-o="gate" data-id="${e.id}">เปิดหน้างาน</button></li>`);
+  for(const e of evs.filter(x=>x.status==='on_sale'&&x.startAt-now<DAY&&x.endAt>now))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · เริ่ม${e.startAt<=now?'แล้ว':'ภายใน 24 ชม.'}</span> <button class="linkbtn" data-o="gate" data-id="${e.id}">เปิดหน้างาน</button></li>`);
   for(const e of evs.filter(x=>x.status==='on_sale')){const s=evSum(e);const paid=e.zones.filter(z=>z.kind!=='comp');
     const pc=paid.reduce((a,z)=>a+z.capacity,0),pt=paid.reduce((a,z)=>a+z.sold+z.held,0);
     if(pc&&pt/pc>=.9)todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · ตั๋วเหลือ ${s.remaining} ที่ ใกล้เต็ม</span></li>`)}
@@ -2367,7 +2453,7 @@ orgEvent(){
   const acts=[e.status==='on_sale'&&!S.org.live?'<button class="btn ghost" data-o="pause">พักการขาย</button>':'',e.status==='paused'?'<button class="btn" data-o="resume">เปิดขายต่อ</button>':'',
     e.status==='draft'?`<button class="btn" data-o="editEvent" data-id="${e.id}">แก้ไขและเผยแพร่</button>`:'',
     ['on_sale','paused','sold_out'].includes(e.status)?`<button class="btn ghost" data-o="editEvent" data-id="${e.id}">แก้ไขทั้งงาน</button>`:'',
-    ['on_sale','sold_out','paused'].includes(e.status)&&!S.org.live?`<button class="btn" data-o="gate" data-id="${e.id}">ไปหน้างาน</button>`:''].join('');
+    ['on_sale','sold_out','paused'].includes(e.status)?`<button class="btn" data-o="gate" data-id="${e.id}">ไปหน้างาน</button>`:''].join('');
   const short=e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase();
   S.full=true;
   return `<div class="wrap org">
@@ -2385,6 +2471,7 @@ orgGate(){
   const e=S.org.oev&&orgEv(S.org.oev);
   if(!e){S.stack=['orgGatePick'];S.tab='orgGatePick';return VIEWS.orgGatePick()}
   appbar('หน้างาน · '+e.name);
+  if(S.org.live)return liveGateView(e);
   const g=gateStats(e),t=S.org.gtab||'scan',pct=g.total?Math.round(g.used*100/g.total):0;
   const tabs=[['scan','สแกน QR'],['search','ค้นหาชื่อ'],['log','ประวัติ']];
   S.full=true;
@@ -2399,12 +2486,13 @@ orgGatePick(){
   appbar('หน้างาน');
   const live=myEvents().filter(e=>['on_sale','sold_out','paused'].includes(e.status));
   S.full=true;const today=new Date().toDateString();
+  const counts=S.org.live?(S.org.gateCounts||{}):null;
   return `<div class="wrap org">${orgHead('หน้างาน')}
   <p class="muted" style="margin:0">เลือกงานที่จะเช็กอินผู้เข้าร่วม เรียงจากงานที่ใกล้ที่สุด</p>
   ${live.length?`<div class="lgrid2">${live.sort((a,b)=>(a.startAt||0)-(b.startAt||0)).map(e=>{const g=gateStats(e);const short=e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase();
     return `<button class="gpick" data-o="gate" data-id="${e.id}"><span class="thumb" style="--pbg:${e.bg}" aria-hidden="true"><b translate="no">${esc(short)}</b></span>
       <span class="oev-info"><span class="row" style="gap:8px;flex-wrap:wrap"><b>${esc(e.name)}</b>${e.startAt&&new Date(e.startAt).toDateString()===today?'<span class="pill">วันนี้</span>':''}</span>
-      <span class="small muted num">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</span><span class="num" style="font-size:14px;font-weight:600">เข้างานแล้ว ${g.used} / ${g.total}</span></span>
+      <span class="small muted num">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</span>${counts&&!counts[e.id]?'':`<span class="num" style="font-size:14px;font-weight:600">เข้างานแล้ว ${(counts?counts[e.id]:g).used} / ${(counts?counts[e.id]:g).total}</span>`}</span>
       <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg></button>`}).join('')}</div>`
   :'<div class="empty"><b>ไม่มีงานที่เปิดขายอยู่</b><br>งานที่เปิดขายหรือขายหมดแล้วจะขึ้นที่นี่ในวันงาน</div>'}
   ${orgAccountCard()}</div>`;
@@ -2597,7 +2685,11 @@ const LIVE_ACTIONS={
   },
   async teamRemove(el){const o=S.org;
     await live(async()=>{const r=await orgApi('DELETE','/api/org/team?email='+encodeURIComponent(el.dataset.email));o.shop.team=teamFrom(r.team,o.account.email);render()})},
-  viewAs:notLive,copyInvite:notLive,pause:notLive,resume:notLive,gate:notLive,csv:notLive,
+  viewAs:notLive,copyInvite:notLive,pause:notLive,resume:notLive,csv:notLive,
+  gate(el){if(S.org.oev!==el.dataset.id)S.org.liveGate=null;S.org.oev=el.dataset.id;S.org.gtab='scan';go('orgGate')},
+  camToggle(){gateCam.stream?gateCamStop():gateCamStart()},
+  callManager(){const r=document.getElementById('org-result');if(r)r.remove();toast('ระบบยังไม่ส่งแจ้งเตือนถึงผู้จัดการ ให้ติดต่อผู้จัดการโดยตรง')},
+  gateCode(){const el=$('#gate-code');if(!el)return;const v=el.value;el.value='';gateCheck(v,true)},
   evDuplicate(el){const src=orgEv(el.dataset.id),c=OL.duplicateEvent(src,'org-'+Date.now().toString(36));
     c.live=false;c.zones=c.zones.map(z=>({...z,live:false}));
     S.org.draft=JSON.parse(JSON.stringify(c));S.org.wizStep=1;S.org.wizErr={};toast('ทำซ้ำงานแล้ว ใส่วันเวลาใหม่ได้เลย');go('orgWizard')},
@@ -2667,6 +2759,12 @@ function nftCard(t,full){
 
 /* ---------- after-render hooks ---------- */
 const AFTER={
+  orgGatePick(){if(S.org.live&&Date.now()-(S.org.gateCountsAt||0)>15000)liveGateCounts()},
+  orgGate(){if(!S.org.live)return;
+    if(!S.org.liveGate||S.org.liveGate.id!==S.org.oev)liveGateLoad();
+    const v=$('#gate-video');if(v&&gateCam.stream){v.srcObject=gateCam.stream;v.play().catch(()=>{})}
+    const f=$('#gate-form');if(f)f.addEventListener('submit',ev=>{ev.preventDefault();orgAct('gateCode',f,ev)});
+  },
   pay(){
     drawQR($('#payqr'),'pp'+Date.now());
     let s=600;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0){clearInterval(S.payTimer);el.textContent='หมดอายุ';const pb=document.querySelector('[data-act="paid"]');if(pb)pb.outerHTML='<button class="bigbtn" data-act="newqr">สร้าง QR ใหม่</button>'}},1000);
@@ -2692,6 +2790,7 @@ const AFTER={
   },
   ticket(){
     const c=$('#entryqr');if(!c)return;
+    if(S.sel.real){liveEntryQR(c);return}
     let seed=S.sel.tid*1000+Math.floor(Date.now()/60000),s=60;drawQR(c,'t'+seed);
     S.qrTimer=setInterval(()=>{s--;if(s<=0){s=60;seed++;drawQR(c,'t'+seed)}
       const cd=$('#qrcd');if(cd)cd.textContent=s;const r=$('#ringfg');if(r)r.setAttribute('stroke-dashoffset',(94.25*(1-s/60)).toFixed(2))},1000);
@@ -2725,6 +2824,39 @@ function finishMint(){
   S.sel=t;S.stack=['tickets'];S.tab='tickets';S.mtab='active';go('success');
 }
 function rand(n){return Array.from({length:n},()=>'0123456789abcdef'[Math.random()*16|0]).join('')}
+
+/* ---------- entry QR of a real ticket: signed by the Worker through the owner's wallet ---------- */
+// GET /api/tickets/:id/qr gives a code valid for 60 s; a new one is fetched 10 s before it runs out.
+function liveEntryQR(c){
+  const t=S.sel;let exp=0,busy=false,failed=0;
+  const tick=()=>{
+    if(!c.isConnected||S.sel!==t){clearInterval(S.qrTimer);return}
+    const s=Math.max(0,Math.ceil((exp-Date.now())/1000));
+    const cd=$('#qrcd');if(cd)cd.textContent=s;const r=$('#ringfg');if(r)r.setAttribute('stroke-dashoffset',(94.25*(1-s/60)).toFixed(2));
+    if(exp-Date.now()<10000)refresh();
+  };
+  const refresh=async()=>{
+    if(busy||failed>=3)return;busy=true;
+    try{
+      const res=await fetch('/api/tickets/'+encodeURIComponent(t.key)+'/qr',{credentials:'same-origin'});
+      const d=await readJsonResponse(res,'/api/tickets/:id/qr');
+      if(!c.isConnected||S.sel!==t)return;
+      if(res.status===409){stopTimers();loadMyTickets();return} // scanned at the door, or no longer usable
+      if(!res.ok)throw new Error(d.error||'qr_failed');
+      drawCodeQR(c,d.code);exp=Date.now()+(d.expiresAt-d.ts*1000);failed=0;
+    }catch(err){
+      console.error('Entry QR failed',err);
+      if(++failed>=3){const cd=$('#qrcd');if(cd)cd.parentElement.textContent='สร้าง QR ไม่สำเร็จ ลองเปิดหน้านี้ใหม่';}
+    }finally{busy=false}
+  };
+  stopTimers();S.qrTimer=setInterval(tick,1000);tick();
+}
+function drawCodeQR(c,text){
+  const q=qrcode(0,'M');q.addData(text,'Byte');q.make();
+  const n=q.getModuleCount(),pad=2,ctx=c.getContext('2d');
+  c.width=c.height=n+pad*2;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#1E1416';
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(q.isDark(y,x))ctx.fillRect(x+pad,y+pad,1,1);
+}
 
 /* ---------- pseudo QR ---------- */
 function drawQR(c,seed){

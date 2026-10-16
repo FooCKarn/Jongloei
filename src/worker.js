@@ -14,6 +14,7 @@
 //   POST /auth/logout            -> revoke the session
 //   POST /api/dev/test-mint      -> admin only: mint one test ticket to the caller's wallet
 //   /api/org/*, /api/admin/hosts -> organizer API, see src/organizer.js
+//   /api/tickets/:id/qr, /api/checkin/* -> entry QR and door check-in, see src/checkin.js
 //   /api/resale/*                -> resale market and its checkout, see src/resale.js
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
@@ -23,6 +24,7 @@
 // is made.
 
 import { handleOrganizer } from './organizer.js';
+import { handleCheckin, advanceMarkUsed } from './checkin.js';
 import {
   handleResale, confirmResalePayment, releaseResaleBySession, resaleCheckoutStatus, cancelResaleCheckout, resaleSweep,
 } from './resale.js';
@@ -73,6 +75,9 @@ export default {
       if (url.pathname === '/api/dev/test-mint' && request.method === 'POST') return testMint(request, env);
       if (url.pathname.startsWith('/api/org/') || url.pathname === '/api/admin/hosts/verify') {
         return handleOrganizer(request, env, ctx, url, { currentUser, json, expireOrder, logEvent });
+      }
+      if (url.pathname.startsWith('/api/tickets/') || url.pathname.startsWith('/api/checkin/')) {
+        return handleCheckin(request, env, ctx, url, { currentUser, json });
       }
       if (url.pathname.startsWith('/api/resale/')) return handleResale(request, env, ctx, url, resaleDeps);
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
@@ -645,11 +650,13 @@ async function advancePaidOrders(env, userId = null) {
   }
 }
 
-// Cron trigger (wrangler.jsonc): releases expired holds and finishes paid orders.
+// Cron trigger (wrangler.jsonc): releases expired holds, finishes paid orders, and sends
+// markUsed for tickets scanned at the door.
 async function scheduled(_controller, env, ctx) {
   ctx.waitUntil(Promise.all([
     expireHolds(env, ctx).catch(err => console.error('hold sweep failed', err && err.stack || err)),
     advancePaidOrders(env).catch(err => console.error('mint sweep failed', err && err.stack || err)),
+    advanceMarkUsed(env).catch(err => console.error('markUsed sweep failed', err && err.stack || err)),
     resaleSweep(env, ctx, resaleDeps).catch(err => console.error('resale sweep failed', err && err.stack || err)),
   ]));
 }
