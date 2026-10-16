@@ -8,36 +8,48 @@
 <body>
 <title>JongLoei App Mock-up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Prompt:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap">
 <style>
-/* Layout: a phone-sized app on the right, a clickable user-flow index on the left (stacks on phones). */
+/* Tokens follow design/tokens.css (handoff 2026-10-16). Dark is the default; light only with <html data-theme="light">. */
 :root{
+  color-scheme:light;
   --brand:#A00018;          /* logo crimson, fixed in both themes */
-  --red:#A00018;            /* interactive accent */
+  --red:#A00018;            /* primary button, link, selected, price */
   --red-strong:#7E0013;
-  --red-soft:#FBEBED;       /* tinted fills */
-  --bg:#F6F3F3;             /* page ground, red-biased neutral */
+  --on-red:#FFFFFF;
+  --red-soft:var(--surface-2); /* no tinted red any more: selected = solid --red */
+  --bg:#F6F3F3;
   --surface:#FFFFFF;
   --surface-2:#FAF7F7;
   --ink:#1E1416;
   --muted:#6E6265;
   --line:#ECE4E5;
+  --line-soft:color-mix(in oklab,var(--ink) 8%,transparent);
   --ok:#1D7A48; --ok-soft:#E5F3EB;
   --warn:#9A5B00; --warn-soft:#FBF0DD;
+  /* solid status fills: same in both themes, white text */
+  --ok-solid:#22BB33; --warn-solid:#FFC107; --danger-solid:#DC2626; --info-solid:#2563EB; --red-solid:#D0021B; --neutral-solid:#898989;
+  --scan-ok:#22BB33; --scan-bad:#DC2626;
+  --zone-1:#2A78D6; --zone-2:#EB6834; --zone-3:#1BAF7A; --zone-4:#EDA100; --zone-5:#E87BA4;
+  --side:#7E0013; --on-side:#FFFFFF;
+  --scrim:rgb(18 12 13 / .56);
   --qr-bg:#FFFFFF; --qr-ink:#1E1416;
-  --shadow:0 1px 2px rgba(60,10,16,.06),0 8px 24px rgba(60,10,16,.08);
-  --f-display:"Prompt","IBM Plex Sans Thai",system-ui,sans-serif;
-  --f-body:"IBM Plex Sans Thai","Prompt",system-ui,sans-serif;
+  --shadow:0 1px 2px rgb(60 10 16 / .06),0 12px 32px rgb(60 10 16 / .14);
+  --f-display:"General Sans","Prompt",system-ui,sans-serif;
+  --f-body:"General Sans","Anuphan",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --red:#E8485A;--red-strong:#FF6B7B;--red-soft:#3A1519;--bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
-  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;--ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}}
-:root[data-theme="dark"]{
-  --red:#E8485A;--red-strong:#FF6B7B;--red-soft:#3A1519;--bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
-  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;--ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}
+:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#120C0D;--surface:#1C1415;--surface-2:#241A1C;
+  --red:#E8485A;--red-strong:#FF6B7B;--on-red:#120C0D;
+  --ink:#F5ECED;--muted:#B3A3A6;--line:#35282A;
+  --ok:#5CC98C;--ok-soft:#163223;--warn:#F0B35A;--warn-soft:#352612;
+  --zone-1:#3987E5;--zone-2:#D95926;--zone-3:#199E70;--zone-4:#C98500;--zone-5:#D55181;
+  --side:#3A1519;--on-side:#F5ECED;
+  --scrim:rgb(0 0 0 / .64);
+  --shadow:0 1px 2px rgb(0 0 0 / .3),0 12px 32px rgb(0 0 0 / .45)}
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
@@ -62,7 +74,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .flow button:hover{background:var(--surface)}
 .flow button.on{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow)}
 .flow .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:13px;background:var(--red-soft);color:var(--red)}
-.flow button.on .n{background:var(--red);color:#fff}
+.flow button.on .n{background:var(--red);color:var(--on-red)}
 .flow b{display:block;font-weight:600}
 .flow small{color:var(--muted);font-size:13px}
 .legend{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
@@ -75,7 +87,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .appbar svg.logo{width:30px;height:30px}
 .iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
 .iconbtn svg{width:18px;height:18px}
-.walletchip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12px;font-weight:600;border:0}
+.walletchip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:transparent;color:var(--red);font-size:12px;font-weight:600;border:1px solid var(--red)}
 .scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
 .screen{padding:16px 18px 24px;display:flex;flex-direction:column;gap:16px;animation:in .25s ease}
 @keyframes in{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -86,26 +98,31 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .tabbar button.on{color:var(--red);font-weight:600}
 
 /* ---------- shared bits ---------- */
-.btn{border:0;border-radius:14px;padding:14px 18px;font-weight:600;font-family:var(--f-display);font-size:16px;background:var(--red);color:#fff;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn{border:0;border-radius:8px;min-height:48px;padding:12px 18px;font-weight:600;font-family:var(--f-display);font-size:16px;background:var(--red);color:var(--on-red);width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s var(--ease,ease-out)}
+.btn:active{transform:scale(.97)}
 .btn:hover{background:var(--red-strong)}
-.btn.ghost{background:var(--surface);color:var(--red);border:1.5px solid var(--red)}
-.btn.ghost:hover{background:var(--red-soft)}
-.btn.plain{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
-.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+.btn.ghost:hover{background:transparent;opacity:.85}
+.btn.plain{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.btn.plain:hover{background:var(--surface-2)}
+.btn[disabled]{background:var(--neutral-solid);color:#fff;box-shadow:none;cursor:not-allowed}
 .row{display:flex;gap:10px;align-items:center}
 .between{justify-content:space-between}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+.card{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:16px}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--red-soft);color:var(--red);white-space:nowrap}
-.pill.ok{background:var(--ok-soft);color:var(--ok)}
-.pill.warn{background:var(--warn-soft);color:var(--warn)}
-.pill.grey{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+/* pills: solid fill, white text, no dot */
+.pill{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--red-solid);color:#fff;white-space:nowrap}
+.pill.ok{background:var(--ok-solid);color:#fff}
+.pill.warn{background:var(--warn-solid);color:#fff}
+.pill.grey{background:var(--neutral-solid);color:#fff;border:0}
+.pill.info{background:var(--info-solid);color:#fff}
+/* chips: red outline on the page colour; selected = solid red */
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
-.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:13.5px;white-space:nowrap}
-.chip.on{background:var(--red);color:#fff;border-color:var(--red)}
-.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;color:var(--muted)}
+.chip{border:1px solid var(--red);background:var(--bg);color:var(--red);border-radius:999px;min-height:36px;padding:6px 14px;font-size:14px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--red);color:var(--on-red);border-color:var(--red)}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--muted)}
 .search svg{width:18px;height:18px}
 .search input{border:0;background:none;outline:none;flex:1;font:inherit;color:var(--ink);min-width:0}
 hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
@@ -121,38 +138,40 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .poster.lg{min-height:200px}.poster.lg .pbig{font-size:28px}
 
 .evlist{display:flex;flex-direction:column;gap:12px}
-.ev{display:grid;grid-template-columns:92px 1fr;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;width:100%}
+.ev{display:grid;grid-template-columns:92px 1fr;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:10px;width:100%}
 .ev .poster{min-height:92px;padding:8px;border-radius:12px}
 .ev .poster .pbig{font-size:13px}
 .ev h3{font-size:15.5px;font-weight:600}
 .ev .meta{font-size:13px;color:var(--muted)}
-.ev .price{font-family:var(--f-display);font-weight:600;color:var(--red)}
+.ev .price{font-family:var(--f-display);font-weight:600;font-size:17px;color:var(--ink)}
 .ev>div{min-width:0;display:flex;flex-direction:column;gap:3px}
 
 .zones{display:flex;flex-direction:column;gap:8px}
-.zone{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;width:100%}
+.zone{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;min-height:60px;padding:0 16px;border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:8px;background:var(--surface);text-align:left;width:100%}
 .zone .dot{width:12px;height:12px;border-radius:4px;background:var(--zc)}
-.zone.on{border-color:var(--red);background:var(--red-soft)}
+.zone.on{background:var(--red);color:var(--on-red);box-shadow:inset 0 0 0 2px var(--red)}
+.zone.on .muted{color:inherit;opacity:.85}
+.zone.on .dot{box-shadow:0 0 0 2px var(--on-red)}
 .zone b{font-family:var(--f-display);font-weight:600}
-.zone[disabled]{opacity:.5}
+.zone[disabled]{background:var(--surface-2);color:var(--muted)}
 .qty{display:flex;align-items:center;gap:14px}
-.qty button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:18px}
+.qty button{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:18px}
 
 .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.trust div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;font-size:12.5px;line-height:1.35}
+.trust div{background:var(--bg);border:0;border-radius:8px;padding:10px;font-size:12.5px;line-height:1.35}
 .trust svg{width:20px;height:20px;color:var(--red);display:block;margin-bottom:4px}
 
 .sticky-cta{position:sticky;bottom:0;background:linear-gradient(to top,var(--surface-2) 85%,transparent);padding:14px 18px 16px;margin:0 -18px -24px;display:flex;gap:10px;align-items:center}
 .sticky-cta .tot{flex:none;display:flex;flex-direction:column;line-height:1.2}
 .sticky-cta .tot b{font-family:var(--f-display);font-size:20px}
 
-.pay{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;width:100%}
+.pay{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);text-align:left;width:100%}
 .pay.on{border-color:var(--red)}
 .pay .logo{width:40px;height:28px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff;background:#113566}
 .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line)}
 .pay.on .radio{border:6px solid var(--red)}
 
-.qrbox{background:var(--qr-bg);border-radius:18px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line);color:#1E1416}
+.qrbox{background:var(--qr-bg);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line);color:#1E1416}
 .qrbox canvas{width:220px;height:220px;max-width:100%;image-rendering:pixelated}
 .tqr{width:100%;background:#113566;color:#fff;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:13px}
 
@@ -162,7 +181,7 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .steps li.done:not(:last-child)::before{background:var(--red)}
 .steps .s{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;background:var(--surface)}
 .steps .s svg{width:16px;height:16px}
-.steps li.done .s{background:var(--red);border-color:var(--red);color:#fff}
+.steps li.done .s{background:var(--red);border-color:var(--red);color:var(--on-red)}
 .steps li.active .s{border-color:var(--red)}
 .steps li.active .s::after{content:"";width:12px;height:12px;border-radius:50%;border:2px solid var(--red);border-right-color:transparent;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -170,7 +189,7 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .steps small{color:var(--muted);font-size:13px}
 
 /* NFT ticket card */
-.nft{border-radius:22px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
+.nft{border-radius:12px;background:var(--surface);border:1px solid var(--line-soft);overflow:hidden}
 .nft .poster{border-radius:0;min-height:150px}
 .nft .stub{position:relative;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .nft .stub::before,.nft .stub::after{content:"";position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line)}
@@ -178,21 +197,21 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .nft .perf{position:absolute;top:0;left:16px;right:16px;border-top:2px dashed var(--line)}
 .tokenid{font-family:var(--f-mono);font-weight:500;font-size:13px;color:var(--red)}
 
-.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:4px;gap:4px}
 .seg.three{grid-template-columns:repeat(3,1fr)}
-.seg button{border:0;background:none;border-radius:9px;padding:8px;font-size:13.5px;font-weight:600;color:var(--muted)}
-.seg button.on{background:var(--red);color:#fff}
+.seg button{border:0;background:none;border-radius:8px;min-height:40px;padding:8px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--red);color:var(--on-red)}
 
 .ring{display:flex;align-items:center;gap:8px;font-size:13px;color:#6E6265}
 .ring svg{width:22px;height:22px;transform:rotate(-90deg)}
 
-.mticket{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.mticket{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:10px}
 .mticket .poster{min-height:70px;padding:6px;border-radius:10px}
 .mticket .poster .pbig{font-size:11px}
 .mticket>div{min-width:0}
 .mticket h3{font-size:15px;font-weight:600}
 
-.listing{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.listing{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .listing .top{display:grid;grid-template-columns:64px 1fr;gap:12px}
 .listing .poster{min-height:64px;padding:6px;border-radius:10px}.listing .poster .pbig{font-size:10px}
 .listing .top>div{min-width:0}
@@ -201,25 +220,27 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:13px;font-weight:600}
-.field input{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;font:inherit;color:var(--ink);width:100%}
+.field input{border:1.5px solid var(--line);background:var(--bg);border-radius:8px;min-height:48px;padding:12px;font:inherit;font-size:16px;color:var(--ink);width:100%}
 .field input:focus{border-color:var(--red);outline:none}
-.hint{font-size:12.5px;color:var(--muted)}
-.hint.err{color:var(--red)}
+.hint{font-size:13px;color:var(--muted)}
+.hint.err{color:var(--danger-solid);font-weight:600}
 
-.sheet-wrap{position:absolute;inset:0;background:rgba(20,6,8,.45);display:flex;align-items:flex-end;z-index:5}
-.sheet{background:var(--surface);width:100%;border-radius:24px 24px 0 0;padding:10px 18px 22px;display:flex;flex-direction:column;gap:14px;max-height:92%;overflow-y:auto;animation:up .25s ease}
+.sheet-wrap{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-end;z-index:20}
+.sheet{background:var(--surface);width:100%;border-radius:16px 16px 0 0;padding:10px 18px 22px;display:flex;flex-direction:column;gap:14px;max-height:92%;overflow-y:auto;box-shadow:var(--shadow);animation:up .25s ease}
 @keyframes up{from{transform:translateY(40px)}to{transform:none}}
 .grab{width:40px;height:4px;border-radius:9px;background:var(--line);margin:0 auto}
 .social{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:13px;font-weight:600;width:100%}
 .social .g{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
 .linkbtn{border:0;background:none;color:var(--red);font-weight:600;padding:0;font-size:13.5px;text-decoration:underline;text-underline-offset:3px}
 
-.toast{position:absolute;left:18px;right:18px;bottom:76px;background:var(--ink);color:var(--surface);border-radius:14px;padding:12px 14px;font-size:14px;z-index:9;display:flex;gap:8px;align-items:center;animation:up .2s ease}
+.toast{position:absolute;left:18px;right:18px;bottom:76px;background:var(--ok-solid);color:#fff;border-radius:12px;min-height:52px;padding:12px 16px;font-size:15px;z-index:30;display:flex;gap:8px;align-items:center;box-shadow:var(--shadow);animation:up .2s ease}
+.toast.err{background:var(--danger-solid)}
 .hero-ok{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-top:6px}
-.hero-ok .big{width:64px;height:64px;border-radius:20px;background:var(--red);color:#fff;display:grid;place-items:center}
+.hero-ok .big{width:72px;height:72px;border-radius:999px;background:var(--ok-solid);color:#fff;display:grid;place-items:center;animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
 .hero-ok .big svg{width:34px;height:34px}
 .empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
-.wallet-addr{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.wallet-addr{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .wallet-addr .mono{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adv{border:1px dashed var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
 .devwrap{position:sticky;top:max(16px,env(safe-area-inset-top,0px));min-width:0}
@@ -259,9 +280,9 @@ hr.sep{border:0;border-top:1px dashed var(--line);margin:0}
 .dnav{gap:4px}
 .dnav button{border:0;background:none;padding:8px 14px;border-radius:10px;font-weight:600;color:var(--muted)}
 .dnav button:hover{background:var(--surface-2);color:var(--ink)}
-.dnav button.on{color:var(--red);background:var(--red-soft)}
+.dnav button.on{color:var(--on-red);background:var(--red)}
 .dsearch.search{flex:1;max-width:340px;margin-left:auto;padding:8px 12px}
-.avatar{width:36px;height:36px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--f-display);font-weight:600;flex:none}
+.avatar{width:36px;height:36px;border-radius:999px;border:0;background:var(--red);color:var(--on-red);font-family:var(--f-display);font-weight:600;flex:none}
 .stage.desk .screen{max-width:1140px;margin:0 auto;width:100%;padding:28px 32px 48px;gap:24px}
 .stage.desk .ev.feature{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
 .stage.desk .feature .poster{min-height:300px;border-radius:0}
@@ -328,10 +349,418 @@ body{padding:0}
 }
 /* scan result: fixed colours in both themes so a door scan reads the same everywhere */
 .org-result{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;color:#fff;text-align:center}
-.org-result.ok{background:#1D7A48}.org-result.bad{background:#A00018}
+.org-result.ok{background:var(--scan-ok)}.org-result.bad{background:var(--scan-bad)}
 .org-result svg{color:#fff}
-.org-danger{border-color:var(--red)}.btn.org-danger-btn{background:var(--red-strong);color:#fff}
+.org-danger{border-color:var(--danger-solid);box-shadow:inset 0 0 0 1px var(--danger-solid)}.btn.org-danger-btn{background:var(--danger-solid);color:#fff}
+.org-danger .btn.org-danger-btn{width:auto;align-self:flex-end}
 .org-progress{display:flex;gap:6px}.org-progress i{flex:1;height:6px;border-radius:9px;background:var(--line)}.org-progress i.on{background:var(--red)}
+
+/* =====================================================================
+   v2 layouts (Claude Design canvas, rounds 2–9). Old blocks above stay for screens not yet moved.
+   ===================================================================== */
+.screen.v2{max-width:none!important;padding:0!important;gap:0!important}
+.wrap{width:100%;max-width:1184px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:24px}
+.stage.desk .wrap{padding:32px 32px 56px;gap:32px}
+.wrap.narrow-w{max-width:600px}.stage.desk .wrap.narrow-w{max-width:664px}
+.ic{width:20px;height:20px;flex:none}
+.h2{font-size:18px;line-height:1.3}.stage.desk .h2{font-size:22px}
+.lnk{color:var(--red);font-size:14px;font-weight:600;text-decoration:none;background:none;border:0;padding:0}
+.crumb{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;border:0;background:none;padding:0;color:var(--muted);font-size:14px;font-weight:500}
+.crumb svg{width:16px;height:16px}
+
+/* app bars */
+.appbar{min-height:56px;padding:0 8px 0 16px;gap:12px}
+.appbar .brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0;border:0;background:none;padding:0}
+.appbar .brand svg{width:28px;height:28px;flex:none}
+.appbar .brand span{font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.04em;color:var(--brand)}
+:root:not([data-theme="light"]) .appbar .brand span{color:var(--red)}
+.appbar .ib{width:44px;height:44px;border:0;border-radius:8px;background:none;color:var(--ink);display:grid;place-items:center;flex:none}
+.appbar .ib svg{width:22px;height:22px}
+.appbar .ttl{font-size:16px}
+.appbar .chipbtn{height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:13px;font-weight:600;white-space:nowrap}
+.stage.desk .appbar{height:64px;padding:0 32px;gap:24px}
+.stage.desk .appbar .brand{flex:none}
+.stage.desk .appbar .brand svg{width:32px;height:32px}
+.stage.desk .appbar .brand span{font-size:18px}
+.dnav{display:flex;gap:4px}
+.dnav button{height:40px;padding:0 14px;border:0;border-radius:8px;background:none;color:var(--muted);font-weight:600;font-size:14px}
+.dnav button:hover{color:var(--ink);background:var(--surface-2)}
+.dnav button.on{background:var(--red);color:var(--on-red)}
+.dsearch{flex:1;max-width:320px;margin-left:auto;height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--muted)}
+.dsearch svg{width:18px;height:18px;flex:none}
+.dsearch input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-size:14px;color:var(--ink)}
+.avatar{width:40px;height:40px;border-radius:999px}
+/* focus mode title row: back on the left, title centred */
+.titlerow{align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center;min-height:44px}
+.titlerow h1{font-size:22px;line-height:1.25;text-align:center;padding:0 52px}
+.stage.desk .titlerow h1{font-size:28px}
+.titlerow .back{position:absolute;left:0;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:8px;background:none;color:var(--ink);display:grid;place-items:center}
+.titlerow .back svg{width:22px;height:22px}
+
+/* hero banner */
+.hero{position:relative;overflow:hidden;color:#fff;background:var(--hbg)}
+.hero-in{min-height:316px;padding:20px 16px 8px;display:flex;flex-direction:column;gap:10px;justify-content:flex-end}
+.hero h2{font-size:30px;line-height:1.2;color:#fff;max-width:18ch}
+.hero p{margin:0;font-size:14px;opacity:.9;max-width:56ch}
+.hero .date{align-self:flex-start;font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgb(255 255 255 / .18)}
+.hero .mark{position:absolute;right:16px;top:20px;font-family:var(--f-display);font-weight:600;font-size:52px;line-height:.95;text-align:right;white-space:pre-line;color:rgb(255 255 255 / .18);pointer-events:none}
+.hero .cta{margin-top:16px;height:48px;border:0;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:var(--brand);font-family:var(--f-display);font-weight:600;font-size:16px;padding:0 20px 0 24px}
+.hero .cta svg{width:20px;height:20px}
+.hero-ctl{display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 0 8px}
+.hero-ctl .arw{width:44px;height:44px;border:0;border-radius:999px;background:transparent;color:#fff;display:grid;place-items:center}
+.hero-ctl .arw svg{width:20px;height:20px}
+.dots{display:flex;gap:4px}
+.dots button{height:24px;padding:0 4px;border:0;background:transparent;color:#fff;display:grid;place-items:center}
+.dots span{display:block;width:8px;height:8px;border-radius:999px;background:currentColor;opacity:.5;transition:width .2s}
+.dots button[aria-pressed="true"] span{width:24px;opacity:1}
+.stage.desk .hero-in{height:400px;min-height:0;padding:40px 96px 64px;max-width:760px;gap:16px;justify-content:center}
+.stage.desk .hero-in.ev{justify-content:flex-end;max-width:680px;gap:12px}
+.stage.desk .hero h2{font-size:44px}
+.stage.desk .hero p{font-size:16px}
+.stage.desk .hero .mark{right:96px;top:32px;font-size:104px}
+.stage.desk .hero .cta{align-self:flex-start;height:52px}
+.stage.desk .hero-ctl{position:absolute;inset:0;padding:0;pointer-events:none}
+.stage.desk .hero-ctl .arw{position:absolute;top:50%;transform:translateY(-50%);background:var(--surface);color:var(--ink);pointer-events:auto}
+.stage.desk .hero-ctl .arw.l{left:24px}.stage.desk .hero-ctl .arw.r{right:24px}
+.stage.desk .hero-ctl .dots{position:absolute;left:0;right:0;bottom:16px;justify-content:center;pointer-events:auto}
+
+/* search block */
+.hsearch{display:flex;flex-direction:column;gap:12px}
+.hsearch label{height:48px;display:flex;align-items:center;gap:8px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted)}
+.hsearch label svg{width:18px;height:18px;flex:none}
+.hsearch input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-size:16px;color:var(--ink)}
+.hsearch .flt{display:flex;gap:8px;overflow-x:auto}
+.hsearch .flt button{flex:none;height:36px;padding:0 12px;border:1px solid var(--red);border-radius:999px;background:var(--bg);color:var(--red);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:4px}
+.hsearch .flt svg{width:14px;height:14px}
+.stage.desk .hsearch{flex-direction:row;align-items:center;padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.stage.desk .hsearch label{flex:1;background:var(--surface-2)}
+.stage.desk .hsearch .flt button{height:48px;border-radius:8px;padding:0 14px}
+.hsearch .go{display:none}
+.stage.desk .hsearch .go{display:inline-flex;height:48px;padding:0 24px;border:0;border-radius:8px;align-items:center;background:var(--red);color:var(--on-red);font-family:var(--f-display);font-weight:600;font-size:16px}
+
+/* event cards */
+.secthead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.evgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.stage.desk .evgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.evc{border:1px solid var(--line-soft);border-radius:12px;overflow:hidden;background:var(--surface);color:var(--ink);text-align:left;display:flex;flex-direction:column;padding:0;width:100%}
+.evc .pst{aspect-ratio:4/3;padding:12px 16px 16px;display:flex;flex-direction:column;justify-content:space-between;color:#fff;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 2px,transparent 2px 14px),var(--pbg);box-shadow:inset 0 0 0 1px rgb(0 0 0 / .1)}
+.evc .tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface);color:var(--ink);white-space:nowrap}
+.tag.warn{background:var(--warn-solid);color:#fff}.tag.red{background:var(--red-solid);color:#fff}.tag.grey{background:var(--neutral-solid);color:#fff}
+.evc .big{font-family:var(--f-display);font-weight:600;font-size:34px;line-height:1.05;white-space:pre-line}
+.evc .body{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end}
+.evc h3{font-size:17px;line-height:1.35}
+.evc .meta{font-size:14px;color:var(--muted)}
+.evc .from{display:flex;flex-direction:column;align-items:flex-end}
+.evc .from small{font-size:12px;color:var(--muted)}
+.evc .from b{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;color:var(--red);white-space:nowrap}
+
+/* footer (desk) */
+.foot{background:var(--side);color:var(--on-side);padding:40px 32px}
+.foot .in{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:2fr repeat(3,1fr);gap:32px;font-size:14px}
+.foot .in>div{display:flex;flex-direction:column;gap:6px}
+.foot span,.foot button{opacity:.85}
+.foot button{border:0;background:none;padding:0;color:inherit;text-align:left;font:inherit}
+
+/* event detail */
+.dgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start}
+.stage.desk .dgrid{grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:32px}
+.dcol{min-width:0;display:flex;flex-direction:column;gap:24px}
+.dposter{aspect-ratio:4/3;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;color:#fff;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 2px,transparent 2px 14px),var(--pbg);box-shadow:inset 0 0 0 1px rgb(0 0 0 / .1)}
+.dposter .big{font-family:var(--f-display);font-weight:600;font-size:56px;line-height:1;white-space:pre-line}
+.stage.desk .dposter .big{font-size:88px}
+.dinfo{display:flex;flex-direction:column;gap:12px}
+.dinfo h1{font-size:22px;line-height:1.25}.stage.desk .dinfo h1{font-size:30px}
+.dinfo ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.dinfo li{display:flex;gap:10px;align-items:flex-start}
+.dinfo li svg{width:20px;height:20px;flex:none;color:var(--muted);margin-top:2px}
+.trust2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}
+.trust2>div{display:grid;grid-template-columns:24px 1fr;gap:10px}
+.trust2 svg{width:24px;height:24px;color:var(--red)}
+.trust2 b{font-size:14px;font-weight:600}
+.trust2 p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+.alert{display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:start;padding:12px 14px;border-radius:8px;background:var(--info-solid);color:#fff;font-size:14px;line-height:1.5}
+.alert>svg{width:20px;height:20px;margin-top:1px}
+.alert.warn{background:var(--warn-solid)}.alert.danger{background:var(--danger-solid)}.alert.ok{background:var(--ok-solid)}.alert.red{background:var(--red-solid)}
+.alert b{font-weight:600}
+.alert .x{width:32px;height:32px;border:0;border-radius:8px;background:none;color:inherit;display:grid;place-items:center;margin:-6px -6px 0 0}
+.alert .x svg{width:16px;height:16px}
+.zrows{display:flex;flex-direction:column;gap:8px}
+.zr{display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:center;min-height:56px;padding:0 14px;border:0;border-radius:8px;text-align:left;background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line);width:100%}
+.zr .box{width:20px;height:20px;border-radius:4px;display:grid;place-items:center;box-shadow:inset 0 0 0 2px var(--line);color:var(--red)}
+.zr .box svg{width:14px;height:14px}
+.zr b{font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1.35}
+.zr .left{font-size:13px;opacity:.85}
+.zr .pr{font-family:var(--f-display);font-weight:600;font-size:17px}
+.zr[aria-checked="true"]{background:var(--red);color:var(--on-red);box-shadow:inset 0 0 0 2px var(--red)}
+.zr[aria-checked="true"] .box{background:var(--on-red);box-shadow:none}
+.zr:disabled{background:var(--surface-2);color:var(--muted)}
+.zr:disabled .pr{text-decoration:line-through}
+.panel{display:flex;flex-direction:column;gap:16px;padding:24px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.stage.desk .panel.sticky{position:sticky;top:24px}
+.qtyrow{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--line);padding-top:16px}
+.stepper{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:2px}
+.stepper button{width:44px;height:40px;border:0;border-radius:6px;background:transparent;color:var(--ink);display:grid;place-items:center;font-size:20px}
+.stepper button:disabled{opacity:.35}
+.stepper output{min-width:32px;text-align:center;font-family:var(--f-display);font-weight:600;font-size:18px}
+.sum{margin:0;display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:15px}
+.sum dd{margin:0;text-align:right}
+.sum .tot{padding-top:8px;border-top:1px solid var(--line);font-weight:600}
+.sum .tot+dd{padding-top:8px;border-top:1px solid var(--line);font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.2}
+.sum .disc,.sum .disc+dd{color:var(--red)}
+.bigbtn{height:52px;border:0;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--red);color:var(--on-red);font-family:var(--f-display);font-weight:600;font-size:16px;width:100%;padding:0 20px}
+.bigbtn svg{width:20px;height:20px}
+.bigbtn:disabled{background:var(--neutral-solid);color:#fff}
+.bigbtn.sec{background:transparent;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+.bigbtn.plain{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.buybar{position:sticky;bottom:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px 20px;background:var(--surface);border-top:1px solid var(--line)}
+.buybar .t{display:flex;flex-direction:column;flex:none;line-height:1.2}
+.buybar .t span{font-size:12px;color:var(--muted)}
+.buybar .t b{font-family:var(--f-display);font-weight:600;font-size:24px}
+.stage.desk .buybar{display:none}
+.m-hide{display:none}.stage.desk .m-hide{display:flex}
+.vstack{display:flex;flex-direction:column;gap:12px}
+.stage.desk .d-hide{display:none}
+.stage:not(.desk) .m-hide{display:none}
+.stage:not(.desk) .foot{display:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* v2: purchase flow, tickets, market, profile */
+.zchip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;background:var(--zc,var(--zone-1));color:#fff;font-size:13px;font-weight:600;white-space:nowrap}
+.zchip svg{width:14px;height:14px}
+.ocard{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:start;padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.thumb{width:72px;height:72px;border-radius:8px;padding:6px;display:flex;align-items:flex-end;color:#fff;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 2px,transparent 2px 14px),var(--pbg)}
+.thumb b{font-family:var(--f-display);font-weight:600;font-size:11px;line-height:1.05;white-space:pre-line}
+.ocard .info{min-width:0;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.ocard .info b{font-family:var(--f-display);font-weight:600;font-size:16px;line-height:1.35}
+.sect{display:flex;flex-direction:column;gap:12px}
+.sect>h2{font-size:17px}
+.payopt{display:grid;grid-template-columns:44px 1fr 20px;gap:12px;align-items:center;min-height:64px;padding:10px 14px;border:0;border-radius:8px;background:var(--surface);box-shadow:inset 0 0 0 2px var(--red);text-align:left;color:var(--ink);width:100%}
+.payopt .lg{width:44px;height:30px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff;background:#113566}
+.payopt .rd{width:20px;height:20px;border-radius:999px;border:6px solid var(--red)}
+.note{margin:0;text-align:center;font-size:13px;color:var(--muted)}
+.ctr{align-items:center;text-align:center}
+.cd{margin:0;font-size:15px}
+.cd b{font-family:var(--f-display);font-weight:600;font-size:22px;color:var(--red)}
+.qrcard{align-self:stretch;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;border-radius:12px;background:var(--qr-bg);color:#1E1416}
+.qrcard canvas{width:220px;height:220px;max-width:100%;image-rendering:pixelated}
+.qrcard .tqr{width:100%}
+.qrcard .amt{font-family:var(--f-display);font-weight:600;font-size:28px;color:#A00018}
+.rows{align-self:stretch;margin:0;display:grid;grid-template-columns:1fr auto;gap:10px 16px;padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft);font-size:15px;text-align:left}
+.rows dd{margin:0;text-align:right}
+.btncol{align-self:stretch;display:flex;flex-direction:column;gap:10px}
+.stage.desk .btncol.row2{flex-direction:row}.stage.desk .btncol.row2>*{flex:1}
+.ftitle{font-size:24px;line-height:1.25}.stage.desk .ftitle{font-size:30px}
+.okc{width:80px;height:80px;border-radius:999px;display:grid;place-items:center;background:var(--ok-solid);color:#fff;animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
+.okc svg{width:42px;height:42px}
+.okc .draw{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .4s .3s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+#mintsteps{align-self:stretch;text-align:left;padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+/* ticket card (poster stub + perforation) */
+.tcard{align-self:stretch;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--line-soft);text-align:left}
+.tcard .pst{aspect-ratio:16/7;padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between;color:#fff;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 2px,transparent 2px 14px),var(--pbg)}
+.tcard .pst .big{font-family:var(--f-display);font-weight:600;font-size:30px;line-height:1;white-space:pre-line}
+.tcard .stub{position:relative;padding:18px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.tcard .stub::before{content:"";position:absolute;top:0;left:16px;right:16px;border-top:2px dashed var(--line)}
+.tcard h3{font-size:18px;line-height:1.3}
+.kv2{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv2 dt{color:var(--muted)}.kv2 dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere}
+.chain{border-top:1px solid var(--line);padding-top:10px}
+.chain summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-weight:600;font-size:14px;list-style:none}
+.chain summary::-webkit-details-marker{display:none}
+.chain summary .ic{margin-left:auto;transition:transform .15s}
+.chain[open] summary .ic{transform:rotate(180deg)}
+.chain .kv2{padding:8px 0 4px}
+/* tickets list */
+.tklist{display:flex;flex-direction:column;gap:12px}
+.stage.desk .tklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.tk{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface);text-align:left;color:var(--ink);width:100%}
+.tk .info{min-width:0;display:flex;flex-direction:column;gap:4px}
+.tk h3{font-size:16px;line-height:1.35}
+.tk .meta{font-size:13px;color:var(--muted)}
+.tgrid2{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+.stage.desk .tgrid2{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px}
+.qrstate{padding:40px 10px;text-align:center;color:#6E6265;line-height:1.5}
+/* market */
+.lgrid2{display:flex;flex-direction:column;gap:12px}
+.stage.desk .lgrid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.lst{display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;padding:14px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface)}
+.lst .info{min-width:0;display:flex;flex-direction:column;gap:6px}
+.lst h3{font-size:16px;line-height:1.35}
+.lst .foot2{grid-column:1/-1;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid var(--line)}
+.ptone{display:flex;flex-direction:column;line-height:1.2}
+.ptone .was{font-size:13px;color:var(--muted);text-decoration:line-through}
+.ptone .now{font-family:var(--f-display);font-weight:600;font-size:24px}
+.ptone .orig{font-size:13px;color:var(--muted)}
+.ptone.low .now{color:var(--ok-solid)}.ptone.high .now{color:var(--red)}
+/* profile */
+.prof{display:flex;align-items:center;gap:16px}
+.prof .av{width:64px;height:64px;border-radius:999px;display:grid;place-items:center;background:var(--red);color:var(--on-red);font-family:var(--f-display);font-weight:600;font-size:26px;flex:none}
+.pcard{display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.addr{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 14px;border-radius:8px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line)}
+.addr .mono{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.addr button{width:40px;height:40px;border:0;border-radius:8px;background:none;color:var(--ink);display:grid;place-items:center}
+.addr button svg{width:18px;height:18px}
+.addr button.done{color:var(--ok-solid)}
+.sw{width:52px;height:32px;padding:3px;border:0;border-radius:999px;display:flex;background:var(--neutral-solid);flex:none}
+.sw span{width:26px;height:26px;border-radius:999px;background:#fff;transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--ok-solid)}
+.sw[aria-checked="true"] span{transform:translateX(20px)}
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.stage.desk .pgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.gbtn{height:52px;border:0;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1F1F1F;box-shadow:inset 0 0 0 1px #DADCE0;font-weight:600;font-size:16px;width:100%}
+.bigbtn:disabled{box-shadow:none}
+.tabbar[hidden]{display:none}
+.stage:not(.desk) .ocard{grid-template-columns:72px minmax(0,1fr)}
+.stage:not(.desk) .ocard>.zchip{grid-column:2;justify-self:start}
+
+/* v2: organizer shell and screens */
+.appbar[hidden]{display:none}
+.side{display:flex;flex-direction:column;gap:20px;padding:20px 16px;background:var(--side);color:var(--on-side);overflow-y:auto}
+.side[hidden]{display:none}
+.device.org-desk{display:grid;grid-template-columns:240px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.device.org-desk .side{grid-column:1;grid-row:1}
+.device.org-desk #scroll{grid-column:2;grid-row:1}
+.side-logo{display:flex;align-items:center;gap:10px}
+.side-logo svg{width:32px;height:32px}
+.side-logo span{font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.04em}
+.side-shop{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:8px;background:rgb(255 255 255 / .1)}
+.side-shop span{font-size:12px;font-weight:600;opacity:.9}
+.side-nav{display:flex;flex-direction:column;gap:2px}
+.side-nav button,.side-back{height:44px;padding:0 12px;border:0;border-radius:8px;display:flex;align-items:center;gap:10px;background:transparent;color:inherit;opacity:.82;font-size:14px;font-weight:600;text-align:left}
+.side-nav svg,.side-back svg{width:20px;height:20px}
+.side-nav button:hover{opacity:1;background:rgb(255 255 255 / .1)}
+.side-nav button[aria-current="page"]{opacity:1;background:rgb(255 255 255 / .16)}
+.side-back{margin-top:auto;opacity:1;box-shadow:inset 0 0 0 1px rgb(255 255 255 / .28)}
+.wrap.org{max-width:1280px}
+/* page head: mobile = centred title, shop row, full-width action; desk = title left, action right */
+.ohead{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.ohead h1{flex-basis:100%;text-align:center;font-size:22px;line-height:1.25}
+.oshop{flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.oshop b{font-family:var(--f-display);font-weight:600}
+.ohead>.btn{width:100%}
+.stage.desk .ohead h1{flex-basis:auto;text-align:left;font-size:30px}
+.stage.desk .oshop{display:none}
+.stage.desk .ohead>.btn{width:auto;margin-left:auto}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.stage.desk .stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.stat{min-width:0;display:flex;flex-direction:column;gap:4px;padding:16px 20px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.stat>span{font-size:13px;color:var(--muted)}
+.stat>b{font-family:var(--f-display);font-weight:600;font-size:22px;line-height:1.2}
+.stage.desk .stat>b{font-size:28px}
+.stat>small{font-size:12px;color:var(--muted)}
+.stat.locked>b{color:var(--muted)}
+.split84{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
+.stage.desk .split84{grid-template-columns:minmax(0,8fr) minmax(0,4fr);gap:16px}
+.ocard2{min-width:0;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.ocard2>h2{font-size:17px}
+.org-todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+.org-todo li{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.45}
+.org-todo li:last-child{border-bottom:0}
+.org-todo .linkbtn{text-decoration:none}
+/* organizer event cards */
+.oevgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.stage.desk .oevgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.oev{min-width:0;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)}
+.oev-top{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;align-items:start}
+.oev-open{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:start;border:0;background:none;padding:0;text-align:left;color:var(--ink)}
+.oev-open .thumb{width:64px;height:64px}
+.oev-info{min-width:0;display:flex;flex-direction:column;gap:4px}
+.oev-info b{font-size:16px;line-height:1.35}
+.oev-info .pill{align-self:flex-start}
+.oev-menu{width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--muted);display:grid;place-items:center}
+.oev-menu svg{width:20px;height:20px}
+.pbar{display:flex;flex-direction:column;gap:6px}
+.pbar-t{height:20px;border-radius:999px;background:var(--line);overflow:hidden}
+.pbar-t span{display:flex;align-items:center;justify-content:flex-end;min-width:40px;height:100%;padding-right:8px;box-sizing:border-box;border-radius:999px;background:var(--red);color:var(--on-red);font-size:12px;font-weight:600}
+.pill.danger{background:var(--danger-solid);color:#fff}
+.pill.info{background:var(--info-solid);color:#fff}
+/* welcome */
+.ohero{padding:40px 16px;color:#fff;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 2px,transparent 2px 14px),linear-gradient(135deg,#C2001F,#7E0013 55%,#2A0A0D)}
+.ohero .in{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+.ohero h1{font-size:30px;line-height:1.2;max-width:18ch;color:#fff}
+.ohero p{margin:0;font-size:15px;opacity:.9;max-width:52ch}
+.ohero .acts{display:flex;flex-direction:column;gap:12px;width:100%;margin-top:12px}
+.ohero .acts button{height:52px;padding:0 24px;border:0;border-radius:8px;font-family:var(--f-display);font-weight:600;font-size:16px}
+.ohero .pri{background:#fff;color:var(--brand)}
+.ohero .sec{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px rgb(255 255 255 / .7)}
+.stage.desk .ohero{padding:72px 32px}
+.stage.desk .ohero h1{font-size:44px}
+.stage.desk .ohero .acts{flex-direction:row;width:auto}
+.wgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;align-items:start}
+.stage.desk .wgrid{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
+.benefits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+.benefits li{display:grid;grid-template-columns:28px 1fr;gap:12px}
+.benefits .n{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:var(--red);color:var(--on-red);font-weight:600;font-size:14px}
+.benefits b{font-size:16px}
+.benefits p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.fee{margin:0;display:grid;grid-template-columns:1fr auto;gap:4px 16px;font-size:15px}
+.fee dd{margin:0;text-align:right}
+.fee .t{padding-top:6px;border-top:1px solid var(--line);font-weight:600}
+.fee .t+dd{padding-top:6px;border-top:1px solid var(--line);font-family:var(--f-display);font-weight:600;font-size:20px}
+/* line stepper (wizards) */
+.lstep{position:relative;list-style:none;margin:0;padding:0;display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column}
+.lstep::before,.lstep::after{content:"";position:absolute;top:12.5px;left:12.5%;height:3px;border-radius:999px}
+.lstep::before{right:12.5%;background:var(--line)}
+.lstep::after{width:calc(75% * var(--fill,0));background:var(--red)}
+.lstep li{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 4px;font-size:12px;font-weight:600;line-height:1.3;text-align:center;color:var(--muted)}
+.lstep li>button{display:contents;color:inherit;font:inherit}
+.lstep .d{width:28px;height:28px;display:grid;place-items:center;border-radius:999px;background:var(--bg);box-shadow:inset 0 0 0 2px var(--line);font-size:13px}
+.lstep li.done,.lstep li.cur{color:var(--ink)}
+.lstep li.done .d{background:var(--red);color:var(--on-red);box-shadow:none}
+.lstep li.cur .d{background:var(--red);color:var(--on-red);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--red)}
+.stage.desk .lstep li{font-size:14px}
+/* manage event */
+.ehead{display:flex;flex-direction:column;gap:16px}
+.ehead .row1{display:flex;gap:16px;align-items:center}
+.ehead .thumb{width:72px;height:72px}
+.ehead .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ehead h1{font-size:20px;line-height:1.25}
+.ehead .acts{display:flex;flex-wrap:wrap;gap:8px}
+.ehead .acts .btn{flex:1;width:auto;min-height:44px;padding:0 16px;font-size:15px}
+.stage.desk .ehead{flex-direction:row;align-items:center}
+.stage.desk .ehead .row1{flex:1}
+.stage.desk .ehead .thumb{width:88px;height:88px}
+.stage.desk .ehead h1{font-size:28px}
+.stage.desk .ehead .acts .btn{flex:none}
+.utabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none}
+.utabs button{flex:none;height:44px;padding:0 12px;border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);font-size:15px;font-weight:600}
+.utabs button[aria-selected="true"]{border-bottom-color:var(--red);color:var(--red)}
+.stage.desk .utabs button{padding:0 16px}
+/* org leftovers restyled */
+.org-stat{border-radius:12px}
+.org-zone{border-radius:12px;padding:20px}
+.org-danger .btn.org-danger-btn{width:auto;align-self:flex-end}
+.field select,.field textarea{background:var(--bg);border-radius:8px}
+.field input,.field select{min-height:48px}
+.org-table th,.org-table td{padding:10px 8px}
+.org-progress{display:none}
+
+.gpick{display:grid;grid-template-columns:72px minmax(0,1fr) 20px;gap:14px;align-items:center;padding:14px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface);color:var(--ink);text-align:left;width:100%}
+.gpick .ic{color:var(--muted)}
+.gcount{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft);text-align:center}
+.gcount #gate-count{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1}
+.stage.desk .gcount #gate-count{font-size:34px}
+.gcount .pbar-t{align-self:stretch}
+.fgrid{display:flex;flex-direction:column;gap:12px}
+.stage.desk .fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.acct-ic{width:44px;height:44px;border-radius:8px;display:grid;place-items:center;background:var(--info-solid);color:#fff;flex:none}
+.acct-ic svg{width:22px;height:22px}
+.ehead .acts .btn{white-space:nowrap;font-size:14px}
+.org-wiz .lstep{margin-bottom:8px}
+.org-wiz .chips{flex-wrap:wrap}
+.org-wiz .chips>.small{flex-basis:100%}
+
+.cam{position:relative;aspect-ratio:1/1;max-height:420px;border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#2A2224,#0D0A0B 75%)}
+.cam .frame{position:absolute;inset:14%;width:72%;height:72%}
+.cam .line{position:absolute;left:14%;right:14%;height:2px;background:var(--red);box-shadow:0 0 12px var(--red);animation:scanline 2.4s ease-in-out infinite}
+@keyframes scanline{0%,100%{top:14%}50%{top:82%}}
+.cam .hint2{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:rgb(255 255 255 / .85);font-size:13px}
+.org-result .ric{width:120px;height:120px;border-radius:999px;display:grid;place-items:center;background:rgb(255 255 255 / .18)}
+.org-result .rtitle{font-family:var(--f-display);font-weight:600;font-size:44px;line-height:1.1}
+.org-result .rzone{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:999px;background:var(--zone-1);font-size:18px;font-weight:600;box-shadow:0 0 0 2px rgb(255 255 255 / .6)}
+.org-result .rtext{margin:0;font-size:24px;font-weight:600;line-height:1.35;max-width:22ch;text-align:center}
+.org-result .racts{width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px;margin-top:16px}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -359,6 +788,23 @@ body{padding:0}
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17v.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></symbol>
+    <symbol id="logo-w" viewBox="0 0 64 64"><rect width="64" height="64" rx="17" fill="#fff"/><g transform="rotate(-45 30 32)" fill="none" stroke="#A00018" stroke-width="3.2" stroke-linejoin="round"><path d="M11 24h38v3.5a4.5 4.5 0 0 0 0 9V40H11v-3.5a4.5 4.5 0 0 0 0-9z"/></g><path d="M33.5 31.5l13 4.6-5.4 2.1-2.2 5.6z" fill="#A00018" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><circle cx="47.5" cy="45" r="2.8" fill="#A00018"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><path d="M4 5h16v15H4zM4 10h16M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6M12 7.5v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-refund" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-qrpay" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6M14 18h6M17 14v6" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="z-standing" viewBox="0 0 24 24"><path d="M12 3.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4zM12 9v6M8 11.5h8M9.5 21l2.5-6 2.5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="z-seated" viewBox="0 0 24 24"><path d="M7 4v9h10M7 13v7M17 13v7M7 9h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="z-table" viewBox="0 0 24 24"><path d="M3 9h18M6 9v10M18 9v10M9 5h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="z-comp" viewBox="0 0 24 24"><path d="M4 9h16v4H4zM6 13v7h12v-7M12 9v11M12 9c-1.5-4-5-4-5-1.5S12 9 12 9zM12 9c1.5-4 5-4 5-1.5S12 9 12 9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
   </defs>
 </svg>
@@ -366,6 +812,7 @@ body{padding:0}
 <div class="stage" id="stage">
 
   <div class="devwrap"><div class="device" id="device">
+    <aside class="side" id="side" hidden></aside>
     <header class="appbar" id="appbar"></header>
     <main class="scroll" id="scroll"></main>
     <nav class="tabbar" id="tabbar">
@@ -381,21 +828,22 @@ body{padding:0}
 <script src="vendor/qrcode.js"></script>
 <script>
 (function(){
+try{if(localStorage.getItem('jongloei-theme')==='light')document.documentElement.dataset.theme='light'}catch(_){}
 const $=s=>document.querySelector(s);
-const fmt=n=>'฿'+n.toLocaleString('th-TH');
+const fmt=n=>n.toLocaleString('th-TH')+'฿';
 const CONTRACT='0x7a3F9e21B4c0D58aE6f1b2C9d04E7f3A15b8c91E';
 const OL=window.OrgLogic;
 
 /* events from /api/events (or this fallback); organizer events are added by refreshEvents() */
 let BASE_EVENTS=[
   {id:'neon',name:'BKK Neon Nights 2026',short:'NEON\nNIGHTS',tag:'คอนเสิร์ต',date:'ส. 21 พ.ย. 2569',time:'19:00',venue:'อิมแพ็ค อารีนา เมืองทองธานี',bg:'linear-gradient(140deg,#A00018,#4A0010 70%,#1E0508)',
-   zones:[{z:'Standing A',p:2500,left:182,c:'#E8485A'},{z:'Seat B',p:3800,left:64,c:'#A00018'},{z:'VIP Front',p:5500,left:9,c:'#4A0010'}],sold:86},
+   zones:[{z:'Standing A',p:2500,left:182,c:'var(--zone-1)'},{z:'Seat B',p:3800,left:64,c:'var(--zone-2)'},{z:'VIP Front',p:5500,left:9,c:'var(--zone-3)'}],sold:86},
   {id:'jazz',name:'Siam River Jazz Festival',short:'RIVER\nJAZZ',tag:'เทศกาล',date:'ส. 5 ธ.ค. 2569',time:'16:00',venue:'ลานริมน้ำ เจริญกรุง',bg:'linear-gradient(160deg,#C2412D,#7E0013 60%,#2B0A0E)',
-   zones:[{z:'บัตรวันเดียว',p:1800,left:420,c:'#E8485A'},{z:'บัตร 2 วัน',p:3200,left:150,c:'#A00018'}],sold:58},
+   zones:[{z:'บัตรวันเดียว',p:1800,left:420,c:'var(--zone-1)'},{z:'บัตร 2 วัน',p:3200,left:150,c:'var(--zone-2)'}],sold:58},
   {id:'fan',name:'Starlight Fan Meeting in Bangkok',short:'STAR\nLIGHT',tag:'แฟนมีตติ้ง',date:'อา. 13 ธ.ค. 2569',time:'17:30',venue:'ธันเดอร์โดม เมืองทองธานี',bg:'linear-gradient(150deg,#D6455A,#A00018 45%,#3D0710)',
-   zones:[{z:'Zone C',p:2900,left:0,c:'#E8485A'},{z:'Zone B',p:4200,left:31,c:'#A00018'},{z:'Hi-Touch A',p:6900,left:4,c:'#4A0010'}],sold:97},
+   zones:[{z:'Zone C',p:2900,left:0,c:'var(--zone-1)'},{z:'Zone B',p:4200,left:31,c:'var(--zone-2)'},{z:'Hi-Touch A',p:6900,left:4,c:'var(--zone-3)'}],sold:97},
   {id:'standup',name:'Late Night Stand-up Special',short:'LATE\nNIGHT',tag:'สแตนด์อัป',date:'ศ. 9 ม.ค. 2570',time:'20:00',venue:'สามย่านมิตรทาวน์ ฮอลล์',bg:'linear-gradient(130deg,#8A1020,#2A0A0D)',
-   zones:[{z:'Regular',p:1500,left:240,c:'#E8485A'},{z:'Front Row',p:2600,left:22,c:'#A00018'}],sold:41},
+   zones:[{z:'Regular',p:1500,left:240,c:'var(--zone-1)'},{z:'Front Row',p:2600,left:22,c:'var(--zone-2)'}],sold:41},
 ];
 let EVENTS=BASE_EVENTS;
 // organizer events that left the buyer list (cancelled / ended) still resolve, so tickets for them keep rendering
@@ -546,13 +994,13 @@ const myEventIds=()=>new Set(myEvents().map(e=>e.id));
 function resumeAfter(n){if(n==='orgmode')setMode('org');else if(n==='orglive')orgLiveStart();else go(n)}
 
 /* ---------- nav ---------- */
-const BUYER_TABS=[['home','i-home','หน้าแรก'],['market','i-swap','ตลาดรีเซล'],['tickets','i-ticket','ตั๋วของฉัน'],['profile','i-user','บัญชี']];
+const BUYER_TABS=[['home','i-home','หน้าแรก'],['tickets','i-ticket','ตั๋วของฉัน'],['market','i-swap','ตลาด'],['profile','i-user','โปรไฟล์']];
 const ORG_TABS=[['orgDash','i-chart','ภาพรวม'],['orgEvents','i-ticket','งานของฉัน'],['orgGatePick','i-qr','หน้างาน'],['orgFinance','i-wallet','การเงิน']];
-const TABS=BUYER_TABS.concat(ORG_TABS).map(t=>t[0]);
+const TABS=BUYER_TABS.concat(ORG_TABS).map(t=>t[0]).concat(['orgTeam']);
 // which organizer tabs each team role may open (context: gate staff only scan)
 function orgTabsFor(role){
   // a real shop has only what the backend serves yet: overview and events (door staff: events only)
-  if(S.org&&S.org.live)return ORG_TABS.filter(([k])=>role==='gate'?k==='orgEvents':['orgDash','orgEvents'].includes(k));
+  if(S.org&&S.org.live)return ORG_TABS.filter(([k])=>role==='gate'?k==='orgGatePick':['orgDash','orgEvents','orgGatePick'].includes(k));
   return ORG_TABS.filter(([k])=>role==='gate'?k==='orgGatePick':role==='manager'?k!=='orgFinance':true)}
 function go(screen,reset){
   stopTimers();
@@ -564,29 +1012,36 @@ function back(){
   if(S.mode==='org'&&S.stack[S.stack.length-1]==='orgWizard'&&S.org.wizDirty&&!$('#sheet')){wizLeaveSheet();return}
   stopTimers();if(S.stack.length>1)S.stack.pop();render()}
 $('#tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;closeSheet();go(b.dataset.tab,true);});
+$('#side').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;closeSheet();go(b.dataset.tab,true);});
 function stopTimers(){clearInterval(S.qrTimer);clearInterval(S.payTimer);S.qrTimer=S.payTimer=null}
 
 function appbar(title){
   S.title=title;
   if(S.mode==='org'){orgAppbar(title);return}
+  // leaving organizer mode: drop its desktop sidebar
+  $('#device').classList.remove('org-desk');$('#side').hidden=true;$('#side').innerHTML='';$('#appbar').hidden=false;
+  const brand=`<button class="brand" data-tab="home" aria-label="JONGLOEI หน้าแรก"><svg aria-hidden="true"><use href="#logo"/></svg><span translate="no">JONGLOEI</span></button>`;
   if(S.desk){
-    $('#appbar').innerHTML=`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="wordmark" style="font-size:19px">JONGLOEI</span>
-    <nav class="dnav d-only">${[['home','หน้าแรก'],['market','ตลาดรีเซล'],['tickets','ตั๋วของฉัน']].map(([k,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${v}</button>`).join('')}</nav>
-    <div class="search dsearch"><svg><use href="#i-search"/></svg><input id="dq" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหางาน ศิลปิน สถานที่"></div>
-    <button class="linkbtn" data-act="orgmode" style="white-space:nowrap">สำหรับผู้จัดงาน</button>`
-    +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button><button class="avatar" data-tab="profile" aria-label="บัญชี">${esc(initial())}</button>`
-                :`<button class="btn" style="width:auto;padding:9px 18px;font-size:14px" data-act="signup">เข้าสู่ระบบ</button>`);
+    // DeskNav: logo · 3 links · search · organizer link · avatar (or sign-in)
+    $('#appbar').innerHTML=`${brand}
+    <nav class="dnav" aria-label="เมนูหลัก">${[['home','หน้าแรก'],['market','ตลาด'],['tickets','ตั๋วของฉัน']].map(([k,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}" ${S.tab===k?'aria-current="page"':''}>${v}</button>`).join('')}</nav>
+    <label class="dsearch"><svg aria-hidden="true"><use href="#i-search"/></svg><input id="dq" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหางาน ศิลปิน สถานที่" aria-label="ค้นหางาน"></label>
+    <button class="lnk" data-act="orgmode" style="white-space:nowrap">สำหรับผู้จัดงาน</button>`
+    +(S.signedIn?`<button class="avatar" data-tab="profile" aria-label="โปรไฟล์ ${esc(S.user.name)}">${esc(initial())}</button>`
+                :`<button class="btn" style="width:auto;min-height:40px;padding:0 18px;font-size:14px" data-act="signup">เข้าสู่ระบบ</button>`);
     return;
   }
-  const top=S.stack.length<=1;
-  $('#appbar').innerHTML=(top?`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg>`:`<button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button>`)
-   +`<div class="ttl">${title}</div>`
-   +(S.signedIn?`<button class="walletchip" data-act="profile"><svg width="14" height="14"><use href="#i-wallet"/></svg>${S.tickets.filter(t=>t.status!=='used').length} ตั๋ว</button>`
-               :`<button class="walletchip" data-act="signup">เข้าสู่ระบบ</button>`);
+  // Mobile: top-level tabs show the brand; pushed screens show ‹ + title
+  const cur=S.stack[S.stack.length-1],top=S.stack.length<=1||['checkout','pay','minting','success','paymentSuccess'].includes(cur);   // purchase flow: brand bar + title row in the page
+  $('#appbar').innerHTML=top
+    ?`${brand}`+(S.tab==='home'?`<button class="ib" data-act="search" aria-label="ค้นหา"><svg><use href="#i-search"/></svg></button>`:'')
+      +(S.signedIn?'':`<button class="chipbtn" data-act="signup">เข้าสู่ระบบ</button>`)
+    :`<button class="ib" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><div class="ttl">${title}</div>`;
 }
 $('#appbar').addEventListener('click',e=>{const tb=e.target.closest('[data-tab]');if(tb){closeSheet();go(tb.dataset.tab,true);return}
   const a=e.target.closest('[data-act]');if(!a)return;
-  if(a.dataset.act==='back')back();if(a.dataset.act==='profile')go('profile',true);if(a.dataset.act==='signup')openSignup();if(a.dataset.act==='orgmode')enterOrg()});
+  if(a.dataset.act==='back')back();if(a.dataset.act==='profile')go('profile',true);if(a.dataset.act==='signup')openSignup();if(a.dataset.act==='orgmode')enterOrg();
+  if(a.dataset.act==='search'){const q=$('#q');if(q){q.scrollIntoView({block:'center'});q.focus()}}});
 
 // keeps the screen stack inside the current mode and the organizer role's allowed screens
 function guardMode(){
@@ -596,10 +1051,10 @@ function guardMode(){
   // organizer sign-in is its own state: no account -> log-in screen, account without a shop -> onboarding
   if(!S.org.account){if(cur!=='orgWelcome')reset('orgWelcome','orgDash');return}
   if(!S.org.shop){if(cur!=='orgOnboard')reset('orgOnboard','orgDash');return}
-  const live=S.org.live,gateHome=live?'orgEvents':'orgGatePick';
+  const live=S.org.live,gateHome='orgGatePick';
   if(!isOrg||cur==='orgWelcome'||cur==='orgOnboard')return reset(S.org.role==='gate'?gateHome:'orgDash');
-  if(S.org.role==='gate'&&!(live?['orgEvents','orgEvent']:['orgGatePick','orgGate']).includes(cur))return reset(gateHome);
-  if(live&&['orgGatePick','orgGate','orgFinance'].includes(cur))return reset('orgDash');
+  if(S.org.role==='gate'&&!['orgGatePick','orgGate'].includes(cur))return reset(gateHome);
+  if(live&&cur==='orgFinance')return reset('orgDash');
   if(S.org.role!=='owner'&&['orgFinance','orgTeam'].includes(cur))return reset('orgDash');
 }
 
@@ -611,9 +1066,10 @@ function render(){
   $('#tabbar').innerHTML=tabs.map(([k,icon,label])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}"><svg><use href="#${icon}"/></svg>${label}</button>`).join('');
   const fullFlow=['checkout','pay','minting','orgWizard','orgOnboard','orgWelcome'].includes(cur);
   $('#tabbar').hidden=fullFlow;
+  S.full=false;   // a view sets S.full when it lays itself out edge to edge (v2 screens)
   let html=(VIEWS[cur]||VIEWS.home)();
-  if(S.desk&&S.stack.length>1)html=`<div class="backrow"><button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h2 style="font-size:20px">${S.title}</h2></div>`+html;
-  $('#scroll').innerHTML=`<div class="screen">${html}</div>`;
+  if(!S.full&&S.desk&&S.stack.length>1)html=`<div class="backrow"><button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h2 style="font-size:20px">${S.title}</h2></div>`+html;
+  $('#scroll').innerHTML=`<div class="screen${S.full?' v2':''}">${html}</div>`;
   $('#scroll').scrollTop=0;
   (AFTER[cur]||(()=>{}))();
   if(S.focus){const el=document.getElementById(S.focus);if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(_){}}S.focus=null}
@@ -626,307 +1082,343 @@ function minPrice(ev){return Math.min(...ev.zones.map(z=>z.p))}
 /* ---------- views ---------- */
 const VIEWS={
 home(){
-  appbar('JongLoei');
-  const f=EVENTS[0];
-  const cats=['ทั้งหมด','คอนเสิร์ต','เทศกาล','แฟนมีตติ้ง','สแตนด์อัป'];
+  appbar('JongLoei');S.full=true;
+  const cats=['ทั้งหมด','คอนเสิร์ต','เทศกาล','แฟนมีตติ้ง','สแตนด์อัป','ปาร์ตี้'];
   const q=S.q.trim().toLowerCase();
   const filtered=!!q||S.cat!=='ทั้งหมด';
   const found=EVENTS.filter(e=>(S.cat==='ทั้งหมด'||e.tag===S.cat)&&(!q||(e.name+' '+e.venue+' '+e.tag).toLowerCase().includes(q)));
-  const rest=filtered?found:EVENTS.slice(1);
-  return `
-  <div class="search m-only"><svg><use href="#i-search"/></svg><input id="q" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหาคอนเสิร์ต ศิลปิน สถานที่"></div>
-  <div class="chips">${cats.map(c=>`<button class="chip ${S.cat===c?'on':''}" data-cat="${c}">${c}</button>`).join('')}</div>
-  ${filtered?'':`
-  <button class="ev feature" data-ev="${f.id}">
-    ${poster(f,'lg')}
-    <div class="finfo" style="padding:4px 14px 14px">
-      <div class="row between"><span class="pill">ขายเร็ว · เหลือ ${100-f.sold}%</span><span class="price num">เริ่ม ${fmt(minPrice(f))}</span></div>
-      <h3 style="font-size:18px;margin-top:6px">${f.name}</h3>
-      <div class="meta">${f.date} · ${f.time} น. · ${f.venue}</div>
-      <span class="d-only btn" style="width:auto;align-self:flex-start;margin-top:8px">ดูรายละเอียดและซื้อตั๋ว</span>
-    </div>
-  </button>`}
-  <div class="row between"><h2 style="font-size:17px">${filtered?'พบ '+found.length+' งาน':'งานที่กำลังเปิดขาย'}</h2>${filtered?'<button class="linkbtn" data-act="clearq">ล้างตัวกรอง</button>':'<span class="small muted">บัตร 1,000 บาทขึ้นไป</span>'}</div>
-  ${rest.length?'':`<div class="empty">ไม่พบงานที่ตรงกับการค้นหา ลองใช้คำอื่น</div>`}
-  <div class="evlist">${rest.map(e=>`
-    <button class="ev" data-ev="${e.id}">${poster(e)}
-      <div><h3>${e.name}</h3><div class="meta">${e.date} · ${e.time} น.</div><div class="meta">${e.venue}</div>
-      <div class="row between" style="margin-top:auto"><span class="price num">เริ่ม ${fmt(minPrice(e))}</span>${e.sold>=95?'<span class="pill warn">ใกล้เต็ม</span>':'<span class="pill grey">ตั๋ว NFT</span>'}</div></div>
-    </button>`).join('')}</div>
-  <div class="card row between m-only" style="gap:12px"><div class="small"><b>จัดงานเองใช่ไหม?</b><br><span class="muted">เปิดขายตั๋วโดยไม่ต้องตรวจสลิป</span></div><button class="btn ghost" style="width:auto;padding:10px 14px;font-size:14px" data-act="orgmode">สำหรับผู้จัดงาน</button></div>`;
+  // banner: slide 1 introduces the site, then one slide per featured event
+  const slides=[null].concat(EVENTS.slice(0,3));
+  const i=((S.slide||0)%slides.length+slides.length)%slides.length;S.slide=i;
+  const cur=slides[i],STR='repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 2px,transparent 2px 14px),';
+  const hero=`<section class="hero" aria-roledescription="carousel" aria-label="แบนเนอร์" style="--hbg:${STR}${cur?cur.bg:'linear-gradient(135deg,#C2001F,#7E0013 55%,#2A0A0D)'}">
+    ${cur?`<span class="mark" aria-hidden="true" translate="no">${esc(cur.short)}</span>
+    <div class="hero-in ev"><span class="date num">${cur.date}</span><h2>${cur.name}</h2><p class="num">${cur.date} · ${cur.time} · ${cur.venue}</p>
+      <button class="cta num" data-ev="${cur.id}">ซื้อตั๋ว เริ่มต้น ${fmt(minPrice(cur))}<svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div>`
+    :`<div class="hero-in"><h2>ตั๋วงานที่ปลอมไม่ได้ ขายต่อได้อย่างยุติธรรม</h2><p>จ่ายด้วย PromptPay ไม่มีค่าบริการ · งานยกเลิกคืนเงินอัตโนมัติ · ขายต่อในแอปได้ไม่เกิน 1.25 เท่าของราคาหน้าบัตร</p>
+      <button class="cta" data-act="seeall">ดูงานทั้งหมด<svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div>`}
+    <div class="hero-ctl"><button class="arw l" data-slide="-1" aria-label="สไลด์ก่อนหน้า"><svg><use href="#i-back"/></svg></button>
+      <div class="dots" role="group" aria-label="เลือกสไลด์">${slides.map((s,k)=>`<button data-slideto="${k}" aria-pressed="${k===i}" aria-label="${k?'สไลด์ '+(k+1)+': '+esc(s.name):'สไลด์ 1: แนะนำเว็บ'}"><span></span></button>`).join('')}</div>
+      <button class="arw r" data-slide="1" aria-label="สไลด์ถัดไป"><svg><use href="#i-next"/></svg></button></div>
+  </section>`;
+  const card=e=>`<button class="evc" data-ev="${e.id}"><div class="pst" style="--pbg:${e.bg}"><div class="tags"><span class="tag">${esc(e.tag)}</span>${e.paused?'<span class="tag grey">ปิดรับชั่วคราว</span>':e.sold>=95?'<span class="tag warn">ใกล้เต็ม</span>':e.sold>=85?'<span class="tag red">ขายเร็ว</span>':''}</div><span class="big" aria-hidden="true" translate="no">${esc(e.short)}</span></div>
+    <div class="body"><div style="min-width:0;display:flex;flex-direction:column;gap:4px"><h3>${e.name}</h3><span class="meta num">${e.date} · ${e.time}</span><span class="meta">${e.venue}</span></div>
+    <div class="from"><small>เริ่มต้น</small><b class="num">${fmt(minPrice(e))}</b></div></div></button>`;
+  return `<h1 class="sr-only">JONGLOEI ตั๋วงานอีเวนต์</h1>${hero}
+  <div class="wrap">
+    <form class="hsearch" role="search" onsubmit="return false"><label><svg aria-hidden="true"><use href="#i-search"/></svg><input id="q" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="ค้นหางาน ศิลปิน สถานที่" aria-label="ค้นหางาน"></label>
+      <div class="flt">${['ราคา','สถานที่','เวลา'].map(f=>`<button type="button" data-act="toast" data-msg="ตัวกรอง${f}จะเปิดให้ใช้เร็วๆ นี้" aria-haspopup="dialog">${f}<svg aria-hidden="true"><use href="#i-down"/></svg></button>`).join('')}</div>
+      <button type="button" class="go" data-act="searchgo">ค้นหา</button></form>
+    <section id="onsale" aria-labelledby="h-onsale" style="display:flex;flex-direction:column;gap:16px">
+      <div class="secthead"><h2 id="h-onsale" class="h2">${filtered?'พบ '+found.length+' งาน':'งานที่เปิดขาย'}</h2>${filtered?'<button class="lnk" data-act="clearq">ล้างตัวกรอง</button>':''}</div>
+      <div class="chips" role="group" aria-label="ประเภทงาน">${cats.map(c=>`<button class="chip ${S.cat===c?'on':''}" data-cat="${c}" aria-pressed="${S.cat===c}">${c}</button>`).join('')}</div>
+      ${found.length?`<div class="evgrid">${found.map(card).join('')}</div>`:`<div class="empty">ไม่พบงานที่ตรงกับ "${esc(S.q||S.cat)}" ลองคำอื่น หรือล้างตัวกรอง</div>`}
+    </section>
+    <div class="card row between d-hide" style="gap:12px"><div class="small"><b>จัดงานเองใช่ไหม?</b><br><span class="muted">เปิดขายตั๋วโดยไม่ต้องตรวจสลิป</span></div><button class="btn ghost" style="width:auto;padding:10px 14px;font-size:14px" data-act="orgmode">สำหรับผู้จัดงาน</button></div>
+  </div>
+  <footer class="foot"><div class="in">
+    <div><b translate="no" style="font-family:var(--f-display);font-size:18px;letter-spacing:.04em">JONGLOEI</b><span>ตั๋วงานที่ปลอมไม่ได้ ขายต่อได้อย่างยุติธรรม</span></div>
+    <div><b>ผู้ซื้อ</b><button data-act="seeall">วิธีซื้อตั๋ว</button><button data-act="rules">เงื่อนไขขายต่อ</button></div>
+    <div><b>ผู้จัดงาน</b><button data-act="orgmode">เริ่มขายตั๋ว</button><button data-act="orgmode">ค่าบริการ</button></div>
+    <div><b>ช่วยเหลือ</b><span>ติดต่อเรา</span><span>นโยบายความเป็นส่วนตัว</span></div>
+  </div></footer>`;
 },
 event(){
-  const e=evById(S.ev);appbar(e.name);
+  const e=evById(S.ev);appbar(e.name);S.full=true;
   const z=e.zones[S.zone];
   const owned=S.tickets.filter(t=>t.ev===e.id).length,cap=Math.max(0,4-owned);
   if(S.qty>Math.max(1,cap))S.qty=Math.max(1,cap);
-  return `<div class="cols">
-  <div class="col">
-    ${poster(e,'lg')}
-    <div style="display:flex;flex-direction:column;gap:4px">
-      <h1 style="font-size:22px">${e.name}</h1>
-      <div class="muted">${e.date} · ${e.time} น.</div>
-      <div class="muted">${e.venue}</div>
+  const local=isLocal(e.id),sub=z.p*S.qty,fee=local?0:Math.round(sub*0.03);
+  const off=cap===0||z.left<=0||e.paused;
+  const cta=e.paused?'ปิดรับชั่วคราว':cap===0?'ครบ 4 ใบต่อบัญชีแล้ว':z.left<=0?'โซนนี้ขายหมด':'ไปชำระเงิน';
+  const rows=e.zones.map((zz,i)=>{const on=i===S.zone&&zz.left>0&&!e.paused;return `<button class="zr" role="radio" aria-checked="${on}" data-zone="${i}" ${zz.left===0||e.paused?'disabled':''}>
+      <span class="box">${on?'<svg><use href="#i-check"/></svg>':''}</span>
+      <span style="display:flex;flex-direction:column;min-width:0"><b>${zz.z}</b><span class="left num">${zz.left===0?'เต็มแล้ว ดูในตลาดขายต่อ':'เหลือ '+zz.left+' ที่'}</span></span>
+      <span class="pr num">${fmt(zz.p)}</span></button>`}).join('');
+  const zones=`<div class="zrows" role="radiogroup" aria-label="เลือกโซน">${rows}</div>${e.zones.some(x=>x.left===0)?`<button class="lnk" data-act="gomarket" style="align-self:flex-start">บางโซนเต็มแล้ว ดูตั๋วขายต่อของงานนี้</button>`:''}`;
+  const about=e.desc||e.description||`${e.name} ที่ ${e.venue} ประตูเปิดก่อนเวลาเริ่ม 1 ชั่วโมง แสดง QR ในแอปที่ทางเข้า ตั๋วขายต่อหรือโอนได้ในแอปเท่านั้น`;
+  return `<div class="wrap">
+  <button class="crumb m-hide" data-act="back"><svg aria-hidden="true"><use href="#i-back"/></svg>หน้าแรก</button>
+  <div class="dgrid">
+    <div class="dcol">
+      <div class="dposter" style="--pbg:${e.bg}"><div class="tags" style="display:flex;gap:6px"><span class="tag">${esc(e.tag)}</span></div><span class="big" aria-hidden="true" translate="no">${esc(e.short)}</span></div>
+      <div class="dinfo"><h1>${e.name}</h1><ul>
+        <li class="num"><svg aria-hidden="true"><use href="#i-cal"/></svg><span>${e.date} · ${e.time} น.</span></li>
+        <li><svg aria-hidden="true"><use href="#i-pin"/></svg><span>${e.venue}</span></li>
+        ${e.org?`<li><svg aria-hidden="true"><use href="#i-store"/></svg><span>จัดโดย ${esc(e.org)} · ยืนยันร้านแล้ว</span></li>`:''}
+      </ul></div>
+      ${e.paused?`<div class="alert" role="status"><svg aria-hidden="true"><use href="#i-info"/></svg><div><b>ปิดรับชั่วคราว</b><br>ผู้จัดพักการขายตั๋วงานนี้ไว้ ตั๋วที่ซื้อแล้วยังใช้ได้ตามปกติ</div></div>`:''}
+      <section class="trust2" aria-label="ทำไมซื้อที่นี่">
+        <div><svg aria-hidden="true"><use href="#i-shield"/></svg><div><b>ตั๋วปลอมไม่ได้</b><p>ตรวจได้ว่าใครเป็นเจ้าของ</p></div></div>
+        <div><svg aria-hidden="true"><use href="#i-swap"/></svg><div><b>ขายต่อได้ไม่เกิน 1.25×</b><p><button class="lnk" style="font-size:13px" data-act="rules">อ่านเงื่อนไขขายต่อ</button></p></div></div>
+        <div><svg aria-hidden="true"><use href="#i-refund"/></svg><div><b>งานยกเลิก คืนเงินอัตโนมัติ</b><p>ได้คืนเท่าที่จ่ายจริง</p></div></div>
+        <div><svg aria-hidden="true"><use href="#i-qrpay"/></svg><div><b>จ่ายด้วย PromptPay</b><p>ไม่ต้องส่งสลิป ไม่มีค่า gas</p></div></div>
+      </section>
+      <section aria-labelledby="h-about" style="display:flex;flex-direction:column;gap:8px"><h2 id="h-about" class="h2">เกี่ยวกับงาน</h2><p class="muted" style="margin:0;font-size:15px">${esc(about)}</p></section>
+      <section class="vstack d-hide" aria-labelledby="h-zones-m"><h2 id="h-zones-m" class="h2">เลือกโซน</h2>${zones}</section>
     </div>
-    <div class="trust">
-      <div><svg><use href="#i-cube"/></svg>ตั๋วเป็น NFT ของคุณจริง</div>
-      <div><svg><use href="#i-shield"/></svg>ปลอมสลิป ปลอมตั๋วไม่ได้</div>
-      <div><svg><use href="#i-swap"/></svg>ขายต่อในแอปได้ ราคาคุมเพดาน</div>
-    </div>
-    <div class="card small" style="display:flex;flex-direction:column;gap:6px">
-      <b>เงื่อนไขการขายต่อ</b>
-      <span class="muted">ขายต่อหรือโอนให้เพื่อนได้ในแอปเท่านั้น ราคาไม่เกิน 120% ของราคาหน้าบัตร โอนได้สูงสุด 2 ครั้ง และปิดการซื้อขาย 1 ชั่วโมงก่อนงานเริ่ม</span>
-    </div>
-  </div>
-  <div class="col side">
-    <div class="row between"><h2 style="font-size:17px">เลือกโซน</h2><span class="small muted">ขายไปแล้ว ${e.sold}%</span></div>
-    <div class="bar"><i style="width:${e.sold}%"></i></div>
-    <div class="zones">${e.zones.map((zz,i)=>`
-      <button class="zone ${i===S.zone?'on':''}" data-zone="${i}" ${zz.left===0?'disabled':''}>
-        <span class="dot" style="--zc:${zz.c}"></span>
-        <span><b>${zz.z}</b><br><span class="small muted">${zz.left===0?'ขายหมดแล้ว · ดูในตลาดรีเซล':'เหลือ '+zz.left+' ที่'}</span></span>
-        <b class="num">${fmt(zz.p)}</b>
-      </button>`).join('')}</div>
-    ${e.zones.some(x=>x.left===0)?`<button class="linkbtn" data-act="gomarket" style="align-self:flex-start">บางโซนขายหมดแล้ว ดูตั๋วรีเซลของงานนี้</button>`:''}
-    <div class="card row between">
-      <div><b>จำนวน</b><div class="small muted">${owned?'คุณมีตั๋วงานนี้แล้ว '+owned+' ใบ · ':''}ซื้อได้อีก ${cap} ใบ</div></div>
-      <div class="qty"><button data-q="-1" aria-label="ลด">−</button><b class="num" style="min-width:16px;text-align:center">${S.qty}</b><button data-q="1" aria-label="เพิ่ม">+</button></div>
-    </div>
-    <div class="sticky-cta">
-      <div class="tot"><span class="small muted">รวม</span><b class="num">${fmt(z.p*S.qty)}</b></div>
-      <button class="btn" data-act="buy" ${cap===0||z.left<=0||e.paused?'disabled':''}>${e.paused?'ปิดรับชั่วคราว':cap===0?'ครบ 4 ใบต่อบัญชีแล้ว':z.left<=0?'โซนนี้ขายหมด':'ซื้อตั๋ว'}</button>
-    </div>
-  </div></div>`;
+    <aside class="panel sticky" aria-label="สรุปการซื้อ">
+      <section class="vstack m-hide"><h2 style="font-size:18px">เลือกโซน</h2>${zones}</section>
+      <div class="vstack d-hide" style="gap:2px"><span class="small muted">โซนที่เลือก</span><b style="font-family:var(--f-display);font-size:18px">${z.left>0?z.z:'—'}</b></div>
+      <div class="qtyrow"><div style="display:flex;flex-direction:column"><span style="font-weight:500">จำนวน</span><span class="small muted num">${owned?'มีแล้ว '+owned+' ใบ · ':''}ซื้อได้อีก ${cap} ใบ (ไม่เกิน 4 ใบต่อคน)</span></div>
+        <div class="stepper"><button data-q="-1" aria-label="ลดจำนวน" ${S.qty<=1?'disabled':''}><svg width="18" height="18"><use href="#i-minus"/></svg></button><output class="num" aria-live="polite">${S.qty}</output><button data-q="1" aria-label="เพิ่มจำนวน" ${S.qty>=cap?'disabled':''}><svg width="18" height="18"><use href="#i-plus"/></svg></button></div></div>
+      <dl class="sum num"><dt>${z.z} × ${S.qty}</dt><dd>${fmt(sub)}</dd><dt>ค่าบริการ${local?'':' 3%'}</dt><dd>${fmt(fee)}</dd><dt>ค่า gas</dt><dd>ฟรี</dd><dt class="tot">รวม</dt><dd>${fmt(sub+fee)}</dd></dl>
+      <button class="bigbtn m-hide" data-act="buy" ${off?'disabled':''}>${cta}${off?'':'<svg aria-hidden="true"><use href="#i-arrow"/></svg>'}</button>
+      <p class="small muted" style="margin:0">เรากันที่นั่งให้ 10 นาทีหลังกดชำระเงิน</p>
+    </aside>
+  </div></div>
+  <div class="buybar"><div class="t"><span>รวม ${S.qty} ใบ</span><b class="num">${fmt(sub+fee)}</b></div><button class="bigbtn" data-act="buy" ${off?'disabled':''} style="flex:1">${cta}</button></div>`;
 },
 checkout(){
-  appbar('ชำระเงิน');
+  appbar('ตรวจสอบคำสั่งซื้อ');S.full=true;
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:buyUnit(e);const qty=L?1:S.qty;
-  const local=isLocal(e.id);
-  const sub=L?unit:buyTotal(e),fee=local?0:Math.round(sub*0.03);   // organizer events: the shop pays the service fee (context.md 9), the buyer pays face price
-  return `<div class="cols">
-  <div class="col">
-    <h2 style="font-size:16px">ช่องทางชำระเงิน</h2>
-    <div class="zones">
-      ${local?`<button class="pay on" data-pay="promptpay"><span class="logo">QR</span><span><b>PromptPay</b> <span class="pill warn">จำลอง</span><br><span class="small muted">งานจากผู้จัดในเดโม ไม่มีการตัดเงินจริง</span></span><span class="radio"></span></button>`
-      :`<button class="pay ${S.pay==='promptpay'?'on':''}" data-pay="promptpay"><span class="logo">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">รองรับวิธีชำระเงินที่เหมาะกับคุณ</span></span><span class="radio"></span></button>`}
-    </div>
-    ${local&&!L?`<div class="field"><label for="promo-input">โค้ดส่วนลด</label><div class="row"><input id="promo-input" value="${esc(S.promo&&S.promo.ev===e.id?S.promo.code:'')}" autocomplete="off" style="flex:1"><button class="btn plain" style="width:auto;padding:10px 14px;font-size:14px" data-o="promoApply">ใช้โค้ด</button></div><span class="hint" id="promo-msg" role="status">${S.promo&&S.promo.ev===e.id?esc(S.promo.msg):''}</span></div>`:''}
-    <p class="small muted" style="margin:0">ตั๋วจะถูกส่งเข้ากระเป๋าตั๋วของ ${S.user.name} (<span class="mono">${short(S.user.wallet)}</span>) หลังยืนยันการชำระเงิน</p>
-    <p class="small muted" style="margin:0">ระบบจะกันที่นั่งไว้ให้ 10 นาทีระหว่างชำระเงิน จ่ายด้วย PromptPay หรือบัตรในหน้า Stripe ได้เลย ไม่ต้องส่งสลิป</p>
-  </div>
-  <div class="col side">
-    <div class="card" style="display:grid;grid-template-columns:64px 1fr;gap:12px">
-      <div class="poster" style="min-height:64px;padding:6px;border-radius:10px;--pbg:${e.bg}"><div class="pbig" style="font-size:10px">${esc(e.short).replace('\n','<br>')}</div></div>
-      <div style="min-width:0"><b>${e.name}</b><div class="small muted">${e.date} · ${zone} × ${qty}</div>${L?'<span class="pill" style="margin-top:4px">ตั๋วรีเซล · Token #'+L.tid+'</span>':''}</div>
-    </div>
-    <dl class="kv card num" style="margin:0">
-      <dt>ราคาบัตร</dt><dd>${fmt(sub)}</dd>
-      <dt>ค่าบริการ${local?'':' 3%'}</dt><dd>${local?'<span class="pill ok">ผู้จัดเป็นผู้จ่าย</span>':fmt(fee)}</dd>
-      <dt>ค่าแก๊ส (ค่าธรรมเนียมบล็อกเชน)</dt><dd><span class="pill ok">ฟรี ระบบออกให้</span></dd>
-      <dt style="font-weight:600;color:var(--ink)">ยอดชำระ</dt><dd style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--red)">${fmt(sub+fee)}</dd>
-    </dl>
-    <div class="sticky-cta"><button class="btn" data-act="topay">ชำระ ${fmt(sub+fee)} ด้วย ${local?'PromptPay (จำลอง)':'Stripe'}</button></div>
-  </div></div>`;
+  const local=isLocal(e.id),face=L?L.price:e.zones[S.zone].p;
+  const sub=L?unit:buyTotal(e),fee=local||L?0:Math.round(sub*0.03),disc=face*qty-sub;   // organizer events: the shop pays the service fee (context.md 9); resale: the seller pays the 6% commission
+  return `<div class="wrap narrow-w">
+  ${titleRow('ตรวจสอบคำสั่งซื้อ')}
+  <section class="ocard" aria-label="รายการที่ซื้อ">${thumb(e)}
+    <div class="info"><b>${e.name}</b><span class="num muted">${e.date} · ${e.time} น.</span><span class="muted">${e.venue}</span><span class="num">จำนวน ${qty} ใบ</span>${L?'<span class="pill info" style="align-self:flex-start;margin-top:4px">ตั๋วขายต่อ</span>':''}</div>
+    ${zchip(e,zone)}</section>
+  <section class="sect"><h2>ช่องทางชำระเงิน</h2>
+    ${local?`<button class="payopt" data-pay="promptpay" aria-pressed="true"><span class="lg">QR</span><span><b>PromptPay</b> <span class="pill warn">จำลอง</span><br><span class="small muted">งานจากผู้จัดในเดโม ไม่มีการตัดเงินจริง</span></span><span class="rd"></span></button>`
+    :`<button class="payopt" data-pay="promptpay" aria-pressed="true"><span class="lg">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">จ่ายด้วย PromptPay หรือบัตรในหน้า Stripe</span></span><span class="rd"></span></button>`}
+  </section>
+  ${local&&!L?`<div class="field"><label for="promo-input">โค้ดส่วนลด</label><div class="row"><input id="promo-input" value="${esc(S.promo&&S.promo.ev===e.id?S.promo.code:'')}" autocomplete="off" style="flex:1"><button class="btn plain" style="width:auto;padding:10px 14px;font-size:14px" data-o="promoApply">ใช้โค้ด</button></div><span class="hint" id="promo-msg" role="status">${S.promo&&S.promo.ev===e.id?esc(S.promo.msg):''}</span></div>`:''}
+  <dl class="sum num" style="padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)">
+    <dt>ราคาบัตร ${qty} ใบ</dt><dd>${fmt(face*qty)}</dd>${disc>0?`<dt class="disc">ส่วนลด</dt><dd>−${fmt(disc)}</dd>`:''}
+    <dt>ค่าบริการ${local||L?'':' 3%'}</dt><dd>${L?'ไม่มี (ผู้ขายจ่ายคอมมิชชัน)':fmt(fee)}</dd><dt>ค่า gas</dt><dd>ฟรี</dd><dt class="tot">ยอดชำระ</dt><dd>${fmt(sub+fee)}</dd></dl>
+  <button class="bigbtn" data-act="topay">ชำระเงิน</button>
+  <p class="note">(กดแล้วเรากันที่นั่งให้ 10 นาที ระหว่างนี้ยังไม่มีการตัดเงิน)</p>
+  </div>`;
 },
 pay(){
-  appbar('สแกนเพื่อชำระ');
+  appbar('จ่ายเงิน');S.full=true;
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
-  const sub=L?L.price:buyTotal(e);const total=sub+(isLocal(e.id)?0:Math.round(sub*0.03));
-  return `<div class="cols even">
-  <div class="col">
-    <div class="qrbox">
-      <div class="tqr"><span>THAI QR PAYMENT</span><span>PromptPay</span></div>
-      <canvas id="payqr" width="29" height="29" aria-label="QR PromptPay ตัวอย่าง"></canvas>
-      <div style="text-align:center;line-height:1.3"><div style="font-size:13px;color:#6E6265">บจก. จองเลย (ตัวอย่าง)</div>
-      <div style="font-family:var(--f-display);font-weight:700;font-size:26px;color:#A00018" class="num">${fmt(total)}</div></div>
-    </div>
-  </div>
-  <div class="col">
-    <div class="card row between"><span>QR หมดอายุใน</span><b class="num" id="paycd" style="font-family:var(--f-display);color:var(--red)">09:59</b></div>
-    <ol class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
-      <li>เปิดแอปธนาคาร แล้วเลือกสแกนจ่าย</li><li>สแกน QR นี้ ยอดเงินจะขึ้นให้อัตโนมัติ</li><li>ไม่ต้องส่งสลิป ระบบตรวจยอดกับธนาคารให้เอง</li>
-    </ol>
-    ${isLocal(e.id)?`<button class="btn" data-act="paid">จำลองการจ่ายเงิน (เดโม)</button><span class="pill warn" style="align-self:center">จำลอง: ไม่มีการตัดเงินจริง</span>`:`<button class="btn" data-act="paid">ไปชำระเงินด้วย Stripe</button>`}
-    <button class="btn plain" data-act="back">ยกเลิก</button>
-  </div></div>`;
+  const qty=L?1:S.qty,zone=L?L.zone:e.zones[S.zone].z;
+  const sub=L?L.price:buyTotal(e);const total=sub+(isLocal(e.id)||L?0:Math.round(sub*0.03));
+  return `<div class="wrap narrow-w ctr">
+  ${titleRow('จ่ายเงิน')}
+  <div style="display:flex;flex-direction:column;gap:4px"><p style="margin:0;font-size:15px">เรากันที่นั่งไว้ให้แล้ว</p><p class="cd">เหลือ <b id="paycd" class="num">10:00</b> ก่อนหมดเวลา</p></div>
+  <div class="qrcard"><div class="tqr"><span>THAI QR PAYMENT</span><span>PromptPay</span></div>
+    <canvas id="payqr" width="29" height="29" aria-label="QR PromptPay"></canvas>
+    <div style="line-height:1.3"><div style="font-size:13px;color:#6E6265">บจก. จองเลย (ตัวอย่าง)</div><div class="amt num">${fmt(total)}</div></div></div>
+  <dl class="rows num"><dt style="font-weight:600">${e.name}</dt><dd style="font-weight:600">${fmt(total)}</dd><dt>ที่นั่ง ${esc(zone)}</dt><dd>จำนวน ${qty} ใบ</dd></dl>
+  <p class="small muted" style="margin:0">เปิดแอปธนาคาร สแกน QR ยอดเงินขึ้นให้อัตโนมัติ ไม่ต้องส่งสลิป ระบบตรวจยอดให้เอง</p>
+  <div class="btncol">${isLocal(e.id)?`<button class="bigbtn" data-act="paid">จำลองการจ่ายเงิน (เดโม)</button>`:`<button class="bigbtn" data-act="paid">ไปชำระเงินด้วย Stripe</button>`}<button class="bigbtn plain" data-act="back">ยกเลิก</button></div>
+  </div>`;
 },
 minting(){
-  appbar('กำลังออกตั๋ว');
+  appbar('กำลังออกตั๋ว');S.full=true;
   const pp=isLocal(S.buyingListing?S.buyingListing.ev:S.ev);
-  return `<div class="narrow">
-  <div class="hero-ok" style="padding-top:10px"><span class="pill ok">${pp?'ชำระเงินแล้ว (จำลอง)':'Stripe ยืนยันการชำระเงินแล้ว'}</span>
-    <h1 style="font-size:20px">กำลังสร้างตั๋ว NFT ของคุณ</h1><p class="small muted" style="margin:0">ห้ามปิดหน้านี้ ใช้เวลาไม่เกิน 1 นาที</p></div>
+  return `<div class="wrap narrow-w ctr">
+  <span class="pill ok">${pp?'ชำระเงินสำเร็จ (จำลอง)':'ชำระเงินสำเร็จ'}</span>
+  <h1 class="ftitle">กำลังออกตั๋ว</h1><p class="muted" style="margin:0">ห้ามปิดหน้านี้ ใช้เวลาไม่เกิน 1 นาที</p>
   <ol class="steps" id="mintsteps">
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${pp?'ได้รับเงินผ่าน PromptPay':'ได้รับเงินผ่าน Stripe'}</b><small>${pp?'ผู้ให้บริการชำระเงินส่งแจ้งเตือนมา (จำลอง)':'ระบบได้รับ event จาก Stripe webhook'}</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${pp?'ตรวจยอดเงิน 5 ข้อ':'Stripe webhook ยืนยันยอด'}</b><small>${pp?'ลายเซ็น ยอด reference อายุ order และไม่ซ้ำ':'ตรวจ event ที่เซ็นรับรองแล้วและไม่ซ้ำ'}</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>Mint ตั๋วบนบล็อกเชน</b><small>สร้าง NFT ERC-721 และล็อกที่นั่งให้คุณ</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ส่งเข้ากระเป๋าตั๋วของคุณ</b><small class="mono">${short(S.user.wallet)}</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${pp?'ได้รับเงินผ่าน PromptPay':'ได้รับเงินผ่าน Stripe'}</b><small>${pp?'ผู้ให้บริการชำระเงินแจ้งยอดมาแล้ว (จำลอง)':'ระบบได้รับการยืนยันจาก Stripe'}</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ตรวจยอดเงิน</b><small>${pp?'ยอด เลขอ้างอิง อายุคำสั่งซื้อ และไม่ซ้ำ':'ตรวจรายการที่ลงนามแล้วและไม่ซ้ำ'}</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ออกตั๋วบนบล็อกเชน</b><small>สร้างตั๋วที่ปลอมไม่ได้ และล็อกที่นั่งให้คุณ</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ส่งเข้าบัญชีของคุณ</b><small class="mono">${short(S.user.wallet)}</small></span></li>
   </ol></div>`;
 },
 success(){
-  appbar('ได้ตั๋วแล้ว');
+  appbar('ได้ตั๋วแล้ว');S.full=true;
   const t=S.sel;
-  return `<div class="sgrid">
-  <div class="hero-ok a-hero"><div class="big"><svg><use href="#i-check"/></svg></div><h1 style="font-size:21px">ตั๋วอยู่ในกระเป๋าของคุณแล้ว</h1>
-    <p class="small muted" style="margin:0">ตั๋วใบนี้เป็น NFT ใครก็ตรวจสอบได้ว่าคุณเป็นเจ้าของ</p></div>
-  <div class="a-nft">${nftCard(t)}</div>
-  <div class="a-btns"><button class="btn" data-act="viewticket">ดูตั๋วและ QR เข้างาน</button>
-  <button class="btn plain" data-act="home">กลับหน้าแรก</button></div></div>`;
+  return `<div class="wrap narrow-w ctr">
+  <span class="okc" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path class="draw" d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+  <h1 class="ftitle">ได้ตั๋วแล้ว</h1><p class="muted" style="margin:0">ตั๋วอยู่ในบัญชีของคุณ ใช้ QR ในตั๋วของฉันเข้างาน</p>
+  ${nftCard(t)}
+  <div class="btncol row2"><button class="bigbtn" data-act="viewticket">ดูตั๋วและ QR เข้างาน</button><button class="bigbtn plain" data-act="home">กลับหน้าแรก</button></div>
+  </div>`;
 },
 paymentSuccess(){
-  appbar('สถานะการชำระเงิน');
+  appbar('สถานะการชำระเงิน');S.full=true;
   const ORDER_TEXT={
     pending:{title:'กำลังยืนยันการชำระเงิน',sub:'รอ Stripe แจ้งผลการชำระเงิน',pill:'warn',label:'รอยืนยัน',note:'ระบบตรวจยอดกับ Stripe โดยตรง ไม่ต้องส่งสลิป'},
-    paid:{title:'ชำระเงินสำเร็จ',sub:'ตรวจยอดกับ Stripe ครบแล้ว',pill:'ok',label:'กำลังออกตั๋ว',note:'กำลัง mint ตั๋ว NFT เข้ากระเป๋าของคุณบน Avalanche Fuji ใช้เวลาประมาณ 1 นาที'},
-    fulfilled:{title:'ได้ตั๋วแล้ว',sub:'ตั๋ว NFT อยู่ในกระเป๋าของคุณแล้ว',pill:'ok',label:'ออกตั๋วแล้ว',note:'ดูตั๋วและ QR เข้างานได้ที่ตั๋วของฉัน'},
+    paid:{title:'ชำระเงินสำเร็จ',sub:'ตรวจยอดกับ Stripe ครบแล้ว',pill:'ok',label:'กำลังออกตั๋ว',note:'กำลังออกตั๋วเข้าบัญชีของคุณ ใช้เวลาประมาณ 1 นาที'},
+    fulfilled:{title:'ได้ตั๋วแล้ว',sub:'ตั๋วอยู่ในบัญชีของคุณแล้ว',pill:'ok',label:'ออกตั๋วแล้ว',note:'ดูตั๋วและ QR เข้างานได้ที่ตั๋วของฉัน'},
     needs_review:{title:'ทีมงานกำลังตรวจสอบรายการ',sub:'ได้รับการชำระเงินแล้ว แต่รายการนี้ต้องตรวจเพิ่ม',pill:'warn',label:'รอตรวจสอบ',note:'เช่น ชำระหลังหมดเวลากันที่นั่ง ทีมงานจะออกตั๋วหรือคืนเงินให้'},
     expired:{title:'หมดเวลากันที่นั่ง',sub:'ยังไม่ได้ตัดเงิน',pill:'grey',label:'หมดเวลา',note:'ที่นั่งถูกคืนเข้าระบบแล้ว ลองซื้อใหม่ได้'},
     failed:{title:'ชำระเงินไม่สำเร็จ',sub:'ยังไม่ได้ตัดเงิน',pill:'grey',label:'ไม่สำเร็จ',note:'ที่นั่งถูกคืนเข้าระบบแล้ว ลองซื้อใหม่ได้'},
   };
-  const st=ORDER_TEXT[S.order&&S.order.status]||ORDER_TEXT.pending;
-  return `<div class="narrow">
-    <div class="hero-ok" style="padding-top:24px">
-      <div class="big"><svg><use href="#i-check"/></svg></div>
-      <h1 style="font-size:22px">${st.title}</h1>
-      <p class="small muted" style="margin:0;text-align:center">${st.sub}</p>
-    </div>
-    <div class="card">
-      <div class="row between"><span>สถานะคำสั่งซื้อ</span><span class="pill ${st.pill}">${st.label}</span></div>
-      <p class="small muted" style="margin:10px 0 0">${st.note}</p>
-    </div>
-    <button class="btn" data-act="tickets">ดูตั๋วของฉัน</button>
-    <button class="btn plain" data-act="home">กลับหน้าแรก</button>
+  const key=S.order&&S.order.status,st=ORDER_TEXT[key]||ORDER_TEXT.pending,ok=key==='fulfilled'||key==='paid';
+  return `<div class="wrap narrow-w ctr">
+    ${ok?`<span class="okc" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path class="draw" d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>`
+      :`<span class="okc" aria-hidden="true" style="background:var(--${st.pill==='warn'?'warn':'neutral'}-solid);animation:none"><svg width="38" height="38"><use href="#i-info"/></svg></span>`}
+    <h1 class="ftitle">${st.title}</h1><p class="muted" style="margin:0">${st.sub}</p>
+    <div class="rows" style="display:flex;flex-direction:column;gap:8px"><div class="row between"><span>สถานะคำสั่งซื้อ</span><span class="pill ${st.pill}">${st.label}</span></div><p class="small muted" style="margin:0">${st.note}</p></div>
+    <div class="btncol row2"><button class="bigbtn" data-act="tickets">ดูตั๋วของฉัน</button><button class="bigbtn plain" data-act="home">กลับหน้าแรก</button></div>
   </div>`;
 },
 tickets(){
-  appbar('ตั๋วของฉัน');
-  if(!S.signedIn)return `<div class="empty">เข้าสู่ระบบเพื่อดูตั๋วของคุณ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>`;
+  appbar('ตั๋วของฉัน');S.full=true;
+  if(!S.signedIn)return `<div class="wrap narrow-w ctr" style="padding-top:56px"><span class="okc" style="background:var(--surface-2);color:var(--muted);animation:none" aria-hidden="true"><svg width="34" height="34"><use href="#i-ticket"/></svg></span>
+    <h1 class="h2">เข้าสู่ระบบเพื่อดูตั๋ว</h1><p class="muted" style="margin:0">ใช้บัญชี Google บัญชีเดียว ตั๋วอยู่ครบทุกเครื่อง</p><button class="bigbtn" data-act="signup" style="max-width:320px">เข้าสู่ระบบ</button></div>`;
   const groups={active:'ใช้งานได้',listed:'ลงขายอยู่',used:'ใช้แล้ว',refunded:'คืนเงินแล้ว'};
   const list=S.tickets.filter(t=>t.status===S.mtab);
-  return `
-  <h1 class="d-only" style="font-size:24px">ตั๋วของฉัน</h1>
-  <div class="seg four">${Object.entries(groups).map(([k,v])=>`<button data-mtab="${k}" class="${S.mtab===k?'on':''}">${v} (${S.tickets.filter(t=>t.status===k).length})</button>`).join('')}</div>
-  ${list.length?`<div class="tlist">${list.map(t=>{const e=evById(t.ev);return `
-    <button class="mticket" data-ticket="${t.key||t.tid}">${poster(e)}
-      <div><h3>${e.name}</h3><div class="small muted">${e.date} · ${t.zone}</div><div class="tokenid">Token #${t.tid}</div></div>
-      ${t.minting?'<span class="pill warn">กำลังออกตั๋ว</span>':t.failed?'<span class="pill grey">รอทีมงานตรวจ</span>':t.status==='refunded'?`<span class="pill">คืนเงินแล้ว ${fmt(t.refundAmount||0)}</span>`:t.status==='listed'?`<span class="pill warn">${fmt(t.listPrice)}</span>`:t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':'<span class="pill ok">พร้อมใช้</span>'}
-    </button>`}).join('')}</div>`:`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ลองดูงานที่หน้าแรก':'ไม่มีตั๋วในหมวดนี้'}</div>`}
-  <div class="card small muted">ตั๋วทุกใบเก็บอยู่ใน wallet ที่ระบบสร้างให้ตอนสมัคร คุณไม่ต้องจำ seed phrase หรือจ่ายค่าแก๊สเอง</div>`;
+  return `<div class="wrap">
+  <h1 class="ftitle">ตั๋วของฉัน</h1>
+  <div class="chips" role="group" aria-label="สถานะตั๋ว">${Object.entries(groups).map(([k,v])=>`<button class="chip ${S.mtab===k?'on':''}" data-mtab="${k}" aria-pressed="${S.mtab===k}">${v} <span class="num">${S.tickets.filter(t=>t.status===k).length}</span></button>`).join('')}</div>
+  ${list.length?`<div class="tklist">${list.map(t=>{const e=evById(t.ev);return `<button class="tk" data-ticket="${t.key||t.tid}">${thumb(e)}
+      <div class="info"><h3>${e.name}</h3><span class="meta num">${e.date} · ${e.time} น.</span><span>${zchip(e,t.zone)}</span></div>${tkPill(t)}</button>`}).join('')}</div>`
+    :`<div class="empty">${S.mtab==='active'?'ยังไม่มีตั๋ว ตั๋วที่ซื้อหรือได้รับโอนจะขึ้นที่นี่ พร้อม QR สำหรับเข้างาน':'ไม่มีตั๋วในหมวดนี้'}${S.mtab==='active'?'<br><br><button class="btn" data-act="home" style="max-width:280px;margin:0 auto">ดูงานทั้งหมด</button>':''}</div>`}
+  <p class="small muted" style="margin:0">ตั๋วทุกใบเก็บในบัญชีที่ระบบสร้างให้ตอนสมัคร ไม่ต้องจำรหัสกู้คืนหรือจ่ายค่า gas เอง</p>
+  </div>`;
 },
 ticket(){
-  const t=S.sel,e=evById(t.ev);appbar('Token #'+t.tid);
-  const locked=t.status!=='active'||t.real;
-  return `<div class="tgrid">
-  <div class="col">
-    ${ticketAnn(t)}
-    <div class="seg"><button data-tv="qr" class="${S.ticketView==='qr'?'on':''}">QR เข้างาน</button><button data-tv="nft" class="${S.ticketView==='nft'?'on':''}">ข้อมูล NFT</button></div>
-    <div class="col ${S.ticketView==='qr'?'':'tv-hide'}">
-      <div class="qrbox">
-        <div style="text-align:center;line-height:1.35"><b style="font-family:var(--f-display)">${e.name}</b><div style="font-size:13px;color:#6E6265">${e.date} · ${t.zone}</div></div>
-        ${t.minting||t.failed?`<div style="padding:40px 10px;text-align:center;color:#6E6265">${t.minting?'กำลังออกตั๋วบนบล็อกเชน<br>QR จะขึ้นเมื่อ mint เสร็จ':'การออกตั๋วมีปัญหา<br>ทีมงานกำลังตรวจสอบ'}</div>`:t.status==='refunded'?`<div style="padding:40px 10px;text-align:center;color:#A00018;font-weight:600">งานถูกยกเลิก<br><span style="font-weight:400;color:#6E6265">คืนเงิน ${fmt(t.refundAmount||0)} แล้ว ตั๋วใบนี้ใช้เข้างานไม่ได้</span></div>`:t.status==='listed'?`<div style="padding:40px 10px;text-align:center;color:#6E6265">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`:t.status==='used'?`<div style="padding:40px 10px;text-align:center;color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`:`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
-        <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" stroke-width="4"/><circle id="ringfg" cx="18" cy="18" r="15" fill="none" stroke="#A00018" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="0" stroke-linecap="round"/></svg>QR ใหม่ใน <b id="qrcd" class="num">60</b> วินาที</div>`}
-      </div>
-      <div class="card small" style="display:flex;gap:10px"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
-        <span>QR นี้ลงชื่อด้วย wallet ของคุณและเปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอจึงใช้เข้างานไม่ได้ เมื่อสแกนแล้วตั๋วจะถูกล็อก โอนต่อไม่ได้</span></div>
+  const t=S.sel,e=evById(t.ev);appbar(e.name);S.full=true;
+  const locked=t.status!=='active'||t.minting||t.failed;
+  const qr=t.minting||t.failed?`<div class="qrstate">${t.minting?'กำลังออกตั๋วบนบล็อกเชน<br>QR จะขึ้นเมื่อออกตั๋วเสร็จ':'การออกตั๋วมีปัญหา<br>ทีมงานกำลังตรวจสอบ'}</div>`
+    :t.status==='refunded'?`<div class="qrstate" style="color:#DC2626;font-weight:600">งานถูกยกเลิก<br><span style="font-weight:400;color:#6E6265">คืนเงิน ${fmt(t.refundAmount||0)} แล้ว ตั๋วใบนี้ใช้เข้างานไม่ได้</span></div>`
+    :t.status==='listed'?`<div class="qrstate">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`
+    :t.status==='used'?`<div class="qrstate" style="color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`
+    :`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
+      <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" stroke-width="4"/><circle id="ringfg" cx="18" cy="18" r="15" fill="none" stroke="#A00018" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="0" stroke-linecap="round"/></svg>QR ใหม่ใน <b id="qrcd" class="num">60</b> วินาที</div>`;
+  return `<div class="wrap">
+  <button class="crumb m-hide" data-act="back"><svg aria-hidden="true"><use href="#i-back"/></svg>ตั๋วของฉัน</button>
+  ${ticketAnn(t)}
+  <div class="tgrid2">
+    <div class="vstack" style="gap:16px">
+      <div class="qrcard"><div style="text-align:center;line-height:1.4"><b style="font-family:var(--f-display);font-size:17px">${e.name}</b><div style="font-size:13px;color:#6E6265">${e.date} · ${e.time} น. · ${esc(t.zone)}</div></div>${qr}</div>
+      <p class="small muted" style="margin:0;display:flex;gap:10px"><svg class="ic" style="color:var(--red)" aria-hidden="true"><use href="#i-shield"/></svg><span>QR นี้เปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอจึงใช้เข้างานไม่ได้ เมื่อสแกนแล้วตั๋วจะถูกล็อก โอนต่อไม่ได้</span></p>
     </div>
-  </div>
-  <div class="col">
-    <div class="${S.ticketView==='nft'?'':'tv-hide'}">${nftCard(t,true)}</div>
-    <div class="row">
-      <button class="btn ghost" data-act="resell" ${locked?'disabled':''}>ขายต่อ</button>
-      <button class="btn ghost" data-act="transfer" ${locked||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button>
+    <div class="vstack" style="gap:16px">
+      ${nftCard(t,true)}
+      <div class="btncol row2"><button class="bigbtn sec" data-act="resell" ${locked?'disabled':''}>ขายต่อ</button><button class="bigbtn sec" data-act="transfer" ${locked||t.real||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button></div>
+      ${t.status==='listed'?`<button class="bigbtn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
+      ${t.real?'<p class="small muted" style="margin:0">ลงขายได้หลังได้ตั๋ว 6 ชั่วโมง ส่วนการโอนให้เพื่อนจะเปิดในเวอร์ชันถัดไป</p>':`<button class="bigbtn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>`}
     </div>
-    ${t.status==='listed'?`<button class="btn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
-    ${t.real?'<p class="small muted" style="margin:0">ขายต่อและโอนตั๋วจริงจะเปิดในเวอร์ชันถัดไป</p>':`<button class="btn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>`}
   </div></div>`;
 },
 market(){
-  appbar('ตลาดรีเซล');
-  const ls=S.listings.filter(l=>S.mcat==='all'||l.ev===S.mcat);
-  return `
-  <h1 class="d-only" style="font-size:24px">ตลาดรีเซล</h1>
-  <div class="card" style="display:flex;gap:10px;align-items:flex-start"><svg width="22" height="22" style="flex:none;color:var(--red)"><use href="#i-shield"/></svg>
-    <div class="small"><b>ตั๋วมือสองที่ตรวจสอบได้ทุกใบ</b><br><span class="muted">ผู้ขายต้องเป็นเจ้าของตั๋วบนเชนจริง ราคาไม่เกิน 120% ของหน้าบัตร เงินถึงผู้ขายเมื่อตั๋วโอนสำเร็จเท่านั้น</span></div></div>
-  <div class="chips"><button class="chip ${S.mcat==='all'?'on':''}" data-mcat="all">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip ${S.mcat===e.id?'on':''}" data-mcat="${e.id}">${esc(e.short).replace('\n',' ')}</button>`).join('')}</div>
-  ${ls.length?`<div class="lgrid">${ls.map(l=>{const e=evById(l.ev);const pct=Math.round((l.price/l.face-1)*100);const mine=l.seller===short(S.user.wallet);return `
-  <div class="listing">
-    <div class="top">${poster(e)}<div><b>${e.name}</b><div class="small muted">${e.date} · ${l.zone}</div><div class="tokenid">Token #${l.tid}</div></div></div>
-    <hr class="sep">
-    <div class="row between">
-      <div><div class="num" style="font-family:var(--f-display);font-weight:700;font-size:19px;color:var(--red)">${fmt(l.price)}</div>
-        <div class="row" style="gap:6px"><span class="strike num">${fmt(l.face)}</span><span class="small muted">${pct>0?'+'+pct+'%':'ราคาหน้าบัตร'}</span></div></div>
-      ${mine?'<span class="pill grey">ตั๋วของคุณ</span>':`<button class="btn" style="width:auto;padding:10px 18px;font-size:15px" data-buyl="${l.lid}">ซื้อเลย</button>`}
-    </div>
-    <div class="row small muted" style="flex-wrap:wrap;gap:6px 12px"><span>ผู้ขาย <span class="mono">${l.seller}</span></span><span>โอนมาแล้ว ${l.transfers}/2 ครั้ง</span><span class="pill ok">ยืนยันเจ้าของบนเชน</span></div>
-  </div>`}).join('')}</div>`:`<div class="empty">${S.mcat==='all'?'ยังไม่มีตั๋วลงขาย':'ยังไม่มีตั๋วรีเซลของงานนี้'}</div>`}`;
+  appbar('ตลาดขายต่อ');S.full=true;
+  const ls=marketListings().filter(l=>S.mcat==='all'||l.ev===S.mcat);
+  return `<div class="wrap">
+  <h1 class="ftitle">ตลาดขายต่อ</h1>
+  ${S.hideMarketNote?'':`<div class="alert red" role="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><b>ตั๋วขายต่อทุกใบตรวจได้ว่าเป็นของจริง</b><br>ราคาไม่เกิน 1.25 เท่าของหน้าบัตร ระบบโอนตั๋วให้หลังยืนยันการชำระเงินแล้วเท่านั้น</div><button class="x" data-act="hidenote" aria-label="ปิดประกาศ"><svg><use href="#i-x"/></svg></button></div>`}
+  <div class="chips" role="group" aria-label="เลือกงาน"><button class="chip ${S.mcat==='all'?'on':''}" data-mcat="all" aria-pressed="${S.mcat==='all'}">ทั้งหมด</button>${EVENTS.map(e=>`<button class="chip ${S.mcat===e.id?'on':''}" data-mcat="${e.id}" aria-pressed="${S.mcat===e.id}">${esc(e.short).replace('\n',' ')}</button>`).join('')}</div>
+  ${ls.length?`<div class="lgrid2">${ls.map(l=>{const e=evById(l.ev);const mine=l.real?l.mine:l.seller===short(S.user.wallet);const tone=l.price<l.face?'low':l.price>l.face?'high':'';
+    return `<div class="lst">${thumb(e)}
+      <div class="info"><h3>${e.name}</h3><span class="small muted num">${e.date} · ${e.time} น.</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${zchip(e,l.zone)}<span class="small muted">ขายต่อมาแล้ว ${l.transfers} ครั้ง</span></div></div>
+      <div class="foot2"><div class="ptone ${tone}">${tone==='low'?`<span class="was num">${fmt(l.face)}</span><span class="now num">${fmt(l.price)}</span>`:`<span class="now num">${fmt(l.price)}</span><span class="orig num">${tone?'(ราคาเดิม '+fmt(l.face)+')':'(ราคาหน้าบัตร)'}</span>`}</div>
+      ${mine?'<span class="pill grey">ตั๋วของคุณ</span>':l.held?'<span class="pill warn">มีคนกำลังชำระ</span>':`<button class="btn" style="width:auto;min-height:44px;padding:0 24px" data-buyl="${l.lid}">ซื้อ</button>`}</div>
+    </div>`}).join('')}</div>`:`<div class="empty">${S.mcat==='all'?'ยังไม่มีตั๋วขายต่อ เมื่อมีคนลงขาย ราคาจะไม่เกิน 1.25 เท่าของหน้าบัตรเสมอ':'ยังไม่มีตั๋วขายต่อของงานนี้'}</div>`}
+  </div>`;
 },
 profile(){
-  appbar('บัญชี');
-  const orgCard=`<div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><b>สำหรับผู้จัดงาน</b><span class="pill">ใหม่</span></div>
-    <span class="small muted">สร้างงาน แบ่งโซนตั๋ว เช็กอินหน้างาน และดูยอดเงิน โดยไม่ต้องตรวจสลิป</span>
-    <button class="btn ghost" data-act="orgmode">เข้าโหมดผู้จัดงาน</button></div>`;
-  if(!S.signedIn)return `<div class="empty">ยังไม่ได้เข้าสู่ระบบ<br><br><button class="btn" data-act="signup" style="max-width:320px;margin:0 auto">เข้าสู่ระบบ</button></div>${orgCard}`;
-  return `<div class="cols even">
-  <div class="col">
-    ${orgCard}
-    <div class="row"><div style="width:56px;height:56px;border-radius:18px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-size:22px;font-weight:600">${esc(initial())}</div>
-      <div><h2 style="font-size:19px">${esc(S.user.name)}</h2><div class="small muted">${esc(S.user.email)} · เข้าสู่ระบบด้วย Google</div></div></div>
-    <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <div class="row between"><b>กระเป๋าตั๋วของคุณ</b><span class="pill ok">สร้างอัตโนมัติ</span></div>
-      <div class="wallet-addr"><span class="mono">${S.user.wallet}</span><button class="iconbtn" data-act="copy" aria-label="คัดลอก"><svg><use href="#i-copy"/></svg></button></div>
-      <dl class="kv" style="margin:0"><dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd><dt>ตั๋ว NFT</dt><dd class="num">${S.tickets.length} ใบ</dd><dt>ค่าแก๊ส</dt><dd>ระบบออกให้ทั้งหมด</dd></dl>
+  appbar('โปรไฟล์');S.full=true;
+  const light=document.documentElement.dataset.theme==='light';
+  const orgCard=`<div class="pcard"><div class="row between"><b>สำหรับผู้จัดงาน</b><span class="pill info">ใหม่</span></div>
+    <span class="small muted">สร้างงาน แบ่งโซนตั๋ว เช็กอินหน้างาน และดูยอดเงิน โดยไม่ต้องตรวจสลิป</span><button class="bigbtn sec" data-act="orgmode">เข้าโหมดผู้จัดงาน</button></div>`;
+  const theme=`<div class="pcard" style="flex-direction:row;align-items:center"><span style="flex:1;display:flex;flex-direction:column"><b id="th-l">ธีมมืด</b><span class="small muted">ค่าเริ่มต้นของเว็บ ปิดเพื่อใช้ธีมสว่าง</span></span><button class="sw" role="switch" aria-checked="${!light}" aria-labelledby="th-l" data-act="theme"><span></span></button></div>`;
+  const G=`<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>`;
+  if(!S.signedIn)return `<div class="wrap narrow-w"><h1 class="ftitle">โปรไฟล์</h1>
+    <div class="pcard ctr" style="padding:32px 20px"><h2 class="h2">ยังไม่ได้เข้าสู่ระบบ</h2><p class="muted" style="margin:0">ใช้บัญชี Google บัญชีเดียว ซื้อ เก็บ และขายต่อตั๋วได้ทุกงาน</p><button class="gbtn" data-act="signup">${G}ดำเนินการต่อด้วย Google</button></div>
+    ${theme}${orgCard}</div>`;
+  return `<div class="wrap"><h1 class="ftitle">โปรไฟล์</h1>
+  <div class="pgrid">
+    <div class="vstack" style="gap:16px">
+      <div class="prof"><span class="av" aria-hidden="true">${esc(initial())}</span><div><h2 style="font-size:20px">${esc(S.user.name)}</h2><div class="small muted">${esc(S.user.email)} · เข้าสู่ระบบด้วย Google</div></div></div>
+      <div class="pcard"><div class="row between"><b>กระเป๋าตั๋วของคุณ</b><span class="pill ok">สร้างอัตโนมัติ</span></div>
+        <div class="addr"><span class="mono">${S.user.wallet}</span><button data-act="copy" aria-label="คัดลอกที่อยู่" class="${S.copied?'done':''}"><svg><use href="#${S.copied?'i-check':'i-copy'}"/></svg></button></div>
+        <dl class="kv2"><dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd><dt>ตั๋ว</dt><dd class="num">${S.tickets.length} ใบ</dd><dt>ค่า gas</dt><dd>ระบบออกให้ทั้งหมด</dd></dl></div>
+      ${orgCard}
     </div>
-  </div>
-  <div class="col">
-    <div class="adv">
-      <b class="small">สำหรับผู้ที่คุ้นเคยกับ wallet</b>
-      <span class="small muted">เชื่อมต่อ wallet ของคุณเอง หรือย้ายตั๋วออกไปเก็บที่อื่น ไม่จำเป็นสำหรับการใช้งานทั่วไป</span>
-      <button class="btn plain" data-act="toast" data-msg="ฟีเจอร์นี้อยู่ในแผนพัฒนาถัดไป">เชื่อมต่อ wallet ของฉัน</button>
+    <div class="vstack" style="gap:16px">
+      ${theme}
+      <div class="pcard"><b class="small">สำหรับผู้ที่คุ้นเคยกับ wallet</b><span class="small muted">เชื่อมต่อ wallet ของคุณเอง หรือย้ายตั๋วออกไปเก็บที่อื่น ไม่จำเป็นสำหรับการใช้งานทั่วไป</span><button class="bigbtn plain" data-act="toast" data-msg="ฟีเจอร์นี้อยู่ในแผนพัฒนาถัดไป">เชื่อมต่อ wallet ของฉัน</button></div>
+      <button class="bigbtn plain" data-act="logout">ออกจากระบบ</button>
+      <button class="lnk" data-act="reset" style="align-self:center">ล้างข้อมูลเดโมทั้งหมด</button>
     </div>
-    <button class="btn plain" data-act="logout">ออกจากระบบ</button>
-    <button class="linkbtn" data-act="reset" style="align-self:center">ล้างข้อมูลเดโมทั้งหมด</button>
   </div></div>`;
 },
 };
 
+/* ---------- v2 view helpers ---------- */
+function titleRow(t){return `<div class="titlerow"><button class="back" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><h1>${t}</h1></div>`}
+function thumb(e){return `<span class="thumb" style="--pbg:${e.bg}" aria-hidden="true"><b translate="no">${esc(e.short)}</b></span>`}
+// zone chip: solid zone colour, white type icon + name
+function zchip(e,name){
+  const i=e.zones.findIndex(z=>z.z===name),z=e.zones[i]||{};
+  const kind=z.kind||(/seat|zone|vip|front|row|ที่นั่ง|บัตร/i.test(name)?'seated':'standing');
+  const c=z.c||`var(--zone-${(Math.max(0,i)%5)+1})`;
+  return `<span class="zchip" style="--zc:${c}"><svg aria-hidden="true"><use href="#z-${['table','comp','seated'].includes(kind)?kind:'standing'}"/></svg>${esc(name)}</span>`;
+}
+function tkPill(t){
+  return t.minting?'<span class="pill warn">กำลังออกตั๋ว</span>':t.failed?'<span class="pill grey">รอทีมงานตรวจ</span>'
+    :t.status==='refunded'?`<span class="pill grey">คืนเงินแล้ว</span>`:t.status==='listed'?`<span class="pill info">ลงขาย ${fmt(t.listPrice)}</span>`
+    :t.status==='used'?'<span class="pill grey">เข้างานแล้ว</span>':'<span class="pill ok">พร้อมใช้</span>';
+}
+
 /* ---------- organizer: chrome & actions ---------- */
 function orgAppbar(title){
   const shop=S.org.shop,top=S.stack.length<=1;
-  const back=`<button class="iconbtn" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button>`;
-  const badge=`<span class="pill">ผู้จัดงาน</span>`;
-  if(S.desk){
-    $('#appbar').innerHTML=`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="wordmark" style="font-size:19px">JONGLOEI</span>${badge}
-    <nav class="dnav d-only">${orgTabsFor(S.org.role).map(([k,,v])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${v}</button>`).join('')}</nav>
-    <span style="margin-left:auto" class="small muted">${shop?esc(shop.name)+(shop.verification==='verified'?' · ยืนยันแล้ว':' · รอยืนยัน'):''}</span>
-    <button class="btn plain" style="width:auto;padding:8px 14px;font-size:14px" data-o="buyermode">โหมดผู้ซื้อ</button>`;
-    return;
-  }
-  $('#appbar').innerHTML=(top?`<svg class="logo" aria-hidden="true"><use href="#logo"/></svg>`:back)
-    +`<div class="ttl">${title}</div>${top?badge:''}<button class="walletchip" data-o="buyermode">โหมดผู้ซื้อ</button>`;
+  const sideOn=S.desk&&!!S.org.account&&!!shop;   // welcome and sign-up have no sidebar yet
+  $('#device').classList.toggle('org-desk',sideOn);
+  const side=$('#side');
+  if(sideOn){
+    const tabs=orgTabsFor(S.org.role).concat(S.org.role==='owner'?[['orgTeam','i-user','ทีมงาน']]:[]);
+    side.hidden=false;
+    side.innerHTML=`<span class="side-logo"><svg aria-hidden="true"><use href="#logo-w"/></svg><span translate="no">JONGLOEI</span></span>
+      <div class="side-shop"><b>${esc(shop.name)}</b><span>${shop.verification==='verified'?'ยืนยันร้านแล้ว':'รอยืนยันตัวตน'}${S.org.role!=='owner'?' · '+ROLE_LABEL[S.org.role]:''}${S.org.live?' · ระบบจริง':''}</span></div>
+      <nav class="side-nav" aria-label="เมนูผู้จัด">${tabs.map(([k,icon,v])=>`<button data-tab="${k}" ${S.tab===k?'aria-current="page"':''}><svg aria-hidden="true"><use href="#${icon}"/></svg>${v}</button>`).join('')}</nav>
+      <button class="side-back" data-o="buyermode"><svg aria-hidden="true"><use href="#i-back"/></svg>กลับไปหน้าผู้ซื้อ</button>`;
+  }else{side.hidden=true;side.innerHTML=''}
+  const brand=`<button class="brand" data-o="orgHome" aria-label="JONGLOEI ผู้จัดงาน"><svg aria-hidden="true"><use href="#logo"/></svg><span translate="no">JONGLOEI</span></button>`;
+  $('#appbar').hidden=sideOn;
+  if(sideOn){$('#appbar').innerHTML='';return}
+  // mobile (and desk before sign-in): logo + "โหมดผู้ซื้อ" only; pushed screens: back + title
+  $('#appbar').innerHTML=top||S.desk?`${brand}<button class="chipbtn" data-o="buyermode">โหมดผู้ซื้อ</button>`
+    :`<button class="ib" data-act="back" aria-label="ย้อนกลับ"><svg><use href="#i-back"/></svg></button><div class="ttl">${title}</div>`;
+}
+// page head: title + shop row (mobile) + primary action
+function orgHead(title,action){
+  const sh=S.org.shop,ok=sh.verification==='verified';
+  return `<div class="ohead"><h1>${title}</h1><div class="oshop"><b>${esc(sh.name)}</b><span class="pill ${ok?'ok':'warn'}">${ok?'ยืนยันร้านแล้ว':'รอยืนยันตัวตน'}</span>${S.org.live?'<span class="pill ok">ระบบจริง</span>':''}</div>${action||''}</div>`;
+}
+// line stepper: numbered circles on a line; act makes steps clickable (event wizard)
+function lineSteps(labels,cur,act){
+  return `<ol class="lstep" style="--fill:${(cur-1)/(labels.length-1)}" aria-label="ขั้นที่ ${cur} จาก ${labels.length}">${labels.map((l,i)=>{const st=i<cur-1?'done':i===cur-1?'cur':'';
+    const inner=`<span class="d num">${st==='done'?'✓':i+1}</span>${l}`;
+    return `<li class="${st}" ${st==='cur'?'aria-current="step"':''}>${act?`<button type="button" data-o="${act}" data-step="${i+1}">${inner}</button>`:inner}</li>`}).join('')}</ol>`;
 }
 // keeps the buyer-side copy of a ticket and the organizer ticket in step
 function orgTicketStatus(buyerTicket,status){
   const ot=buyerTicket&&buyerTicket.orgTicketId&&S.org.tickets.find(x=>x.ticketId===buyerTicket.orgTicketId);
   if(!ot)return;ot.status=status;if(status==='used'){ot.usedAt=Date.now();ot.checkinMethod='scan'}
 }
-const EV_STATUS={draft:['ร่าง','grey'],on_sale:['เปิดขาย','ok'],paused:['พักการขาย','warn'],sold_out:['ขายหมด','warn'],ended:['จบแล้ว','grey'],cancelled:['ยกเลิก','']};
+const EV_STATUS={draft:['ร่าง','grey'],on_sale:['เปิดขาย','ok'],paused:['พักการขาย','warn'],sold_out:['ขายหมด',''],ended:['จบแล้ว','grey'],cancelled:['ยกเลิก','danger']};
 const statusPill=s=>{const [t,c]=EV_STATUS[s]||[s,''];return `<span class="pill ${c}">${t}</span>`};
 function orgEvCard(e){
   const s=evSum(e),pct=s.capacity?Math.min(100,Math.round((s.sold+s.held)*100/s.capacity)):0;
   const when=e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน';
-  return `<div class="listing org-evcard" data-id="${e.id}">
-    <button class="top" data-o="openEvent" data-id="${e.id}" style="background:none;border:0;padding:0;text-align:left;width:100%">${poster({bg:e.bg,tag:e.category,short:e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase()})}
-      <div><b>${esc(e.name)}</b><div class="small muted">${when}</div><div style="margin-top:4px">${statusPill(e.status)}</div></div></button>
-    <div><div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>
-      <div class="row between small muted" style="margin-top:4px"><span class="num">ขาย ${s.sold}/${s.capacity} ที่</span><span class="num">${OL.fmtBaht(s.net)}</span></div></div>
-    <div class="row" style="flex-wrap:wrap">
-      <button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="openEvent" data-id="${e.id}">เปิด</button>
-      ${['draft','on_sale','paused','sold_out'].includes(e.status)?`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="editEvent" data-id="${e.id}">แก้ไข</button>`:''}
-      <button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="evDuplicate" data-id="${e.id}">ทำซ้ำ</button>
-      ${['on_sale','sold_out'].includes(e.status)?S.org.live?`<a class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px;text-decoration:none" href="/scan.html?event=${encodeURIComponent(e.id)}">หน้างาน</a>`:`<button class="btn plain" style="flex:1;padding:9px;font-size:14px;min-height:44px" data-o="gate" data-id="${e.id}">หน้างาน</button>`:''}</div></div>`;
+  const short=e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase();
+  return `<article class="oev" data-id="${e.id}">
+    <div class="oev-top"><button class="oev-open" data-o="openEvent" data-id="${e.id}"><span class="thumb" style="--pbg:${e.bg}" aria-hidden="true"><b translate="no">${esc(short)}</b></span>
+      <span class="oev-info"><b>${esc(e.name)}</b><span class="small muted num">${when}</span>${statusPill(e.status)}</span></button>
+      <button class="oev-menu" data-o="evMenu" data-id="${e.id}" aria-label="เมนูงาน ${esc(e.name)}"><svg><use href="#i-dots"/></svg></button></div>
+    ${e.status==='draft'?`<p class="small muted" style="margin:0">ยังไม่เผยแพร่ · ${e.zones.length} โซน ความจุ ${s.capacity} ที่</p>`
+      :`<div class="pbar"><div class="row between small num"><span class="muted">ขายแล้ว</span><span>${s.sold} / ${s.capacity}</span></div>
+      <div class="pbar-t" role="progressbar" aria-valuetext="ขายแล้ว ${pct}%"><span style="width:${pct}%">${pct}%</span></div>
+      <div class="small muted num" style="text-align:right">รายรับสุทธิ ${OL.fmtBaht(s.net)}</div></div>`}
+  </article>`;
 }
 // 14-day column chart: one series, so no legend box; value labelled on the peak only, full values in tooltip + table
+function orgDashV2(sh,today,net,nextPay,held,todo,days){
+  S.full=true;const B=OL.fmtBaht,mgr=S.org.role!=='owner',lock='เฉพาะเจ้าของร้าน';
+  const stat=(k,label,v,sub,locked)=>`<div class="stat${locked?' locked':''}"><span>${label}</span><b class="num" data-stat="${k}">${v}</b><small>${sub}</small></div>`;
+  return `<div class="wrap org">${orgHead('ภาพรวม','<button class="btn" data-o="newEvent"><svg width="18" height="18"><use href="#i-plus"/></svg>สร้างงานใหม่</button>')}
+  ${sh.verification==='verified'?'':'<div class="alert warn" role="status"><svg><use href="#i-alert"/></svg><div><b>ร้านรอยืนยันตัวตน</b><br>สร้างร่างงานได้ตามปกติ ปุ่มเผยแพร่จะใช้ได้หลังทีมงานยืนยันร้านแล้ว</div></div>'}
+  <div class="stats">${stat('today','ตั๋วที่ขายวันนี้',today.count+' ใบ',B(today.amount))}
+    ${stat('net','รายรับสุทธิรวม',mgr?'—':B(net),mgr?lock:'หลังหักค่าบริการ',mgr)}
+    ${stat('next','เงินที่จะได้รับครั้งถัดไป',mgr?'—':nextPay?B(evSum(nextPay.e).net):'—',mgr?lock:nextPay?OL.thaiDate(nextPay.at)+' · หลังงานจบ 24 ชม.':'ยังไม่มีงานรอจ่าย',mgr)}
+    ${stat('held','ที่นั่งที่กำลังถูก Hold',held+' ที่','ปล่อยคืนเองถ้าไม่จ่ายใน 10 นาที')}</div>
+  <div class="split84">
+    <section class="ocard2" aria-labelledby="chart-h"><div class="row between"><h2 id="chart-h" style="font-size:17px">ตั๋วที่ขายได้ 14 วันล่าสุด</h2><span class="small muted num">รวม ${days.reduce((a,d)=>a+d.count,0)} ใบ</span></div>${orgChart(days)}</section>
+    <section class="ocard2" aria-labelledby="todo-h"><h2 id="todo-h">ต้องทำตอนนี้</h2>${todo.length?`<ul id="org-todo" class="org-todo">${todo.join('')}</ul>`:'<div id="org-todo" class="small muted">ไม่มีอะไรค้าง</div>'}</section>
+  </div>
+  ${orgAccountCard()}</div>`;
+}
 function orgChart(days){
   const W=560,H=180,pl=34,pb=26,pt=14,max=Math.max(1,...days.map(d=>d.count));
   const top=max<=4?4:Math.ceil(max/4)*4,plotH=H-pb-pt,slot=(W-pl-8)/days.length,bw=Math.min(24,slot-8);
@@ -1024,6 +1516,10 @@ const orgAccountCard=()=>`<div class="card row between" id="org-account"><div st
 
 const ORG_ACTIONS={
   buyermode(){setMode('buyer')},
+  orgHome(){go(S.org.role==='gate'?'orgGatePick':'orgDash',true)},
+  evMenu(el){const e=orgEv(el.dataset.id);if(!e)return;const id=e.id;
+    const it=(o,icon,label)=>`<button class="btn plain" style="justify-content:flex-start;gap:14px" data-o="${o}" data-id="${id}"><svg width="20" height="20"><use href="#${icon}"/></svg>${label}</button>`;
+    sheet(`<h2 style="font-size:20px">${esc(e.name)}</h2><div role="menu" style="display:flex;flex-direction:column;gap:8px">${it('openEvent','i-chart','เปิดจัดการงาน')}${['draft','on_sale','paused','sold_out'].includes(e.status)?it('editEvent','i-ticket','แก้ไขงาน'):''}${it('evDuplicate','i-copy','ทำซ้ำเป็นงานใหม่')}${['on_sale','sold_out'].includes(e.status)?it('gate','i-qr','ไปหน้างาน'):''}</div><button class="btn plain" data-act="close">ปิด</button>`)},
   useDemoShop(){useShop('owner@rooftop88.example')},
   demoManager(){useShop('manager@example.com')},
   demoGate(){useShop('door.staff@example.com')},
@@ -1169,7 +1665,7 @@ function zoneTotals(d){
 function wizSummaryHtml(d){
   const t=zoneTotals(d),B=OL.fmtBaht;
   return `<dl class="kv card num" style="margin:0"><dt>ความจุรวม</dt><dd>${t.cap} ที่</dd><dt>รายได้สูงสุดที่เป็นไปได้</dt><dd>${B(t.rev)}</dd>
-    <dt>ค่าบริการ (฿5 + 3% ต่อใบ)</dt><dd>${B(t.fees)}</dd><dt style="font-weight:600;color:var(--ink)">รายรับสุทธิสูงสุด</dt><dd style="font-weight:700;color:var(--red)">${B(t.net)}</dd></dl>`;
+    <dt>ค่าบริการ (5฿ + 3% ต่อใบ)</dt><dd>${B(t.fees)}</dd><dt style="font-weight:600;color:var(--ink)">รายรับสุทธิสูงสุด</dt><dd style="font-weight:700;color:var(--red)">${B(t.net)}</dd></dl>`;
 }
 function capExample(d){
   const z=d.zones.find(x=>x.kind!=='comp'&&x.price>0),face=z?z.price:100000,cap=OL.resaleCap(face,d.params.capMultiplier);
@@ -1296,9 +1792,6 @@ function evOverview(e){
   return `<div class="org-stats">
       <div class="card org-stat"><span class="small muted">ขายแล้ว</span><b class="num">${s.sold}/${s.capacity}</b></div>
       <div class="card org-stat"><span class="small muted">รายรับสุทธิ</span><b class="num">${OL.fmtBaht(s.net)}</b></div></div>
-    <div class="row" style="flex-wrap:wrap">${act}
-      ${['draft','on_sale','paused','sold_out'].includes(e.status)?`<button class="btn plain" data-o="editEvent" data-id="${e.id}">แก้ไขทั้งงาน</button>`:''}
-      ${['on_sale','sold_out','paused'].includes(e.status)&&!S.org.live?`<button class="btn plain" data-o="gate" data-id="${e.id}">ไปหน้างาน</button>`:''}</div>
     <h2 style="font-size:17px">โซนตั๋ว</h2>
     ${e.zones.map((z,i)=>{
       const locked=(z.sold||0)+(z.held||0)>0,left=z.capacity-z.sold-z.held,pct=z.capacity?Math.round((z.sold+z.held)*100/z.capacity):0;
@@ -1410,9 +1903,8 @@ const gateWho=()=>S.org.account?S.org.account.email:'—';
 const SIM_CASES=[[1,'ตั๋วถูกต้อง'],[2,'ตั๋วที่ใช้ไปแล้ว'],[3,'QR เก่า (เกิน 60 วินาที)'],[4,'QR จากอนาคต (เกิน 15 วินาที)'],
   [5,'ตั๋วของงานอื่น'],[6,'งานที่ถูกยกเลิก'],[7,'ผู้ถือคนเก่าที่ขายต่อไปแล้ว'],[8,'ตั๋วที่กำลังลงขาย (ยังเข้าได้)']];
 function gateScan(){
-  return `<div class="card" style="min-height:170px;display:grid;place-items:center;background:var(--surface-2);text-align:center" aria-label="กล้องสแกน (จำลอง)">
-      <div><svg width="46" height="46" style="color:var(--muted)"><use href="#i-qr"/></svg><div class="small muted">เล็งกล้องไปที่ QR ของผู้เข้าร่วม</div><span class="pill warn" style="margin-top:6px">จำลอง: ไม่เปิดกล้องจริง</span></div></div>
-    <button class="btn" data-o="simOpen">จำลองการสแกน</button>
+  return `<div class="cam" role="img" aria-label="กล้องสแกน (จำลอง)"><svg class="frame" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M2 18V6a4 4 0 0 1 4-4h12M82 2h12a4 4 0 0 1 4 4v12M98 82v12a4 4 0 0 1-4 4H82M18 98H6a4 4 0 0 1-4-4V82"/></svg><span class="line"></span><span class="hint2">หันกล้องไปที่ QR ของผู้ซื้อ · จำลอง ไม่เปิดกล้องจริง</span></div>
+    <button class="btn" data-o="simOpen" style="min-height:64px;font-size:18px;border-radius:12px">จำลองการสแกน</button>
     <div class="small muted">QR ของผู้ถือตั๋วเปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอใช้ไม่ได้</div>`;
 }
 function gateResults(e){
@@ -1453,14 +1945,101 @@ function gateShow(r,ticket,ev){
   const div=document.createElement('div');
   div.id='org-result';div.className='org-result '+(r.valid?'ok':'bad');div.setAttribute('role','alertdialog');div.setAttribute('aria-live','assertive');
   div.dataset.valid=String(r.valid);if(r.reason)div.dataset.reason=r.reason;
-  div.innerHTML=`<svg width="88" height="88" aria-hidden="true"><use href="${r.valid?'#i-check':'#i-x'}"/></svg>
-    <h2 style="font-size:28px;color:#fff">${r.valid?'เข้างานได้':'เข้าไม่ได้'}</h2>
-    <p style="margin:0;font-size:19px;max-width:28ch;text-align:center"></p>
-    ${r.valid?'':`<button class="btn" style="background:#fff;color:#A00018;max-width:280px" data-o="callManager">เรียกผู้จัดการ</button><button class="btn" style="background:transparent;color:#fff;border:2px solid #fff;max-width:280px" data-o="resultClose">ปิด</button>`}`;
-  div.querySelector('p').textContent=r.valid?`${p?p.name:''} · ${z?z.name:''}`:OL.reasonText(r.reason);
+  div.innerHTML=`<span class="ric"><svg width="72" height="72" aria-hidden="true"><use href="${r.valid?'#i-check':'#i-x'}"/></svg></span>
+    <b class="rtitle">${r.valid?'ผ่าน':'ไม่ผ่าน'}</b>
+    ${r.valid&&z?`<span class="rzone"></span>`:''}
+    <p class="rtext"></p>
+    ${r.valid?'<span style="font-size:14px;opacity:.85">หายไปเองใน 2 วินาที</span>':`<div class="racts"><button class="btn" style="background:#fff;color:var(--danger-solid);min-height:64px;font-size:18px;border-radius:12px" data-o="callManager">เรียกผู้จัดการ</button><button class="btn" style="background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px rgb(255 255 255 / .8)" data-o="resultClose">สแกนต่อ</button></div>`}`;
+  div.querySelector('.rtext').textContent=r.valid?(p?p.name:''):OL.reasonText(r.reason);
+  if(r.valid&&z)div.querySelector('.rzone').textContent=z.name;
   $('#device').appendChild(div);
   if(r.valid){if(navigator.vibrate)navigator.vibrate(60);setTimeout(()=>{if(div.isConnected)div.remove()},2000)}
   else if(navigator.vibrate)navigator.vibrate([80,60,80]);
+}
+/* ---------- organizer: live door (src/checkin.js) ----------
+   The real scanner: camera (BarcodeDetector, or vendor/jsQR.js), or paste the code. The server
+   checks the owner's signature, the ticket and the chain, then marks it used. */
+const LIVE_REASON={
+  malformed:'ไม่ใช่ QR ตั๋วของ JONGLOEI',expired:'QR หมดอายุ (เกิน 60 วินาที) อาจเป็นภาพแคปหน้าจอ ให้ผู้ถือเปิดตั๋วในแอปใหม่',
+  future:'เวลาใน QR ล้ำหน้าเกิน 15 วินาที ให้ผู้ถือตรวจเวลาในเครื่อง',unknown_ticket:'ไม่พบตั๋วใบนี้ในระบบ',
+  bad_signature:'ลายเซ็นไม่ตรงกับเจ้าของตั๋วปัจจุบัน เช่น QR ของผู้ขายเดิม',wrong_event:'ตั๋วนี้เป็นของงานอื่น',
+  event_cancelled:'งานนี้ถูกยกเลิกแล้ว',event_ended:'งานจบแล้ว',already_used:'ตั๋วใบนี้ใช้เข้างานไปแล้ว',
+  listed:'ตั๋วกำลังลงขายต่อ ให้ผู้ถือยกเลิกการขายก่อน',not_issued:'ตั๋วยังออกไม่เสร็จ',
+  chain_mismatch:'เจ้าของบนบล็อกเชนไม่ตรงกับในระบบ',chain_unavailable:'ตรวจบนบล็อกเชนไม่ได้ชั่วคราว ลองสแกนอีกครั้ง'};
+const gateCam={stream:null,detector:null,busy:false,last:'',lastAt:0};
+function liveGateView(e){
+  const g=S.org.liveGate&&S.org.liveGate.id===e.id?S.org.liveGate:null,t=S.org.gtab==='log'?'log':'scan';
+  const pct=g&&g.total?Math.round(g.used*100/g.total):0;
+  const tabs=[['scan','สแกน QR'],['log','ประวัติ']];
+  S.full=true;
+  return `<div class="wrap narrow-w"><button class="crumb m-hide" data-act="back"><svg aria-hidden="true"><use href="#i-back"/></svg>เลือกงาน</button>
+    <div class="gcount"><span class="small muted">${esc(e.name)}</span>
+      <div id="gate-count" class="num">${g?`เข้างานแล้ว ${g.used} / ${g.total}`:'กำลังโหลด…'}</div>
+      <div class="pbar-t" role="progressbar" aria-valuetext="${pct}%"><span style="width:${pct}%">${pct}%</span></div></div>
+    <div class="seg" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="gtab" data-t="${k}">${v}</button>`).join('')}</div>
+    ${t==='scan'?`<div class="cam">${gateCam.stream?'<video id="gate-video" playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>':''}
+        <svg class="frame" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M2 18V6a4 4 0 0 1 4-4h12M82 2h12a4 4 0 0 1 4 4v12M98 82v12a4 4 0 0 1-4 4H82M18 98H6a4 4 0 0 1-4-4V82"/></svg>
+        ${gateCam.stream?'<span class="line"></span>':''}<span class="hint2">${gateCam.stream?'เล็ง QR ในตั๋วของผู้เข้าร่วมให้อยู่ในกรอบ':'กดเปิดกล้องเพื่อเริ่มสแกน'}</span></div>
+      <button class="btn" data-o="camToggle" style="min-height:64px;font-size:18px;border-radius:12px">${gateCam.stream?'ปิดกล้อง':'เปิดกล้อง'}</button>
+      <form id="gate-form" class="field" autocomplete="off"><label for="gate-code">ไม่มีกล้อง หรือใช้เครื่องสแกนแบบเสียบ: วางรหัสใน QR</label>
+        <div class="row"><input id="gate-code" placeholder="JL1.…" style="flex:1"><button class="btn" type="submit" style="width:auto;padding:10px 18px">ตรวจ</button></div></form>
+      <div class="small muted">QR ของผู้ถือตั๋วเปลี่ยนทุก 60 วินาที ภาพแคปหน้าจอใช้ไม่ได้</div>`
+    :g&&g.scans.length?`<div style="overflow-x:auto"><table id="gate-log" class="org-table"><thead><tr><th scope="col">เวลา</th><th scope="col">ตั๋ว</th><th scope="col">ผล</th><th scope="col">เหตุผล</th><th scope="col">ผู้สแกน</th></tr></thead>
+      <tbody>${g.scans.map(l=>`<tr><th scope="row">${OL.thaiTime(l.at)}</th><td style="text-align:left" class="num">${l.tokenId!=null?'#'+l.tokenId:'—'}${l.zone?' · '+esc(l.zone):''}</td><td style="text-align:left">${l.valid?'ผ่าน':'ไม่ผ่าน'}</td><td style="text-align:left">${l.valid?'—':esc(LIVE_REASON[l.reason]||l.reason||'')}</td><td style="text-align:left">${esc(l.staff||'')}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div class="empty">ยังไม่มีการสแกนในงานนี้</div>'}</div>`;
+}
+async function liveGateLoad(){
+  const id=S.org.oev;
+  try{const d=await orgApi('GET','/api/checkin/events/'+encodeURIComponent(id));
+    if(S.org.oev!==id)return;S.org.liveGate={id,used:d.used,total:d.total,scans:d.scans};
+    if(S.stack[S.stack.length-1]==='orgGate'&&S.org.gtab==='log')render();
+    else{const c=$('#gate-count');if(c)c.textContent=`เข้างานแล้ว ${d.used} / ${d.total}`;const p=document.querySelector('.gcount .pbar-t span');if(p){const v=d.total?Math.round(d.used*100/d.total):0;p.style.width=v+'%';p.textContent=v+'%'}}
+  }catch(err){console.error('check-in counts failed',err);if(err.status===404)toast('บัญชีนี้สแกนงานนี้ไม่ได้')}
+}
+async function liveGateCounts(){
+  S.org.gateCountsAt=Date.now();
+  try{const d=await orgApi('GET','/api/checkin/events');S.org.gateCounts=Object.fromEntries(d.events.map(e=>[e.id,{used:e.used,total:e.total}]));
+    if(S.stack[S.stack.length-1]==='orgGatePick')render()}catch(err){console.error('check-in list failed',err)}
+}
+async function gateCheck(code,typed){
+  code=String(code||'').trim();const ev=orgEv(S.org.oev);
+  if(!code||!ev||gateCam.busy)return;
+  // the camera sees the same QR many times a second; a repeat within 4 s is the same scan
+  if(!typed&&code===gateCam.last&&Date.now()-gateCam.lastAt<4000)return;
+  gateCam.last=code;gateCam.lastAt=Date.now();gateCam.busy=true;
+  try{
+    const r=await orgApi('POST','/api/checkin/events/'+encodeURIComponent(ev.id)+'/scan',{code});
+    gateShow({valid:r.valid,reason:r.reason},null,ev);
+    const box=$('#org-result');
+    if(box){box.querySelector('.rtext').textContent=r.valid?(r.ticket&&r.ticket.holder||''):(LIVE_REASON[r.reason]||r.reason)+(r.reason==='already_used'&&r.ticket&&r.ticket.usedAt?` เมื่อ ${OL.thaiTime(r.ticket.usedAt)} น.`:'');
+      if(r.valid&&r.ticket){const z=document.createElement('span');z.className='rzone';z.textContent=`${r.ticket.zone} · Token #${r.ticket.tokenId}`;box.querySelector('.rtitle').after(z)}}
+  }catch(err){console.error('scan failed',err);toast(orgErrText(err))}
+  finally{gateCam.busy=false;liveGateLoad()}
+}
+async function gateCamStart(){
+  try{gateCam.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})}
+  catch(err){toast('เปิดกล้องไม่ได้ ใช้ช่องวางรหัสแทน');return}
+  if('BarcodeDetector' in window){try{gateCam.detector=new BarcodeDetector({formats:['qr_code']})}catch(_){gateCam.detector=null}}
+  if(!gateCam.detector&&!window.jsQR){try{await new Promise((ok,no)=>{const s=document.createElement('script');s.src='vendor/jsQR.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}catch(_){toast('โหลดตัวอ่าน QR ไม่ได้');gateCamStop();return}}
+  render();gateCamLoop();
+}
+function gateCamStop(){if(gateCam.stream)gateCam.stream.getTracks().forEach(t=>t.stop());gateCam.stream=null;if(S.stack[S.stack.length-1]==='orgGate')render()}
+const gateCanvas=document.createElement('canvas'),gateCtx=gateCanvas.getContext('2d',{willReadFrequently:true});
+async function gateCamLoop(){
+  if(!gateCam.stream)return;
+  // leaving the door screen turns the camera off
+  if(S.mode!=='org'||S.stack[S.stack.length-1]!=='orgGate'||S.org.gtab==='log'){gateCamStop();return}
+  const v=$('#gate-video');
+  if(v&&v.readyState>=2&&!gateCam.busy&&!$('#org-result')){
+    try{
+      let text=null;
+      if(gateCam.detector){const f=await gateCam.detector.detect(v);text=f[0]&&f[0].rawValue}
+      else{const w=Math.min(640,v.videoWidth),h=Math.round(v.videoHeight*w/v.videoWidth);gateCanvas.width=w;gateCanvas.height=h;
+        gateCtx.drawImage(v,0,0,w,h);const r=jsQR(gateCtx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});text=r&&r.data}
+      if(text)await gateCheck(text,false);
+    }catch(err){console.error('scan frame failed',err)}
+  }
+  setTimeout(gateCamLoop,150);
 }
 function simCase(c){
   const e=orgEv(S.org.oev),T=evTickets(e.id),now=Date.now();
@@ -1513,7 +2092,7 @@ function finPrintDoc(r){
       <dt>สถานะงาน</dt><dd>${statusPill(e.status)}</dd><dt>ออกเอกสาร</dt><dd>${OL.thaiDate(Date.now())}</dd></dl>
     <dl class="kv card num" style="margin:0">${r.kind==='cancelled'
       ?`<dt>เหตุผลที่ยกเลิก</dt><dd>${esc(e.cancelReason||'—')}</dd><dt>คืนเงินผู้ซื้อ</dt><dd>${B(r.refunded)}</dd><dt>ยอดที่ร้านได้รับ</dt><dd>—</dd>`
-      :`<dt>จำนวนตั๋วที่ขาย</dt><dd>${r.tickets.filter(t=>t.hops[0]&&t.hops[0].paid>0).length} ใบ</dd><dt>ยอดขายรวม</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ (฿5 + 3% ต่อใบ)</dt><dd>${B(r.fee)}</dd>
+      :`<dt>จำนวนตั๋วที่ขาย</dt><dd>${r.tickets.filter(t=>t.hops[0]&&t.hops[0].paid>0).length} ใบ</dd><dt>ยอดขายรวม</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ (5฿ + 3% ต่อใบ)</dt><dd>${B(r.fee)}</dd>
         <dt style="color:var(--ink);font-weight:600">รายรับสุทธิ</dt><dd style="font-weight:700">${B(r.net)}</dd><dt>วันรับเงิน</dt><dd>${r.payAt?OL.thaiDate(r.payAt):'—'} (${r.label})</dd>`}</dl>
   </div>`;
 }
@@ -1684,7 +2263,7 @@ Object.assign(ORG_ACTIONS,{
     else if(S.org.promos.some(p=>p.code===code))errs['pm-code']='มีโค้ดนี้อยู่แล้ว';
     let value=Number(raw);
     if(kind==='percent'){if(!Number.isInteger(value)||value<1||value>100)errs['pm-value']='เปอร์เซ็นต์ต้องเป็นจำนวนเต็ม 1-100'}
-    else{value=OL.toSatang(raw);if(Number.isNaN(value)||value<100)errs['pm-value']='ใส่จำนวนเงินอย่างน้อย ฿1'}
+    else{value=OL.toSatang(raw);if(Number.isNaN(value)||value<100)errs['pm-value']='ใส่จำนวนเงินอย่างน้อย 1฿'}
     if(!start)errs['pm-start']='ใส่วันเวลาเริ่มใช้';
     if(!end)errs['pm-end']='ใส่วันเวลาหมดอายุ';else if(start&&end<=start)errs['pm-end']='หมดอายุต้องหลังวันเริ่มใช้';
     if(!Number.isInteger(max)||max<1)errs['pm-max']='จำนวนครั้งต้องเป็นจำนวนเต็มอย่างน้อย 1';
@@ -1747,50 +2326,44 @@ $('#device').addEventListener('input',e=>{
 
 const ORG_VIEWS={
 orgWelcome(){
-  appbar('สำหรับผู้จัดงาน');
-  return `<div class="cols">
-  <div class="col">
-    <span class="eyebrow">JONGLOEI สำหรับผู้จัดงาน</span>
-    <h1 style="font-size:26px">ขายตั๋วโดยไม่ต้องตรวจสลิป ไม่ต้องตามเงินคืนเอง</h1>
-    <p class="muted" style="margin:0">สำหรับบาร์ ร้านอาหาร workshop pop-up และคอนเสิร์ตขนาดเล็ก สร้างงานได้ในไม่กี่นาที ไม่ต้องมีทีมไอที</p>
-    <div class="trust">
-      <div><svg><use href="#i-shield"/></svg>ระบบตรวจยอดกับผู้ให้บริการชำระเงิน ไม่ใช้รูปสลิป</div>
-      <div><svg><use href="#i-check"/></svg>ยกเลิกงาน ระบบคืนเงินผู้ซื้อทุกคนอัตโนมัติ</div>
-      <div><svg><use href="#i-swap"/></svg>ขายต่อได้เฉพาะในระบบ มีเพดานราคา</div>
+  appbar('สำหรับผู้จัดงาน');S.full=true;
+  return `<section class="ohero"><div class="in"><h1>ขายตั๋วโดยไม่ต้องตรวจสลิป ไม่ต้องตามเงินคืนเอง</h1>
+      <p>สำหรับร้าน บาร์ ผู้จัด pop-up ครู workshop และทีมจัดแฟนมีต ที่ไม่มีทีมไอที ตั้งงานเสร็จในไม่กี่นาที</p>
+      ${S.auth.google?`<div class="acts"><button class="pri" data-o="orgLive">สมัครร้านหรือเข้าสู่ระบบด้วย Google</button><button class="sec" data-o="orgSignup">ลองเดโม</button></div>
+      <p class="small">${S.signedIn?'ใช้บัญชี '+esc(S.user.email)+' ที่เข้าสู่ระบบอยู่':'ระบบจะพาไปเข้าสู่ระบบ Google ก่อน'} · ร้านและงานถูกบันทึกจริง ส่วนเดโมเก็บข้อมูลไว้ในเบราว์เซอร์นี้</p>`
+      :'<div class="acts"><button class="pri" data-o="orgSignup">สมัครร้าน</button><button class="sec" data-o="orgLogin">เข้าสู่ระบบผู้จัด</button></div>'}</div></section>
+  <div class="wrap"><div class="wgrid">
+    <section aria-labelledby="h-why" style="display:flex;flex-direction:column;gap:16px"><h2 id="h-why" class="h2">สิ่งที่ระบบทำแทนคุณ</h2>
+      <ol class="benefits">
+        <li><span class="n num">1</span><div><b>ตรวจเงินให้เอง</b><p>ผู้ซื้อจ่ายผ่าน PromptPay ระบบยืนยันยอดกับผู้ให้บริการชำระเงิน ไม่ต้องเปิดดูสลิปทีละใบ</p></div></li>
+        <li><span class="n num">2</span><div><b>ยกเลิกงานแล้วคืนเงินให้ทุกคน</b><p>ฝนตก ศิลปินป่วย กดยกเลิกครั้งเดียว ผู้ซื้อทุกคนได้เงินคืนเท่าที่จ่ายจริงอัตโนมัติ</p></div></li>
+        <li><span class="n num">3</span><div><b>ไม่มีตั๋วผี ไม่มีราคาโก่ง</b><p>ตั๋วขายต่อได้เฉพาะในระบบ ราคาไม่เกิน 1.25 เท่า และสแกนเข้างานได้แค่คนที่ถือตั๋วจริง</p></div></li>
+      </ol></section>
+    <div class="vstack" style="gap:16px">
+      <aside class="pcard" aria-labelledby="h-fee"><h2 id="h-fee" style="font-size:18px">ค่าบริการ</h2><p style="margin:0">5 บาท + 3% ต่อใบ เก็บจากร้าน ผู้ซื้อไม่เสียเพิ่ม</p>
+        <dl class="fee num"><dt>ตั๋ว</dt><dd>1,000฿</dd><dt>ค่าบริการ</dt><dd>35฿</dd><dt class="t">คุณได้รับต่อใบ</dt><dd>965฿</dd></dl>
+        <p class="small muted" style="margin:0">ไม่มีค่าแรกเข้า ไม่มีรายเดือน รับเงิน 24 ชม. หลังงานจบ</p></aside>
+      <div class="pcard"><b class="small">ลองด้วยบัญชีตัวอย่าง (เดโม)</b>
+        <button class="btn plain" data-o="useDemoShop">เจ้าของร้าน Rooftop 88</button><button class="btn plain" data-o="demoManager">ผู้จัดการ</button><button class="btn plain" data-o="demoGate">พนักงานหน้างาน</button></div>
     </div>
-  </div>
-  <div class="col side">
-    <div class="card" style="display:flex;flex-direction:column;gap:6px"><b>ค่าบริการ</b>
-      <span style="font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--red)">5 บาท + 3% ต่อใบ</span>
-      <span class="small muted">ตั๋วราคา ฿1,000 เสียค่าบริการ ฿35 · ไม่มีค่ารายเดือน · ไม่ขายก็ไม่เสีย</span></div>
-    ${S.auth.google?`<button class="btn" data-o="orgLive">ใช้ระบบจริงด้วยบัญชี Google</button>
-    <p class="small muted" style="margin:0;text-align:center">${S.signedIn?'ใช้บัญชี '+esc(S.user.email)+' ที่เข้าสู่ระบบอยู่':'ระบบจะพาไปเข้าสู่ระบบ Google ก่อน'} · ร้านและงานถูกบันทึกจริง</p>
-    <span class="eyebrow" style="text-align:center">หรือลองเดโม (ข้อมูลอยู่ในเบราว์เซอร์นี้)</span>`:''}
-    <button class="btn ${S.auth.google?'plain':''}" data-o="orgSignup">สมัครผู้จัดงานด้วย Google${S.auth.google?' (เดโม)':''}</button>
-    <button class="btn ghost" data-o="orgLogin">เข้าสู่ระบบผู้จัดงาน${S.auth.google?' (เดโม)':''}</button>
-    <p class="small muted" style="margin:0;text-align:center">บัญชีผู้จัดงานแยกจากบัญชีผู้ซื้อ ไม่ต้องเข้าสู่ระบบผู้ซื้อก่อน</p>
-    <div class="adv"><b class="small">ลองด้วยบัญชีตัวอย่าง (เดโม)</b>
-      <button class="btn plain" data-o="useDemoShop">เจ้าของร้าน Rooftop 88</button>
-      <button class="btn plain" data-o="demoManager">ผู้จัดการ</button>
-      <button class="btn plain" data-o="demoGate">พนักงานหน้างาน</button></div>
   </div></div>`;
 },
 orgOnboard(){
   appbar('สมัครเป็นผู้จัดงาน');
   const ob=S.org.onboard||(S.org.onboard={step:1,data:{},err:{}});
   const labels=['ข้อมูลร้าน','ผู้ขาย','บัญชีรับเงิน','ยืนยันตัวตน'];
-  return `<div class="narrow">
-    <div class="org-progress" aria-label="ขั้นที่ ${ob.step} จาก 4">${labels.map((l,i)=>`<i class="${i<ob.step?'on':''}"></i>`).join('')}</div>
-    <span class="small muted">ขั้นที่ ${ob.step} จาก 4 · ${labels[ob.step-1]}</span>
+  S.full=true;
+  return `<div class="wrap narrow-w">${titleRow('สมัครเป็นผู้จัดงาน')}
+    ${S.org.live?'<p class="small muted" style="margin:0">ใส่ข้อมูลร้านแล้วกดเปิดร้าน ทีมงาน JONGLOEI จะยืนยันร้านก่อนเผยแพร่งานได้</p>':lineSteps(labels,ob.step)}
     ${orgOnboardStep(ob)}
     <div class="row"><button class="btn plain" data-o="obBack">${ob.step===1?'ยกเลิก':'ย้อนกลับ'}</button>
       ${ob.step<4?`<button class="btn" data-o="obNext">${S.org.live?'เปิดร้าน':'ถัดไป'}</button>`:`<button class="btn" data-o="obSubmit">ส่งยืนยันตัวตน</button>`}</div>
   </div>`;
 },
 orgTeam(){
-  appbar('ทีมงาน');
+  appbar('ทีมงาน');S.full=true;
   const sh=S.org.shop;
-  return `<div class="cols">
+  return `<div class="wrap org">${orgHead('ทีมงาน')}<div class="cols">
   <div class="col">
     <div class="card" style="display:flex;flex-direction:column;gap:10px">${sh.team.map(m=>`
       <div class="row between"><div style="min-width:0"><b>${esc(m.email)}${S.org.account&&m.email===S.org.account.email?' (คุณ)':''}</b><div class="small muted">${ROLE_LABEL[m.role]}</div></div>
@@ -1805,7 +2378,7 @@ orgTeam(){
     <button class="btn" data-o="teamInvite">ส่งคำเชิญ</button>
     <button class="btn plain" data-o="copyInvite">คัดลอกลิงก์เชิญ</button>
     <div class="adv"><b class="small">เดโม: ดูในฐานะ</b><div class="seg three">${['owner','manager','gate'].map(r=>`<button data-o="viewAs" data-role="${r}" class="${S.org.role===r?'on':''}">${ROLE_LABEL[r]}</button>`).join('')}</div></div>
-  </div></div>`;
+  </div></div></div>`;
 },
 orgDash(){
   appbar('ภาพรวม');
@@ -1823,6 +2396,7 @@ orgDash(){
   for(const e of evs.filter(x=>x.status==='on_sale')){const s=evSum(e);const paid=e.zones.filter(z=>z.kind!=='comp');
     const pc=paid.reduce((a,z)=>a+z.capacity,0),pt=paid.reduce((a,z)=>a+z.sold+z.held,0);
     if(pc&&pt/pc>=.9)todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · ตั๋วเหลือ ${s.remaining} ที่ ใกล้เต็ม</span></li>`)}
+  return orgDashV2(sh,today,net,nextPay,held,todo,days);
   return `<div class="row between"><div><h1 style="font-size:22px">${esc(sh.name)}</h1>
       ${sh.verification==='verified'?'<span class="pill ok">ยืนยันร้านแล้ว</span>':'<span class="pill warn">รอยืนยันร้าน</span>'} ${S.org.live?'<span class="pill ok">ระบบจริง</span>':'<span class="pill grey">ข้อมูลตัวอย่าง</span>'}</div>
     ${S.org.role==='owner'?'<button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="team">ทีมงาน</button>':''}</div>
@@ -1846,10 +2420,10 @@ orgEvents(){
   const f=S.org.evFilter||'all';
   const filters=[['all','ทั้งหมด'],['on_sale','เปิดขาย'],['draft','ร่าง'],['ended','จบแล้ว'],['cancelled','ยกเลิก']];
   const list=myEvents().filter(e=>f==='all'||e.status===f||(f==='on_sale'&&['sold_out','paused'].includes(e.status)));
-  return `<div class="row between"><h1 class="d-only" style="font-size:24px">งานของฉัน</h1>
-    <button class="btn" style="width:auto;padding:10px 16px;font-size:15px" data-o="newEvent">สร้างงานใหม่</button></div>
-  <div class="chips" role="group" aria-label="กรองตามสถานะ">${filters.map(([k,v])=>`<button class="chip ${f===k?'on':''}" data-o="evFilter" data-v="${k}" aria-pressed="${f===k}">${v}</button>`).join('')}</div>
-  ${list.length?`<div class="lgrid">${list.map(e=>orgEvCard(e)).join('')}</div>`:'<div class="empty">ไม่มีงานในหมวดนี้</div>'}`;
+  S.full=true;const all=myEvents(),cnt=k=>all.filter(e=>k==='all'||e.status===k||(k==='on_sale'&&['sold_out','paused'].includes(e.status))).length;
+  return `<div class="wrap org">${orgHead('งานของฉัน','<button class="btn" data-o="newEvent"><svg width="18" height="18"><use href="#i-plus"/></svg>สร้างงานใหม่</button>')}
+  <div class="chips" role="group" aria-label="กรองตามสถานะ">${filters.map(([k,v])=>`<button class="chip ${f===k?'on':''}" data-o="evFilter" data-v="${k}" aria-pressed="${f===k}">${v} <span class="num">${cnt(k)}</span></button>`).join('')}</div>
+  ${list.length?`<div class="oevgrid">${list.map(e=>orgEvCard(e)).join('')}</div>`:'<div class="empty">ไม่มีงานในสถานะนี้ ลองเลือกสถานะอื่น หรือสร้างงานใหม่</div>'}</div>`;
 },
 orgWizard(){
   const o=S.org,d=o.draft;
@@ -1858,14 +2432,15 @@ orgWizard(){
   if(o.wizStep===5)return wizDone();
   const errs=o.wizShow||o.wizStep===4?wizErrors():{};
   const body=[null,wizStep1,wizStep2,wizStep3,wizStep4][o.wizStep](d,errs);
-  return `<div class="org-wiz cols"><div class="col">
-    <div class="chips" role="group" aria-label="ขั้นตอน">${WIZ_STEPS.map((l,i)=>`<button class="chip ${o.wizStep===i+1?'on':''}" data-o="wizGoto" data-step="${i+1}" ${o.wizStep===i+1?'aria-current="step"':''}>${i+1}. ${l}</button>`).join('')}</div>
+  S.full=true;
+  return `<div class="wrap org"><div class="org-wiz cols"><div class="col">
+    ${lineSteps(WIZ_STEPS,o.wizStep,'wizGoto')}
     <div class="org-progress" aria-hidden="true">${WIZ_STEPS.map((l,i)=>`<i class="${i<o.wizStep?'on':''}"></i>`).join('')}</div>
     <div class="row between"><span class="small muted">ขั้นที่ ${o.wizStep} จาก 4 · ${WIZ_STEPS[o.wizStep-1]}</span><button class="linkbtn" data-o="wizSaveDraft">บันทึกร่าง</button></div>
     ${body}
     <div class="row"><button class="btn plain" data-o="wizBack">${o.wizStep===1?'ยกเลิก':'ย้อนกลับ'}</button>
       ${o.wizStep<4?`<button class="btn" data-o="wizNext">ถัดไป</button>`:''}</div>
-  </div><div class="col side">${wizPreview(d)}</div></div>`;
+  </div><div class="col side">${wizPreview(d)}</div></div></div>`;
 },
 orgEvent(){
   const e=S.org.oev&&orgEv(S.org.oev);
@@ -1875,32 +2450,52 @@ orgEvent(){
   const tabs=S.org.live?all.filter(([k])=>['overview','buyers','settings'].includes(k)):all;
   const t=tabs.some(([k])=>k===S.org.etab)?S.org.etab:'overview';
   const body={overview:evOverview,buyers:S.org.live?liveBuyers:evBuyers,resale:evResale,extras:evExtras,settings:evSettings}[t](e);
-  return `<div class="row between" style="align-items:flex-start"><div><h1 style="font-size:22px">${esc(e.name)}</h1>
-      <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน'} · ${esc(e.venue||'')}</div></div>${statusPill(e.status)}</div>
-    <div class="seg ${tabs.length===3?'three':'five'}" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="etab" data-t="${k}">${v}</button>`).join('')}</div>${body}`;
+  const acts=[e.status==='on_sale'&&!S.org.live?'<button class="btn ghost" data-o="pause">พักการขาย</button>':'',e.status==='paused'?'<button class="btn" data-o="resume">เปิดขายต่อ</button>':'',
+    e.status==='draft'?`<button class="btn" data-o="editEvent" data-id="${e.id}">แก้ไขและเผยแพร่</button>`:'',
+    ['on_sale','paused','sold_out'].includes(e.status)?`<button class="btn ghost" data-o="editEvent" data-id="${e.id}">แก้ไขทั้งงาน</button>`:'',
+    ['on_sale','sold_out','paused'].includes(e.status)?`<button class="btn" data-o="gate" data-id="${e.id}">ไปหน้างาน</button>`:''].join('');
+  const short=e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase();
+  S.full=true;
+  return `<div class="wrap org">
+    <button class="crumb m-hide" data-act="back"><svg aria-hidden="true"><use href="#i-back"/></svg>งานของฉัน</button>
+    <div class="ehead"><div class="row1"><span class="thumb" style="--pbg:${e.bg}" aria-hidden="true"><b translate="no">${esc(short)}</b></span>
+      <div class="nm"><div class="row" style="flex-wrap:wrap;gap:10px"><h1>${esc(e.name)}</h1>${statusPill(e.status)}</div>
+      <span class="small muted num">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':'ยังไม่กำหนดวัน'}</span><span class="small muted">${esc(e.venue||'')}</span></div></div>
+      ${acts?`<div class="acts">${acts}</div>`:''}</div>
+    ${e.status==='paused'?'<div class="alert warn" role="status"><svg><use href="#i-info"/></svg><div><b>พักการขายอยู่</b> ผู้ซื้อเห็น "ปิดรับชั่วคราว" ตั๋วที่ขายไปแล้วยังใช้เข้างานได้</div></div>':''}
+    ${e.status==='cancelled'?`<div class="alert danger" role="status"><svg><use href="#i-alert"/></svg><div><b>งานนี้ถูกยกเลิกแล้ว</b> คืนเงินผู้ซื้อแล้ว แก้ไขไม่ได้</div></div>`:''}
+    <div class="utabs" role="tablist" aria-label="ส่วนของงาน">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" data-o="etab" data-t="${k}">${v}</button>`).join('')}</div>
+    ${body}</div>`;
 },
 orgGate(){
   const e=S.org.oev&&orgEv(S.org.oev);
   if(!e){S.stack=['orgGatePick'];S.tab='orgGatePick';return VIEWS.orgGatePick()}
   appbar('หน้างาน · '+e.name);
+  if(S.org.live)return liveGateView(e);
   const g=gateStats(e),t=S.org.gtab||'scan',pct=g.total?Math.round(g.used*100/g.total):0;
   const tabs=[['scan','สแกน QR'],['search','ค้นหาชื่อ'],['log','ประวัติ']];
-  return `<div class="narrow"><div class="card" style="text-align:center"><div class="small muted">${esc(e.name)}</div>
-      <div id="gate-count" class="num" style="font-family:var(--f-display);font-size:30px;font-weight:700;color:var(--ink)">เข้างานแล้ว ${g.used} / ${g.total}</div>
-      <div class="bar" style="margin-top:8px" aria-hidden="true"><i style="width:${pct}%"></i></div></div>
+  S.full=true;
+  return `<div class="wrap narrow-w"><button class="crumb m-hide" data-act="back"><svg aria-hidden="true"><use href="#i-back"/></svg>เลือกงาน</button>
+    <div class="gcount"><span class="small muted">${esc(e.name)}</span>
+      <div id="gate-count" class="num">เข้างานแล้ว ${g.used} / ${g.total}</div>
+      <div class="pbar-t" role="progressbar" aria-valuetext="${pct}%"><span style="width:${pct}%">${pct}%</span></div></div>
     <div class="seg three" role="tablist">${tabs.map(([k,v])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-o="gtab" data-t="${k}">${v}</button>`).join('')}</div>
     ${t==='scan'?gateScan():t==='search'?gateSearch(e):gateLog(e)}</div>`;
 },
 orgGatePick(){
   appbar('หน้างาน');
   const live=myEvents().filter(e=>['on_sale','sold_out','paused'].includes(e.status));
-  return `<h1 class="d-only" style="font-size:24px">หน้างาน</h1>
-  <p class="small muted" style="margin:0">เลือกงานที่จะเช็กอินผู้เข้าร่วม</p>
-  ${live.length?`<div class="lgrid">${live.map(e=>{const g=gateStats(e);return `<button class="listing" data-o="gate" data-id="${e.id}" style="text-align:left;width:100%">
-    <div class="top">${poster({bg:e.bg,tag:e.category,short:e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase()})}<div><b>${esc(e.name)}</b>
-      <div class="small muted">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</div><div class="small num" style="margin-top:4px">เข้างานแล้ว ${g.used} / ${g.total}</div></div></div></button>`}).join('')}</div>`
-  :'<div class="empty">ไม่มีงานที่เปิดขายอยู่</div>'}
-  ${orgAccountCard()}`;
+  S.full=true;const today=new Date().toDateString();
+  const counts=S.org.live?(S.org.gateCounts||{}):null;
+  return `<div class="wrap org">${orgHead('หน้างาน')}
+  <p class="muted" style="margin:0">เลือกงานที่จะเช็กอินผู้เข้าร่วม เรียงจากงานที่ใกล้ที่สุด</p>
+  ${live.length?`<div class="lgrid2">${live.sort((a,b)=>(a.startAt||0)-(b.startAt||0)).map(e=>{const g=gateStats(e);const short=e.short||e.name.split(' ').slice(0,2).join('\n').toUpperCase();
+    return `<button class="gpick" data-o="gate" data-id="${e.id}"><span class="thumb" style="--pbg:${e.bg}" aria-hidden="true"><b translate="no">${esc(short)}</b></span>
+      <span class="oev-info"><span class="row" style="gap:8px;flex-wrap:wrap"><b>${esc(e.name)}</b>${e.startAt&&new Date(e.startAt).toDateString()===today?'<span class="pill">วันนี้</span>':''}</span>
+      <span class="small muted num">${e.startAt?OL.thaiDate(e.startAt)+' · '+OL.thaiTime(e.startAt)+' น.':''}</span>${counts&&!counts[e.id]?'':`<span class="num" style="font-size:14px;font-weight:600">เข้างานแล้ว ${(counts?counts[e.id]:g).used} / ${(counts?counts[e.id]:g).total}</span>`}</span>
+      <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg></button>`}).join('')}</div>`
+  :'<div class="empty"><b>ไม่มีงานที่เปิดขายอยู่</b><br>งานที่เปิดขายหรือขายหมดแล้วจะขึ้นที่นี่ในวันงาน</div>'}
+  ${orgAccountCard()}</div>`;
 },
 orgFinance(){
   appbar('การเงิน');
@@ -1909,25 +2504,27 @@ orgFinance(){
   if(o.printEv){const r=rows.find(x=>x.e.id===o.printEv);if(r)return finPrintDoc(r)}
   const sum=f=>rows.filter(f).reduce((a,r)=>a+r.net,0);
   const mine=myEventIds(),refunded=o.ledger.filter(l=>l.type==='REFUND_OUT'&&mine.has(l.eventId)).reduce((a,l)=>a+l.amount,0);
-  const stat=(k,label,v,sub)=>`<div class="card org-stat"><span class="small muted">${label}</span><b class="num" data-fin="${k}">${v}</b>${sub?`<span class="small muted">${sub}</span>`:''}</div>`;
-  return `<div class="row between"><h1 style="font-size:22px">การเงิน</h1><span class="pill grey">ข้อมูลตัวอย่าง</span></div>
-  <div class="org-stats">
+  const stat=(k,label,v,sub)=>`<div class="stat"><span>${label}</span><b class="num" data-fin="${k}">${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
+  S.full=true;
+  return `<div class="wrap org">${orgHead('การเงิน')}
+  <div class="stats">
     ${stat('pending','รอจ่ายรวม',B(sum(r=>!r.paid&&r.kind!=='cancelled')),'งานที่ยังไม่จบหรืออยู่ในช่วงตรวจสอบ')}
     ${stat('paid','จ่ายแล้ว',B(sum(r=>r.paid)),'โอนเข้าบัญชีพร้อมเพย์แล้ว')}
-    ${stat('fees','ค่าบริการรวม',B(rows.reduce((a,r)=>a+r.fee,0)),'฿5 + 3% ต่อใบ')}
+    ${stat('fees','ค่าบริการรวม',B(rows.reduce((a,r)=>a+r.fee,0)),'5฿ + 3% ต่อใบ')}
     ${stat('refunded','คืนผู้ซื้อ',B(refunded),'จากงานที่ยกเลิก')}</div>
-  <div class="card row between"><div><b>บัญชีรับเงิน (พร้อมเพย์)</b><div class="small muted mono">••••${esc(String(sh.payoutPromptPay||'').slice(-4))}</div></div>
-    ${sh.verification==='verified'?'<span class="pill ok">ยืนยันแล้ว</span>':'<span class="pill warn">รอยืนยัน</span>'}</div>
-  <div class="small muted">เงินเข้าบัญชีหลังงานจบ 24 ชั่วโมง เผื่อกรณียกเลิกหรือมีข้อพิพาท · ถ้างานถูกยกเลิก ระบบคืนเงินผู้ซื้อแทนการโอนให้ร้าน</div>
-  <h2 style="font-size:17px">รายงานต่องาน</h2>
-  <div style="display:flex;flex-direction:column;gap:10px">${rows.map(r=>`<div class="card" data-fin-row="${r.e.id}" style="display:flex;flex-direction:column;gap:8px">
-    <div class="row between" style="align-items:flex-start"><div style="min-width:0"><b>${esc(r.e.name)}</b><div class="small muted">${r.e.startAt?OL.thaiDate(r.e.startAt):''}</div></div><span class="pill ${r.paid?'ok':r.kind==='cancelled'?'':'warn'}">${r.label}</span></div>
+  <div class="pcard" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:16px"><span class="acct-ic" aria-hidden="true"><svg><use href="#i-wallet"/></svg></span>
+    <div style="flex:1;min-width:160px"><b>บัญชีรับเงิน (พร้อมเพย์)</b><div class="small muted mono">•••• •• ${esc(String(sh.payoutPromptPay||'').slice(-4))}</div></div>
+    ${sh.verification==='verified'?'<span class="pill ok">ยืนยันแล้ว</span>':'<span class="pill warn">รอยืนยัน</span>'}
+    <p class="small muted" style="margin:0;flex-basis:100%">เงินเข้าบัญชีหลังงานจบ 24 ชั่วโมง เผื่อกรณียกเลิกหรือมีข้อพิพาท ถ้างานถูกยกเลิก ระบบคืนเงินผู้ซื้อแทนการโอนให้ร้าน</p></div>
+  <h2 class="h2">รายงานต่องาน</h2>
+  <div class="fgrid">${rows.map(r=>`<div class="card" data-fin-row="${r.e.id}" style="display:flex;flex-direction:column;gap:8px">
+    <div class="row between" style="align-items:flex-start"><div style="min-width:0"><b>${esc(r.e.name)}</b><div class="small muted">${r.e.startAt?OL.thaiDate(r.e.startAt):''}</div></div><span class="pill ${r.paid?'ok':r.kind==='cancelled'?'danger':'warn'}">${r.label}</span></div>
     <dl class="kv num" style="margin:0"><dt>ยอดขาย</dt><dd>${B(r.gross)}</dd><dt>ค่าบริการ</dt><dd>${B(r.fee)}</dd>
       <dt style="color:var(--ink);font-weight:600">${r.kind==='cancelled'?'คืนผู้ซื้อ':'รายรับสุทธิ'}</dt><dd style="font-weight:700">${r.kind==='cancelled'?B(r.refunded):B(r.net)}</dd>
       <dt>วันรับเงิน</dt><dd>${r.payAt?OL.thaiDate(r.payAt):'—'}</dd></dl>
     <div class="row"><button class="btn plain" style="padding:9px;font-size:14px;min-height:44px" data-o="finToggle" data-id="${r.e.id}" aria-expanded="${!!(o.finOpen&&o.finOpen[r.e.id])}">รายการต่อใบ</button>
       <button class="btn plain" style="padding:9px;font-size:14px;min-height:44px" data-o="finPrint" data-id="${r.e.id}">พิมพ์สรุป</button></div>
-    ${o.finOpen&&o.finOpen[r.e.id]?`<div id="fin-detail-${r.e.id}">${finDetail(r)}</div>`:''}</div>`).join('')}</div>`;
+    ${o.finOpen&&o.finOpen[r.e.id]?`<div id="fin-detail-${r.e.id}">${finDetail(r)}</div>`:''}</div>`).join('')}</div></div>`;
 },
 };
 Object.assign(VIEWS,ORG_VIEWS);
@@ -1989,7 +2586,7 @@ function liveWizErrors(d){
   if(UNSAFE_RE.test((d.description||'')+(d.short||'')))out.name=out.name||'รายละเอียดหรือชื่อบนโปสเตอร์มีอักขระ < > " \' `';
   d.zones.forEach((z,i)=>{
     if(UNSAFE_RE.test(z.name||''))out[`zones.${i}.name`]=FIELD_ERR.unsafe_characters;
-    if(Number.isInteger(z.price)&&(z.price%100||z.price<2000))out[`zones.${i}.price`]='ระบบจริงรับราคาเป็นบาทเต็ม อย่างน้อย ฿20';
+    if(Number.isInteger(z.price)&&(z.price%100||z.price<2000))out[`zones.${i}.price`]='ระบบจริงรับราคาเป็นบาทเต็ม อย่างน้อย 20฿';
   });
   const o=wizOrig();
   if(o&&o.zones.some(z=>!d.zones.some(x=>x.id===z.id)))out.zones='โซนที่เผยแพร่แล้วลบไม่ได้ ลดจำนวนที่ขายแทน';
@@ -2088,7 +2685,11 @@ const LIVE_ACTIONS={
   },
   async teamRemove(el){const o=S.org;
     await live(async()=>{const r=await orgApi('DELETE','/api/org/team?email='+encodeURIComponent(el.dataset.email));o.shop.team=teamFrom(r.team,o.account.email);render()})},
-  viewAs:notLive,copyInvite:notLive,pause:notLive,resume:notLive,gate:notLive,csv:notLive,
+  viewAs:notLive,copyInvite:notLive,pause:notLive,resume:notLive,csv:notLive,
+  gate(el){if(S.org.oev!==el.dataset.id)S.org.liveGate=null;S.org.oev=el.dataset.id;S.org.gtab='scan';go('orgGate')},
+  camToggle(){gateCam.stream?gateCamStop():gateCamStart()},
+  callManager(){const r=document.getElementById('org-result');if(r)r.remove();toast('ระบบยังไม่ส่งแจ้งเตือนถึงผู้จัดการ ให้ติดต่อผู้จัดการโดยตรง')},
+  gateCode(){const el=$('#gate-code');if(!el)return;const v=el.value;el.value='';gateCheck(v,true)},
   evDuplicate(el){const src=orgEv(el.dataset.id),c=OL.duplicateEvent(src,'org-'+Date.now().toString(36));
     c.live=false;c.zones=c.zones.map(z=>({...z,live:false}));
     S.org.draft=JSON.parse(JSON.stringify(c));S.org.wizStep=1;S.org.wizErr={};toast('ทำซ้ำงานแล้ว ใส่วันเวลาใหม่ได้เลย');go('orgWizard')},
@@ -2110,7 +2711,7 @@ const LIVE_ACTIONS={
   async zoneSave(el){
     const e=orgEv(S.org.oev),i=+el.dataset.i,g=id=>document.getElementById(id),errEl=g(`ez${i}-err`);
     const cap=Number(g(`ez${i}-cap`).value.trim()),pe=g(`ez${i}-price`);let price=e.zones[i].price;
-    if(pe&&!pe.disabled){const p=OL.toSatang(pe.value.trim());if(Number.isNaN(p)||p%100||p<2000){errEl.textContent='ราคาต้องเป็นบาทเต็ม อย่างน้อย ฿20';return}price=p}
+    if(pe&&!pe.disabled){const p=OL.toSatang(pe.value.trim());if(Number.isNaN(p)||p%100||p<2000){errEl.textContent='ราคาต้องเป็นบาทเต็ม อย่างน้อย 20฿';return}price=p}
     if(!Number.isInteger(cap)||cap<1){errEl.textContent='จำนวนต้องเป็นจำนวนเต็มอย่างน้อย 1';return}
     const zones=e.zones.map((z,k)=>k===i?{...z,price,capacity:cap}:z);
     await live(async()=>{replaceLive((await orgApi('PATCH','/api/org/events/'+e.id,{zones:toServerZones(zones)})).event);toast('บันทึกโซนแล้ว');render()},
@@ -2146,29 +2747,27 @@ const LIVE_ACTIONS={
 
 function nftCard(t,full){
   const e=evById(t.ev);
-  return `<div class="nft">${poster(e)}
-    <div class="stub"><span class="perf"></span>
-      <div class="row between"><span class="tokenid">JONGLOEI #${t.tid}</span><span class="pill">ERC-721</span></div>
-      <b style="font-family:var(--f-display);font-size:17px">${e.name}</b>
-      <dl class="kv small" style="margin:0">
-        <dt>วันที่</dt><dd>${e.date} · ${e.time} น.</dd>
-        <dt>โซน</dt><dd>${t.zone}</dd>
-        <dt>ราคาหน้าบัตร</dt><dd class="num">${fmt(t.price)}</dd>
-        <dt>เจ้าของ</dt><dd class="mono">${short(S.user.wallet)} (คุณ)</dd>
-        ${full?`<dt>สัญญา</dt><dd class="mono">${short(CONTRACT)}</dd>
-        <dt>ธุรกรรม mint</dt><dd class="mono">${t.explorer?`<a href="${esc(t.explorer)}" target="_blank" rel="noopener">${esc(t.tx)}</a>`:esc(t.tx)}</dd>
-        <dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd>
-        <dt>โอนแล้ว</dt><dd class="num">${t.transfers}/2 ครั้ง</dd>`:''}
-      </dl>
-      ${full?`<div class="small muted">ประวัติ: Mint → ${S.user.name}${t.transfers?' → โอน '+t.transfers+' ครั้ง':''}</div>`:''}
-    </div></div>`;
+  return `<div class="tcard"><div class="pst" style="--pbg:${e.bg}"><div class="tags" style="display:flex;gap:6px"><span class="tag">${esc(e.tag)}</span></div><span class="big" aria-hidden="true" translate="no">${esc(e.short)}</span></div>
+  <div class="stub"><h3>${e.name}</h3>
+    <dl class="kv2 num"><dt>วันที่</dt><dd>${e.date} · ${e.time} น.</dd><dt>สถานที่</dt><dd>${e.venue}</dd><dt>โซน</dt><dd>${esc(t.zone)}</dd><dt>ราคาหน้าบัตร</dt><dd>${fmt(t.price)}</dd><dt>เลขตั๋ว</dt><dd class="mono">#${t.tid}</dd></dl>
+    ${full?`<details class="chain"><summary>ดูหลักฐานบนเชน <span class="pill ok">ยืนยันแล้ว</span><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></summary>
+      <dl class="kv2"><dt>เจ้าของ</dt><dd class="mono">${short(S.user.wallet)} (คุณ)</dd><dt>สัญญา</dt><dd class="mono">${short(CONTRACT)}</dd>
+      <dt>ธุรกรรม</dt><dd class="mono">${t.explorer?`<a href="${esc(t.explorer)}" target="_blank" rel="noopener">${esc(t.tx)}</a>`:esc(t.tx)}</dd>
+      <dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd><dt>ขายต่อหรือโอนมาแล้ว</dt><dd class="num">${t.transfers} ครั้ง</dd></dl></details>`:""}
+  </div></div>`;
 }
 
 /* ---------- after-render hooks ---------- */
 const AFTER={
+  orgGatePick(){if(S.org.live&&Date.now()-(S.org.gateCountsAt||0)>15000)liveGateCounts()},
+  orgGate(){if(!S.org.live)return;
+    if(!S.org.liveGate||S.org.liveGate.id!==S.org.oev)liveGateLoad();
+    const v=$('#gate-video');if(v&&gateCam.stream){v.srcObject=gateCam.stream;v.play().catch(()=>{})}
+    const f=$('#gate-form');if(f)f.addEventListener('submit',ev=>{ev.preventDefault();orgAct('gateCode',f,ev)});
+  },
   pay(){
     drawQR($('#payqr'),'pp'+Date.now());
-    let s=599;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0){clearInterval(S.payTimer);el.textContent='หมดอายุ';const pb=document.querySelector('[data-act="paid"]');if(pb)pb.outerHTML='<button class="btn" data-act="newqr">สร้าง QR ใหม่</button>'}},1000);
+    let s=600;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0){clearInterval(S.payTimer);el.textContent='หมดอายุ';const pb=document.querySelector('[data-act="paid"]');if(pb)pb.outerHTML='<button class="bigbtn" data-act="newqr">สร้าง QR ใหม่</button>'}},1000);
   },
   minting(){
     const lis=[...document.querySelectorAll('#mintsteps li')];let i=0;
@@ -2324,17 +2923,32 @@ function walletCreating(){
     else{clearInterval(iv);S.signedIn=true;$('#wdone').innerHTML=`<button class="btn" data-act="signedin">เริ่มใช้งาน</button>`}},900);
 }
 function openResell(){
-  const t=S.sel,cap=Math.floor(t.price*1.2);
+  const t=S.sel,cap=Math.floor(t.price*1.25),cut=v=>Math.round(v*6)/100;
   sheet(`<h2 style="font-size:19px">ขายต่อ Token #${t.tid}</h2>
   <div class="field"><label for="rprice">ราคาที่ต้องการขาย (บาท)</label><input id="rprice" type="number" inputmode="numeric" value="${t.price}" min="1" max="${cap}">
-  <span class="hint" id="rhint">ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)</span></div>
-  <dl class="kv card small num" style="margin:0"><dt>ค่าธรรมเนียมแพลตฟอร์ม 5%</dt><dd id="rfee">${fmt(Math.round(t.price*.05))}</dd><dt><b style="color:var(--ink)">คุณจะได้รับ</b></dt><dd id="rget" style="font-weight:700;color:var(--red)">${fmt(t.price-Math.round(t.price*.05))}</dd></dl>
-  <div class="small muted">เงินจะโอนเข้าบัญชี PromptPay ของคุณหลังผู้ซื้อชำระและตั๋วโอนสำเร็จ ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม</div>
+  <span class="hint" id="rhint">ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (125%)</span></div>
+  <dl class="kv card small num" style="margin:0"><dt>คอมมิชชันแพลตฟอร์ม 6%</dt><dd id="rfee">${fmt(cut(t.price))}</dd><dt><b style="color:var(--ink)">คุณจะได้รับ</b></dt><dd id="rget" style="font-weight:700;color:var(--red)">${fmt(t.price-cut(t.price))}</dd></dl>
+  <div class="small muted">${t.real?'ระบบเก็บเงินของคุณไว้และจ่ายหลังงานจบ 24 ชั่วโมง (ทีมงานโอนให้)':'เงินจะโอนเข้าบัญชี PromptPay ของคุณหลังงานจบ'} ตั๋วที่ลงขายจะใช้ QR เข้างานไม่ได้จนกว่าจะยกเลิก การซื้อขายปิดอัตโนมัติ 1 ชั่วโมงก่อนงานเริ่ม</div>
   <button class="btn" data-act="list" id="rlist">ลงขายในตลาดรีเซล</button>
   <button class="btn plain" data-act="close">ยกเลิก</button>`);
   $('#rprice').addEventListener('input',ev=>{const v=+ev.target.value||0;const ok=v>0&&v<=cap;
-    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (120%)`:`ตั้งราคาได้ระหว่าง ฿1 ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
-    $('#rfee').textContent=fmt(Math.round(v*.05));$('#rget').textContent=fmt(v-Math.round(v*.05));$('#rlist').disabled=!ok});
+    $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (125%)`:`ตั้งราคาได้ระหว่าง 1฿ ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
+    $('#rfee').textContent=fmt(cut(v));$('#rget').textContent=fmt(v-cut(v));$('#rlist').disabled=!ok});
+}
+function openReset(){
+  sheet(`<h2 style="font-size:20px">ล้างข้อมูลเดโม?</h2><p class="muted" style="margin:0">ตั๋ว รายการขายต่อ และประวัติทั้งหมดในเดโมนี้จะถูกล้าง แล้วเริ่มใหม่ ย้อนกลับไม่ได้</p>
+  <button class="btn org-danger-btn" data-act="doreset">ล้างข้อมูลเดโม</button><button class="btn plain" data-act="close">ยกเลิก</button>`);
+}
+function openRules(){
+  sheet(`<h2 style="font-size:20px">เงื่อนไขการขายต่อ</h2>
+  <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:15px;line-height:1.5">
+    <li><b>ขายต่อได้เฉพาะในระบบ</b><br><span class="muted small">ตั๋วที่ซื้อนอกระบบสแกนเข้างานไม่ได้</span></li>
+    <li><b>ราคาไม่เกิน 1.25 เท่าของหน้าบัตร</b><br><span class="muted small">ผู้ขายถูกหัก 6% เมื่อขายได้</span></li>
+    <li><b>ขายต่อได้หลังได้ตั๋ว 6 ชม.</b><br><span class="muted small">และปิดการโอน 1 ชม. ก่อนงานเริ่ม</span></li>
+    <li><b>งานยกเลิก คืนเงินเท่าที่จ่ายจริง</b><br><span class="muted small">คืนให้คนที่ถือตั๋วคนสุดท้าย</span></li>
+  </ul>
+  <button class="btn" data-act="close">ยอมรับเงื่อนไข</button>
+  <button class="btn plain" data-act="close" style="color:var(--danger-solid)">ไม่ยอมรับแล้วยกเลิก</button>`);
 }
 function openTransfer(){
   const t=S.sel;
@@ -2344,8 +2958,10 @@ function openTransfer(){
   <div class="card small" style="display:flex;flex-direction:column;gap:4px"><b>Token #${t.tid} · ${evById(t.ev).name}</b><span class="muted">โอนแล้ว ${t.transfers}/2 ครั้ง · หลังโอน QR เดิมของคุณจะใช้ไม่ได้ทันที</span></div>
   <button class="btn" data-act="dotransfer">ยืนยันการโอน</button><button class="btn plain" data-act="close">ยกเลิก</button>`);
 }
-function toast(msg){const old=$('.toast');if(old)old.remove();const d=document.createElement('div');d.className='toast';d.setAttribute('role','status');
-  d.innerHTML=`<svg width="18" height="18" style="flex:none"><use href="#i-check"/></svg>${msg}`;$('#device').appendChild(d);setTimeout(()=>d.remove(),2600)}
+// error toasts (red, alert icon) are spotted from the wording so existing call sites keep working
+function toast(msg,kind){const old=$('.toast');if(old)old.remove();const bad=kind==='err'||(kind===undefined&&/ไม่สำเร็จ|ไม่ได้|ผิดพลาด/.test(String(msg)));
+  const d=document.createElement('div');d.className='toast'+(bad?' err':'');d.setAttribute('role',bad?'alert':'status');
+  d.innerHTML=`<svg width="18" height="18" style="flex:none"><use href="#${bad?'i-alert':'i-check'}"/></svg>${msg}`;$('#device').appendChild(d);setTimeout(()=>d.remove(),2600)}
 
 /* ---------- actions ---------- */
 $('#device').addEventListener('click',e=>{
@@ -2353,6 +2969,8 @@ $('#device').addEventListener('click',e=>{
   if(b=t.closest('[data-o]')){orgAct(b.dataset.o,b,e);return}
   if(b=t.closest('[data-ev]')){S.ev=b.dataset.ev;S.promo=null;S.zone=Math.max(0,evById(S.ev).zones.findIndex(z=>z.left>0));S.qty=1;go('event');return}
   if(b=t.closest('[data-cat]')){S.cat=b.dataset.cat;render();return}
+  if(b=t.closest('[data-slide]')){S.slide=(S.slide||0)+ +b.dataset.slide;render();return}
+  if(b=t.closest('[data-slideto]')){S.slide=+b.dataset.slideto;render();return}
   if(b=t.closest('[data-mcat]')){S.mcat=b.dataset.mcat;render();return}
   if(b=t.closest('[data-zone]')){S.zone=+b.dataset.zone;render();return}
   if(b=t.closest('[data-q]')){{const cap=4-S.tickets.filter(x=>x.ev===S.ev).length;S.qty=Math.min(Math.max(1,cap),Math.max(1,S.qty+ +b.dataset.q))}render();return}
@@ -2360,7 +2978,7 @@ $('#device').addEventListener('click',e=>{
   if(b=t.closest('[data-mtab]')){S.mtab=b.dataset.mtab;render();return}
   if(b=t.closest('[data-ticket]')){S.sel=S.tickets.find(x=>(x.key||x.tid)==b.dataset.ticket);S.ticketView='qr';go('ticket');return}
   if(b=t.closest('[data-tv]')){S.ticketView=b.dataset.tv;stopTimers();render();return}
-  if(b=t.closest('[data-buyl]')){S.buyingListing=S.listings.find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');return}
+  if(b=t.closest('[data-buyl]')){S.buyingListing=marketListings().find(l=>l.lid==b.dataset.buyl);if(!S.signedIn){openSignup('checkout');return}go('checkout');return}
   if(!(b=t.closest('[data-act]'))||b.closest('#appbar'))return;
   const a=b.dataset.act;
   switch(a){
@@ -2379,19 +2997,24 @@ $('#device').addEventListener('click',e=>{
     case 'resell':openResell();break;
     case 'transfer':openTransfer();break;
     case 'close':closeSheet();break;
-    case 'list':{const v=+$('#rprice').value;const tk=S.sel;tk.status='listed';tk.listPrice=v;orgTicketStatus(tk,'listed');
+    case 'list':{const v=+$('#rprice').value;const tk=S.sel;if(tk.real){resaleList(tk,v);break}tk.status='listed';tk.listPrice=v;orgTicketStatus(tk,'listed');
       S.listings.unshift({lid:Date.now(),ev:tk.ev,zone:tk.zone,face:tk.price,price:v,seller:short(S.user.wallet),transfers:tk.transfers,tid:tk.tid,orgTicketId:tk.orgTicketId});
       closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');render();break}
-    case 'unlist':{const tk=S.sel;tk.status='active';orgTicketStatus(tk,'valid');S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
+    case 'unlist':{const tk=S.sel;if(tk.real){resaleUnlist(tk);break}tk.status='active';orgTicketStatus(tk,'valid');S.listings=S.listings.filter(l=>l.tid!==tk.tid);toast('ยกเลิกการลงขายแล้ว');render();break}
     case 'dotransfer':{const to=$('#tto').value.trim();if(!to){$('#tto').focus();return}
       S.tickets=S.tickets.filter(x=>x!==S.sel);closeSheet();toast('โอน Token #'+S.sel.tid+' ให้ '+to+' แล้ว');go('tickets',true);break}
     case 'scan':{S.sel.status='used';orgTicketStatus(S.sel,'used');stopTimers();toast('สแกนผ่าน เข้างานได้ ตั๋วถูกล็อกแล้ว');render();break}
-    case 'copy':{const w=S.user.wallet;try{navigator.clipboard.writeText(w).then(()=>toast('คัดลอกที่อยู่ wallet แล้ว'),()=>toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน'))}catch(_){toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน')}break}
+    case 'copy':{const w=S.user.wallet;try{navigator.clipboard.writeText(w).then(()=>{S.copied=true;render();setTimeout(()=>{S.copied=false;if(S.stack[S.stack.length-1]==='profile')render()},2000);toast('คัดลอกที่อยู่ wallet แล้ว')},()=>toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน'))}catch(_){toast('คัดลอกไม่ได้ ลองเลือกข้อความแทน')}break}
     case 'toast':toast(b.dataset.msg);break;
     case 'gomarket':S.mcat=S.ev;go('market',true);break;
     case 'clearq':S.q='';S.cat='ทั้งหมด';render();break;
+    case 'seeall':case 'searchgo':{if(S.stack[S.stack.length-1]!=='home')go('home',true);const s=$('#onsale');if(s)s.scrollIntoView({behavior:'smooth',block:'start'});break}
+    case 'rules':openRules();break;
     case 'newqr':render();break;
-    case 'reset':try{localStorage.removeItem(KEY)}catch(_){}location.reload();break;
+    case 'reset':openReset();break;
+    case 'doreset':try{localStorage.removeItem(KEY)}catch(_){}location.reload();break;
+    case 'hidenote':S.hideMarketNote=true;render();break;
+    case 'theme':{const light=document.documentElement.dataset.theme!=='light';if(light)document.documentElement.dataset.theme='light';else delete document.documentElement.dataset.theme;try{localStorage.setItem('jongloei-theme',light?'light':'dark')}catch(_){}render();break}
     case 'logout':if(S.auth.google)fetch('/auth/logout',{method:'POST',credentials:'same-origin'}).catch(()=>{});S.signedIn=false;save();go('home',true);break;
   }
 });
@@ -2422,13 +3045,14 @@ async function startStripeCheckout(){
   const button=document.querySelector('[data-act="topay"],[data-act="paid"]');
   if(button){button.disabled=true;button.textContent='กำลังเชื่อมต่อ Stripe…'}
   try{
-    const response=await fetch('/api/checkout-session',{
+    const endpoint=listing&&listing.real?'/api/resale/checkout':'/api/checkout-session';
+    const response=await fetch(endpoint,{
       method:'POST',
       credentials:'same-origin',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({eventId,zone,quantity}),
+      body:JSON.stringify(listing&&listing.real?{listingId:listing.lid}:{eventId,zone,quantity}),
     });
-    const data=await readJsonResponse(response,'/api/checkout-session');
+    const data=await readJsonResponse(response,endpoint);
     if(!data){
       throw new Error(response.status===404
         ?'ไม่พบ API ของ Worker กรุณา deploy Worker เวอร์ชันล่าสุด'
@@ -2439,6 +3063,11 @@ async function startStripeCheckout(){
         authentication_required:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
         sold_out:'ที่นั่งโซนนี้หมดแล้ว หรือมีคนกำลังชำระอยู่ ลองโซนอื่นหรือรอสักครู่',
         ticket_limit:'ซื้อได้สูงสุด 4 ใบต่อบัญชีต่องาน (รวมรายการที่กำลังชำระ)',
+        listing_held:'มีคนกำลังชำระตั๋วใบนี้อยู่ ลองใหม่ใน 10 นาที',
+        listing_unavailable:'ตั๋วใบนี้ถูกขายหรือยกเลิกไปแล้ว',
+        own_listing:'ซื้อตั๋วที่ตัวเองลงขายไม่ได้',
+        transfer_closed:'ปิดการซื้อขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',
+        no_wallet:'ยังไม่มีกระเป๋าตั๋ว ลองออกจากระบบแล้วเข้าใหม่',
         invalid_ticket:'ข้อมูลตั๋วไม่ถูกต้อง กรุณาเลือกใหม่',
         stripe_unconfigured:'ระบบยังไม่ได้ตั้งค่า Stripe Secret Key',
         stripe_request_failed:'Stripe ปฏิเสธคำขอ กรุณาตรวจสอบ API key และบัญชี Stripe',
@@ -2478,7 +3107,7 @@ async function checkAuth(){
   if(result){q.delete('login');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
   let back=null;try{back=JSON.parse(sessionStorage.getItem(AUTH_KEY)||'null');sessionStorage.removeItem(AUTH_KEY)}catch(_){}
   if(back&&me.user){if(back.ev&&evById(back.ev)){S.ev=back.ev;S.zone=back.zone||0;S.qty=back.qty||1}
-    S.buyingListing=back.lid?S.listings.find(l=>l.lid==back.lid)||null:null;S.afterSignup=back.after||null}
+    S.buyingListing=back.lid?marketListings().find(l=>l.lid==back.lid)||null:null;S.afterSignup=back.after||null}
   render();
   if(S.orgLiveWanted&&me.user&&S.mode==='org'&&!(S.org&&S.org.live))orgLiveStart();
   loadMyTickets();
@@ -2501,9 +3130,39 @@ async function loadMyTickets(){
     const response=await fetch('/api/tickets',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/tickets');
     if(!response.ok||!Array.isArray(data.tickets))return;
-    S.tickets=data.tickets.map(realTicket);render();
+    S.tickets=data.tickets.map(realTicket);
+    await loadResale();
     if(S.tickets.some(t=>t.minting))setTimeout(loadMyTickets,5000);
   }catch(err){console.error('Ticket API failed',err)}
+}
+
+/* resale on the Worker (src/resale.js); demo listings stay in S.listings for file:// and demo login */
+function marketListings(){return S.auth.google?(S.realListings||[]):S.listings}
+async function loadResale(){
+  try{
+    const [market,mine]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[]})));
+    S.realListings=market.listings.map(l=>({lid:l.id,ev:l.eventId,zone:l.zone,face:l.facePrice,price:l.price,seller:l.seller,transfers:l.transfers,tid:l.tokenId,held:l.held,mine:l.mine,real:true}));
+    for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold'}}
+  }catch(err){console.error('Resale API failed',err)}
+  render();
+}
+const RESALE_ERRORS={holding_period:'ลงขายได้หลังได้ตั๋วครบ 6 ชั่วโมง',transfer_closed:'ปิดการขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',invalid_price:'ราคาเกินเพดาน 125% ของราคาหน้าบัตร',
+  already_listed:'ตั๋วใบนี้ลงขายอยู่แล้ว',ticket_not_listable:'ตั๋วใบนี้ลงขายไม่ได้',event_not_open:'งานนี้ปิดหรือถูกยกเลิกแล้ว',event_time_unknown:'งานนี้ยังไม่มีเวลาเริ่มที่ชัดเจน',
+  listing_on_hold:'มีคนกำลังชำระตั๋วใบนี้ ยกเลิกได้หลังหมดเวลา 10 นาที',listing_closed:'รายการนี้ปิดไปแล้ว'};
+async function resaleCall(method,path,body){
+  const r=await fetch(path,{method,credentials:'same-origin',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){let m=RESALE_ERRORS[d.error]||'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง';if(d.error==='holding_period'&&d.listableAt)m+=' (ลงขายได้ '+new Date(d.listableAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})+')';throw new Error(m)}
+  return d;
+}
+async function resaleList(tk,price){
+  try{await resaleCall('POST','/api/resale/listings',{ticketId:tk.key,price});closeSheet();toast('ลงขายแล้ว ดูได้ในตลาดรีเซล');await loadMyTickets();S.sel=S.tickets.find(x=>x.key===tk.key)||S.sel;render()}
+  catch(err){toast(err.message)}
+}
+async function resaleUnlist(tk){
+  if(!tk.listingId){toast(tk.listingSold?'ตั๋วขายแล้ว กำลังโอนให้ผู้ซื้อ':'ไม่พบรายการขาย');return}
+  try{await resaleCall('DELETE','/api/resale/listings/'+encodeURIComponent(tk.listingId));toast('ยกเลิกการลงขายแล้ว');await loadMyTickets();S.sel=S.tickets.find(x=>x.key===tk.key)||S.sel;render()}
+  catch(err){toast(err.message)}
 }
 async function handleCheckoutReturn(){
   const q=new URLSearchParams(location.search);
