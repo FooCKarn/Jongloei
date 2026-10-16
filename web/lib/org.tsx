@@ -7,41 +7,42 @@ import { S, OL, emit, save, HOUR, DAY, POSTERS, ORG_PARAMS, DEMO_ACCOUNTS, isLoc
 import { go, back, currentScreen } from "./nav";
 import { toast, mockToast, sheet, closeSheet, rerenderSheet } from "./ui";
 import { googleLogin, loadEvents } from "./buyer";
+import { tr, tmap, dateOf, timeOf } from "./i18n";
 
 export const B = (s: number) => OL.fmtBaht(s);
 export const live = () => !!(S.org && S.org.live);
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const ROLE_LABEL: Record<string, string> = { owner: "เจ้าของ", manager: "ผู้จัดการ", gate: "พนักงานหน้างาน" };
-export const SHOP_KINDS: [string, string][] = [["bar", "บาร์ / ร้านอาหาร"], ["workshop", "Workshop / คลาสเรียน"], ["popup", "Pop-up / ตลาด"], ["concert", "คอนเสิร์ต / แฟนมีต"], ["other", "อื่น ๆ"]];
-export const EV_STATUS: Record<string, [string, string]> = { draft: ["ร่าง", "grey"], on_sale: ["เปิดขาย", "ok"], paused: ["พักการขาย", "warn"], sold_out: ["ขายหมด", ""], ended: ["จบแล้ว", "grey"], cancelled: ["ยกเลิก", "danger"] };
-export const TICKET_STATUS: Record<string, string> = { valid: "พร้อมใช้", listed: "ลงขายอยู่", used: "ใช้แล้ว", refunded: "คืนเงินแล้ว", unavailable: "ไม่มา" };
-export const WIZ_STEPS = ["ข้อมูลงาน", "โซนตั๋ว", "กติกาตั๋ว", "ตรวจและเผยแพร่"];
-export const ZONE_KINDS: [string, string][] = [["standing", "ยืน (Standing)"], ["seated", "ที่นั่ง"], ["table", "โต๊ะ"], ["comp", "บัตรเชิญ (ฟรี)"]];
-export const ZONE_COLORS: [string, string][] = [["#E8485A", "แดงอ่อน"], ["#A00018", "แดงเข้ม"], ["#4A0010", "น้ำตาลแดง"], ["#B86B12", "ส้มทอง"], ["#2B4C7E", "น้ำเงิน"]];
-export const EV_CATS = ["ปาร์ตี้", "คอนเสิร์ต", "เทศกาล", "แฟนมีตติ้ง", "สแตนด์อัป", "workshop"];
-const WIZ_TEMPLATES: Record<string, any[]> = {
-  bar: [["Standing", "standing", 500, 100], ["โต๊ะ 4 ที่", "table", 3000, 10, 4]],
-  workshop: [["ที่นั่ง workshop", "seated", 1500, 12]],
+export const ROLE_LABEL: Record<string, string> = tmap({ owner: "เจ้าของร้าน", manager: "ผู้จัดการระบบ", gate: "เจ้าหน้าที่ปฏิบัติการหน้างาน" });
+export const SHOP_KINDS: [string, string][] = tmap([["bar", "บาร์ / ร้านอาหาร"], ["workshop", "Workshop / คลาสเรียน"], ["popup", "Pop-up / ตลาดนัด"], ["concert", "คอนเสิร์ต / แฟนมีตติ้ง"], ["other", "ประเภทอื่นๆ"]]);
+export const EV_STATUS: Record<string, [string, string]> = tmap({ draft: ["ฉบับร่าง", "grey"], on_sale: ["เปิดจำหน่าย", "ok"], paused: ["ระงับการจำหน่าย", "warn"], sold_out: ["จำหน่ายหมด", ""], ended: ["เสร็จสิ้น", "grey"], cancelled: ["ยกเลิกแล้ว", "danger"] });
+export const TICKET_STATUS: Record<string, string> = tmap({ valid: "พร้อมใช้งาน", listed: "ประกาศขายต่ออยู่", used: "ผ่านการใช้งานแล้ว", refunded: "คืนเงินแล้ว", unavailable: "ไม่มาเข้าร่วม" });
+export const WIZ_STEPS = tmap(["ข้อมูลอีเวนต์", "โซนบัตรเข้าชม", "กติกาบัตรเข้าชม", "ตรวจสอบและเผยแพร่"]);
+export const ZONE_KINDS: [string, string][] = tmap([["standing", "ยืน (Standing)"], ["seated", "รูปแบบที่นั่ง"], ["table", "โต๊ะ"], ["comp", "บัตรเชิญพิเศษ (ฟรี)"]]);
+export const ZONE_COLORS: [string, string][] = tmap([["#E8485A", "แดงอ่อน"], ["#A00018", "แดงเข้ม"], ["#4A0010", "น้ำตาลแดง"], ["#B86B12", "ส้มทอง"], ["#2B4C7E", "น้ำเงิน"]]);
+export const EV_CATS = ["ปาร์ตี้สังสรรค์", "คอนเสิร์ต", "เทศกาลดนตรี", "แฟนมีตติ้ง", "สแตนด์อัปคอมเมดี", "workshop"];
+const WIZ_TEMPLATES: Record<string, any[]> = tmap({
+  bar: [["Standing", "standing", 500, 100], ["โต๊ะ 4 ที่นั่ง", "table", 3000, 10, 4]],
+  workshop: [["ที่นั่ง Workshop", "seated", 1500, 12]],
   concert: [["Standing", "standing", 1500, 200], ["Seat", "seated", 2500, 100], ["VIP", "seated", 4500, 20]],
-};
-export const PROMO_WHY: Record<string, string> = { not_found: "ไม่พบโค้ดนี้หรือถูกปิดใช้งาน", expired: "โค้ดหมดอายุหรือยังไม่เริ่มใช้", used_up: "โค้ดถูกใช้ครบจำนวนแล้ว", wrong_zone: "โค้ดนี้ใช้กับโซนนี้ไม่ได้" };
-export const AN_TEMPLATES: Record<string, string> = { time: "เวลาเริ่มงานเปลี่ยนเป็น __:__ น. ตั๋วใบเดิมใช้ได้ตามปกติ ไม่ต้องทำอะไรเพิ่ม",
-  place: "สถานที่จัดงานเปลี่ยนเป็น ________ ตั๋วใบเดิมใช้ได้ตามปกติ ขออภัยในความไม่สะดวก",
-  weather: "เนื่องจากสภาพอากาศ งานอาจเลื่อนหรือย้ายเข้าในร่ม เราจะแจ้งอีกครั้งภายใน __ ชม. ตั๋วยังใช้ได้" };
-export const SIM_CASES: [number, string][] = [[1, "ตั๋วถูกต้อง"], [2, "ตั๋วที่ใช้ไปแล้ว"], [3, "QR เก่า (เกิน 60 วินาที)"], [4, "QR จากอนาคต (เกิน 15 วินาที)"],
-  [5, "ตั๋วของงานอื่น"], [6, "งานที่ถูกยกเลิก"], [7, "ผู้ถือคนเก่าที่ขายต่อไปแล้ว"], [8, "ตั๋วที่กำลังลงขาย (ยังเข้าได้)"]];
-export const LIVE_REASON: Record<string, string> = {
-  malformed: "ไม่ใช่ QR ตั๋วของ JONGLOEI", expired: "QR หมดอายุ (เกิน 60 วินาที) อาจเป็นภาพแคปหน้าจอ ให้ผู้ถือเปิดตั๋วในแอปใหม่",
-  future: "เวลาใน QR ล้ำหน้าเกิน 15 วินาที ให้ผู้ถือตรวจเวลาในเครื่อง", unknown_ticket: "ไม่พบตั๋วใบนี้ในระบบ",
-  bad_signature: "ลายเซ็นไม่ตรงกับเจ้าของตั๋วปัจจุบัน เช่น QR ของผู้ขายเดิม", wrong_event: "ตั๋วนี้เป็นของงานอื่น",
-  event_cancelled: "งานนี้ถูกยกเลิกแล้ว", event_ended: "งานจบแล้ว", already_used: "ตั๋วใบนี้ใช้เข้างานไปแล้ว",
-  listed: "ตั๋วกำลังลงขายต่อ ให้ผู้ถือยกเลิกการขายก่อน", not_issued: "ตั๋วยังออกไม่เสร็จ",
-  chain_mismatch: "เจ้าของบนบล็อกเชนไม่ตรงกับในระบบ", chain_unavailable: "ตรวจบนบล็อกเชนไม่ได้ชั่วคราว ลองสแกนอีกครั้ง" };
-export const ORDER_STATUS: Record<string, string> = { pending: "รอชำระ (Hold)", expired: "หมดเวลา", paid: "ชำระแล้ว", fulfilled: "ออกตั๋วแล้ว", failed: "ไม่สำเร็จ", needs_review: "รอตรวจสอบ" };
+});
+export const PROMO_WHY: Record<string, string> = tmap({ not_found: "ไม่พบรหัสส่วนลดนี้ หรือถูกระงับการใช้งาน", expired: "รหัสส่วนลดหมดอายุหรือยังไม่ถึงกำหนดเริ่มต้นใช้งาน", used_up: "รหัสส่วนลดถูกใช้งานครบจำนวนสิทธิ์แล้ว", wrong_zone: "รหัสส่วนลดนี้ไม่สามารถใช้งานร่วมกับโซนนี้ได้" });
+export const AN_TEMPLATES: Record<string, string> = tmap({ time: "เวลาเริ่มต้นอีเวนต์เปลี่ยนแปลงเป็น __:__ น. บัตรเข้าชมใบเดิมยังคงใช้งานได้ตามปกติ ไม่จำเป็นต้องดำเนินการใดๆ เพิ่มเติม",
+  place: "สถานที่จัดงานเปลี่ยนแปลงเป็น ________ บัตรเข้าชมใบเดิมยังคงใช้งานได้ตามปกติ ขออภัยในความไม่สะดวกมา ณ ที่นี้",
+  weather: "เนื่องจากสภาพอากาศที่ไม่เอื้ออำนวย อีเวนต์อาจมีการเลื่อนเวลาหรือย้ายเข้าสู่พื้นที่ในร่ม ทางเราจะแจ้งให้ทราบอีกครั้งภายใน __ ชั่วโมง บัตรเข้าชมยังคงใช้งานได้ปกติ" });
+export const SIM_CASES: [number, string][] = tmap([[1, "บัตรถูกต้องสมบูรณ์"], [2, "บัตรผ่านการใช้งานแล้ว"], [3, "QR Code เก่า (เกิน 60 วินาที)"], [4, "QR Code จากอนาคต (ล้ำหน้าเกิน 15 วินาที)"],
+  [5, "บัตรของอีเวนต์อื่น"], [6, "อีเวนต์ที่ถูกยกเลิก"], [7, "ผู้ถือครองคนเดิมที่ทำการขายต่อไปแล้ว"], [8, "บัตรอยู่ระหว่างประกาศขายต่อ (ยังสามารถใช้เข้างานได้)"]]);
+export const LIVE_REASON: Record<string, string> = tmap({
+  malformed: "ไม่ใช่ QR Code บัตรเข้าชมของระบบ JONGLOEI", expired: "QR Code หมดอายุ (เกิน 60 วินาที) อาจเกิดจากการใช้ภาพแคปหน้าจอ กรุณาแนะนำให้ผู้ถือเปิดบัตรเข้าชมผ่านแอปพลิเคชันใหม่อีกครั้ง",
+  future: "เวลาใน QR Code ล้ำหน้าเกิน 15 วินาที กรุณาตรวจสอบการตั้งค่าเวลาบนอุปกรณ์ของผู้ถือบัตร", unknown_ticket: "ไม่พบข้อมูลบัตรเข้าชมนี้ในระบบ",
+  bad_signature: "ลายเซ็นดิจิทัลไม่ตรงกับเจ้าของบัตรปัจจุบัน เช่น QR Code ของผู้ขายเดิม", wrong_event: "บัตรใบนี้เป็นของอีเวนต์อื่น",
+  event_cancelled: "อีเวนต์นี้ถูกยกเลิกเรียบร้อยแล้ว", event_ended: "อีเวนต์สิ้นสุดลงแล้ว", already_used: "บัตรเข้าชมใบนี้ถูกใช้สิทธิ์เข้างานไปแล้ว",
+  listed: "บัตรอยู่ระหว่างประกาศขายต่อ กรุณายกเลิกการประกาศขายก่อนดำเนินการ", not_issued: "บัตรเข้าชมยังออกไม่เสร็จสมบูรณ์",
+  chain_mismatch: "ข้อมูลเจ้าบนบล็อกเชนไม่ตรงกับข้อมูลในระบบ", chain_unavailable: "ไม่สามารถตรวจสอบบนบล็อกเชนได้ชั่วคราว กรุณาสแกนใหม่อีกครั้ง" });
+export const ORDER_STATUS: Record<string, string> = tmap({ pending: "รอชำระเงิน (Hold)", expired: "หมดเวลา", paid: "ชำระเงินแล้ว", fulfilled: "ออกบัตรสำเร็จ", failed: "ไม่สำเร็จ", needs_review: "รอการตรวจสอบ" });
 
 export const maskEmail = (m: string) => { const [a, b] = String(m).split("@"); return b ? a.slice(0, 1) + "***@" + b : "***"; };
-export const whenText = (ms: number | null) => (ms ? OL.thaiDate(ms) + " · " + OL.thaiTime(ms) + " น." : "ยังไม่กำหนดวัน");
-export const shortOf = (e: any) => e.short || String(e.name || "ชื่องาน").split(/\s+/).slice(0, 2).join("\n").toUpperCase();
+export const whenText = (ms: number | null) => (ms ? tr("{a} · {b} น.", { a: dateOf(ms), b: timeOf(ms) }) : tr("ยังไม่ได้กำหนดวันเวลา"));
+export const shortOf = (e: any) => e.short || String(e.name || tr("ชื่องานอีเวนต์")).split(/\s+/).slice(0, 2).join("\n").toUpperCase();
 const myEventsOf = () => S.org.events.filter((e: any) => (e.shopId || "shop-demo") === S.org.shop.id);
 export const myEvents = myEventsOf;
 
@@ -76,7 +77,7 @@ export function guardFor(cur: string): string | null {
   if ((cur === "orgEvent" || cur === "orgGate") && !(S.org.oev && orgEv(S.org.oev))) return cur === "orgGate" ? "orgGatePick" : "orgEvents";
   return null;
 }
-export const ORG_TABS: [string, string, string][] = [["orgDash", "i-chart", "ภาพรวม"], ["orgEvents", "i-ticket", "งานของฉัน"], ["orgGatePick", "i-qr", "หน้างาน"], ["orgFinance", "i-wallet", "การเงิน"]];
+export const ORG_TABS: [string, string, string][] = tmap([["orgDash", "i-chart", "ภาพรวมระบบ"], ["orgEvents", "i-ticket", "อีเวนต์ของฉัน"], ["orgGatePick", "i-qr", "จุดปฏิบัติการหน้างาน"], ["orgFinance", "i-wallet", "ระบบการเงิน"]]);
 export function orgTabsFor(role: string) {
   // a real shop has only what the backend serves yet: overview, events and the door
   if (live()) return ORG_TABS.filter(([k]) => (role === "gate" ? k === "orgGatePick" : ["orgDash", "orgEvents", "orgGatePick"].includes(k)));
@@ -106,24 +107,24 @@ function OrgChooser({ mode }: { mode: "signup" | "login" }) {
   const sample = Object.entries(S.org.accounts).filter(([e]) => DEMO_ACCOUNTS[e]) as [string, any][];
   const submit = () => {
     const em = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(em)) return setErr({ email: "อีเมลไม่ถูกต้อง" });
+    if (!EMAIL_RE.test(em)) return setErr({ email: tr("รูปแบบอีเมลไม่ถูกต้อง") });
     if (mode === "signup") {
-      if (orgKnown(em)) return setErr({ email: "อีเมลนี้มีบัญชีผู้จัดงานแล้ว กดเข้าสู่ระบบแทน" });
-      if (!name.trim()) return setErr({ name: "ใส่ชื่อของคุณ" });
+      if (orgKnown(em)) return setErr({ email: tr("อีเมลนี้มีบัญชีผู้จัดงานอยู่ในระบบแล้ว กรุณากดเข้าสู่ระบบแทน") });
+      if (!name.trim()) return setErr({ name: tr("กรุณาระบุชื่อของคุณ") });
       S.org.accounts[em] = { name: name.trim(), shopId: null };
-    } else if (!orgKnown(em)) return setErr({ email: "ยังไม่มีบัญชีผู้จัดงานนี้ กดสมัครผู้จัดงานก่อน" });
+    } else if (!orgKnown(em)) return setErr({ email: tr("ยังไม่มีบัญชีผู้จัดงานสำหรับอีเมลนี้ กรุณาดำเนินการสมัครผู้จัดงานก่อน") });
     orgLoginAs(em);
   };
   return (<>
-    <div className="row" style={{ gap: 12 }}><svg width="40" height="40"><use href="#logo" /></svg><div><h2 style={{ fontSize: 19 }}>{mode === "signup" ? "สมัครผู้จัดงาน" : "เข้าสู่ระบบผู้จัดงาน"}</h2>
-      <div className="small muted">ด้วยบัญชี Google ของผู้จัดงาน แยกจากบัญชีผู้ซื้อ</div></div></div>
-    <span className="pill warn" style={{ alignSelf: "flex-start" }}>จำลอง: ยังไม่ได้เชื่อม Google จริงสำหรับผู้จัดงาน</span>
-    <Fld id="og-email" label="อีเมล Google" err={err.email}><input id="og-email" type="email" autoComplete="off" value={email} onChange={e => setEmail(e.target.value)} {...errA("og-email", err.email)} /></Fld>
-    {mode === "signup" && <Fld id="og-name" label="ชื่อของคุณ" err={err.name}><input id="og-name" autoComplete="off" value={name} onChange={e => setName(e.target.value)} {...errA("og-name", err.name)} /></Fld>}
-    <button className="btn" onClick={submit}>{mode === "signup" ? "สมัครและดำเนินการต่อ" : "เข้าสู่ระบบ"}</button>
-    {mode === "login" && sample.length > 0 && <div className="adv"><b className="small">บัญชีตัวอย่าง</b>{sample.map(([e, a]) => (
-      <button key={e} className="btn plain" style={{ fontSize: 14, padding: 10 }} onClick={() => orgLoginAs(e)}>{a.name}<br /><span className="small muted">{e}</span></button>))}</div>}
-    <button className="btn plain" onClick={closeSheet}>ปิด</button>
+    <div className="row" style={{ gap: 12 }}><svg width="40" height="40"><use href="#logo" /></svg><div><h2 style={{ fontSize: 19 }}>{mode === "signup" ? tr("สมัครเป็นผู้จัดงาน") : tr("เข้าสู่ระบบผู้จัดงาน")}</h2>
+      <div className="small muted">{tr("เข้าสู่ระบบด้วยบัญชี Google ของผู้จัดงาน แยกอิสระจากบัญชีผู้ซื้อ")}</div></div></div>
+    <span className="pill warn" style={{ alignSelf: "flex-start" }}>{tr("ระบบทดลอง: ยังไม่ได้เชื่อมต่อระบบ Google จริงสำหรับผู้จัดงาน")}</span>
+    <Fld id="og-email" label={tr("อีเมล Google")} err={err.email}><input id="og-email" type="email" autoComplete="off" value={email} onChange={e => setEmail(e.target.value)} {...errA("og-email", err.email)} /></Fld>
+    {mode === "signup" && <Fld id="og-name" label={tr("ชื่อของคุณ")} err={tr(err.name)}><input id="og-name" autoComplete="off" value={name} onChange={e => setName(e.target.value)} {...errA("og-name", err.name)} /></Fld>}
+    <button className="btn" onClick={submit}>{mode === "signup" ? tr("สมัครและดำเนินการต่อ") : tr("เข้าสู่ระบบ")}</button>
+    {mode === "login" && sample.length > 0 && <div className="adv"><b className="small">{tr("บัญชีตัวอย่างทดลอง")}</b>{sample.map(([e, a]) => (
+      <button key={e} className="btn plain" style={{ fontSize: 14, padding: 10 }} onClick={() => orgLoginAs(e)}>{tr(a.name)}<br /><span className="small muted">{e}</span></button>))}</div>}
+    <button className="btn plain" onClick={closeSheet}>{tr("ปิดหน้าต่าง")}</button>
   </>);
 }
 export const orgChooser = (mode: "signup" | "login") => sheet(() => <OrgChooser mode={mode} />);
@@ -132,15 +133,15 @@ export const orgChooser = (mode: "signup" | "login") => sheet(() => <OrgChooser 
 export const errA = (id: string, err?: string, hint?: boolean) => ({ "aria-describedby": `${id}-err${hint ? ` ${id}-hint` : ""}`, "aria-invalid": err ? true : undefined });
 export function Fld({ id, label, err, hint, children }: { id: string; label: any; err?: string; hint?: any; children: any }) {
   return (<div className="field"><label htmlFor={id}>{label}</label>{children}
-    {hint ? <span className="hint" id={`${id}-hint`}>{hint}</span> : null}<span className="hint err" id={`${id}-err`} role="alert">{err || ""}</span></div>);
+    {hint ? <span className="hint" id={`${id}-hint`}>{typeof hint === "string" ? tr(hint) : hint}</span> : null}<span className="hint err" id={`${id}-err`} role="alert">{err ? tr(err) : ""}</span></div>);
 }
 
 /* ---------- onboarding ---------- */
 const OB_CHECK: Record<number, (d: any) => any> = {
-  1: d => ({ ...(String(d.name || "").trim().length < 2 || String(d.name).length > 60 ? { name: "ใส่ชื่อร้าน 2-60 ตัวอักษร" } : {}), ...(!/^0\d{9}$/.test(String(d.phone || "").replace(/\D/g, "")) ? { phone: "เบอร์โทร 10 หลัก ขึ้นต้นด้วย 0" } : {}) }),
-  2: d => (!/^\d{13}$/.test(String(d.taxId || "").replace(/\D/g, "")) ? { tax: "เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก" } : {}),
-  3: d => (!/^(0\d{9}|\d{13})$/.test(String(d.pp || "").replace(/\D/g, "")) ? { pp: "ใส่เบอร์มือถือ 10 หลัก หรือเลขบัตร/เลขนิติบุคคล 13 หลัก" } : {}),
-  4: d => (!d.docName ? { doc: "แนบเอกสารยืนยันตัวตนก่อนส่ง" } : {}),
+  1: d => ({ ...(String(d.name || "").trim().length < 2 || String(d.name).length > 60 ? { name: tr("กรุณาระบุชื่อร้านความยาว 2-60 ตัวอักษร") } : {}), ...(!/^0\d{9}$/.test(String(d.phone || "").replace(/\D/g, "")) ? { phone: tr("หมายเลขโทรศัพท์ 10 หลัก ขึ้นต้นด้วย 0") } : {}) }),
+  2: d => (!/^\d{13}$/.test(String(d.taxId || "").replace(/\D/g, "")) ? { tax: tr("เลขประจำตัวผู้เสียภาษีอากรต้องเป็นตัวเลข 13 หลัก") } : {}),
+  3: d => (!/^(0\d{9}|\d{13})$/.test(String(d.pp || "").replace(/\D/g, "")) ? { pp: tr("กรุณาระบุเบอร์มือถือ 10 หลัก หรือเลขบัตร/เลขนิติบุคคล 13 หลัก") } : {}),
+  4: d => (!d.docName ? { doc: tr("กรุณาแนบเอกสารยืนยันตัวตนก่อนทำการส่งข้อมูล") } : {}),
 };
 function obValid() { const ob = S.org.onboard; ob.err = OB_CHECK[ob.step](ob.data); emit(); return !Object.keys(ob.err).length; }
 export async function obNext() {
@@ -150,7 +151,7 @@ export async function obNext() {
     await liveStep(async () => {
       const r = await orgApi("POST", "/api/org/shop", { name: d.name.trim(), type: d.kind, contactLine: d.line || "", phone: String(d.phone).replace(/\D/g, "") });
       o.shop = fromServerShop(r.shop, o.account.email, r.role); o.shops = [o.shop]; o.role = r.role; emit();
-      go("orgDash", { replace: true }); toast("เปิดร้านแล้ว ทีมงาน JONGLOEI จะยืนยันร้านก่อนเผยแพร่งานได้");
+      go("orgDash", { replace: true }); toast(tr("เปิดร้านค้าสำเร็จ ทีมงาน JONGLOEI จะดำเนินการตรวจสอบและอนุมัติร้านค้าก่อนเผยแพร่อีเวนต์"));
     }, err => { S.org.onboard.err = { name: orgErrText(err) }; emit(); });
     return;
   }
@@ -164,37 +165,37 @@ export function obSubmit() {
     payoutPromptPay: String(d.pp).replace(/\D/g, ""), docName: d.docName, verification: "pending", team: [{ email, role: "owner" }] };
   S.org.shops.push(shop); S.org.accounts[email].shopId = id; S.org.shop = shop; S.org.role = "owner"; S.org.onboard = { step: 1, data: {}, err: {} };
   emit(); go("orgDash", { replace: true });
-  mockToast("ส่งเอกสารแล้ว ระบบจะอนุมัติให้ใน 3 วินาที");
+  mockToast(tr("ส่งเอกสารเรียบร้อย ระบบจะดำเนินการอนุมัติให้โดยอัตโนมัติภายใน 3 วินาที"));
   setTimeout(() => {
     const sh = S.org && S.org.shops && S.org.shops.find((x: any) => x.id === id); if (!sh || sh.verification !== "pending") return;
-    sh.verification = "verified"; emit(); if (S.mode === "org" && S.org.shop && S.org.shop.id === id) toast("ยืนยันร้านเรียบร้อย เผยแพร่งานได้แล้ว");
+    sh.verification = "verified"; emit(); if (S.mode === "org" && S.org.shop && S.org.shop.id === id) toast(tr("ยืนยันร้านค้าเรียบร้อย สามารถเริ่มต้นเผยแพร่อีเวนต์ได้ทันที"));
   }, 3000);
 }
 
 /* ---------- team ---------- */
 export async function teamInvite(email: string, role: string) {
   const o = S.org, em = email.trim().toLowerCase();
-  if (!EMAIL_RE.test(em)) { o.teamErr = "อีเมลไม่ถูกต้อง"; emit(); return false; }
+  if (!EMAIL_RE.test(em)) { o.teamErr = tr("อีเมลไม่ถูกต้อง"); emit(); return false; }
   if (live()) {
     let ok = false;
     await liveStep(async () => { const r = await orgApi("POST", "/api/org/team", { email: em, role }); o.shop.team = teamFrom(r.team, o.account.email); o.teamErr = ""; ok = true;
-      emit(); toast("เพิ่ม " + em + " แล้ว ให้เข้าสู่ระบบด้วย Google อีเมลนี้"); }, err => { o.teamErr = orgErrText(err); emit(); });
+      emit(); toast(tr("เพิ่ม {a} แล้ว ให้เข้าสู่ระบบด้วย Google อีเมลนี้", { a: em })); }, err => { o.teamErr = orgErrText(err); emit(); });
     return ok;
   }
   const team = o.shop.team;
-  o.teamErr = team.some((m: any) => m.email === em) ? "อีเมลนี้อยู่ในทีมแล้ว" : "";
-  if (!o.teamErr) { team.push({ email: em, role }); mockToast("ส่งคำเชิญถึง " + em + " แล้ว"); }
+  o.teamErr = team.some((m: any) => m.email === em) ? tr("อีเมลนี้เป็นสมาชิกในทีมอยู่แล้ว") : "";
+  if (!o.teamErr) { team.push({ email: em, role }); mockToast(tr("ส่งคำเชิญถึง {a} แล้ว", { a: em })); }
   emit(); return !o.teamErr;
 }
 export async function teamRemove(email: string) {
   const o = S.org;
   if (live()) { await liveStep(async () => { const r = await orgApi("DELETE", "/api/org/team?email=" + encodeURIComponent(email)); o.shop.team = teamFrom(r.team, o.account.email); emit(); }); return; }
-  o.shop.team = o.shop.team.filter((m: any) => m.email !== email || m.role === "owner"); emit(); mockToast("ลบ " + email + " ออกจากทีมแล้ว");
+  o.shop.team = o.shop.team.filter((m: any) => m.email !== email || m.role === "owner"); emit(); mockToast(tr("ลบ {a} ออกจากทีมแล้ว", { a: email }));
 }
-export function viewAs(role: string) { if (live()) return notLive(); S.org.role = role; emit(); toast("กำลังดูในฐานะ" + ROLE_LABEL[role]); const g = guardFor(currentScreen()); if (g) go(g, { replace: true }); }
+export function viewAs(role: string) { if (live()) return notLive(); S.org.role = role; emit(); toast(tr("กำลังแสดงผลในมุมมองของ{a}", { a: ROLE_LABEL[role] })); const g = guardFor(currentScreen()); if (g) go(g, { replace: true }); }
 export function copyText(text: string, done: string) { try { navigator.clipboard.writeText(text).then(() => toast(done), () => toast(text)); } catch (_) { toast(text); } }
-export function copyInvite() { if (live()) return notLive(); copyText(location.origin + "/?invite=" + encodeURIComponent(S.org.shop.id), "คัดลอกลิงก์เชิญแล้ว (ลิงก์จำลอง)"); }
-export const notLive = () => toast("ส่วนนี้ยังไม่เปิดในระบบจริง ใช้ได้ในเดโม");
+export function copyInvite() { if (live()) return notLive(); copyText(location.origin + "/?invite=" + encodeURIComponent(S.org.shop.id), tr("คัดลอกลิงก์คำเชิญเรียบร้อยแล้ว (ลิงก์จำลองระบบ)")); }
+export const notLive = () => toast(tr("ฟังก์ชันนี้ยังไม่เปิดให้บริการในระบบงานจริง สามารถใช้งานได้เฉพาะในระบบทดลอง"));
 
 /* ---------- events: list, menu, open ---------- */
 export function orgOpenEvent(id: string, tab = "overview") { closeSheet(); S.org.oev = id; S.org.etab = tab; emit(); go("orgEvent", { id }); }
@@ -208,14 +209,14 @@ export function evMenu(id: string) {
   const it = (fn: () => void, icon: string, label: string) => (
     <button key={label} className="btn plain" style={{ justifyContent: "flex-start", gap: 14 }} role="menuitem" onClick={fn}><svg width="20" height="20"><use href={"#" + icon} /></svg>{label}</button>);
   sheet(() => (<>
-    <h2 style={{ fontSize: 20 }}>{e.name}</h2>
+    <h2 style={{ fontSize: 20 }}>{tr(e.name)}</h2>
     <div role="menu" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {it(() => orgOpenEvent(id), "i-chart", "เปิดจัดการงาน")}
-      {["draft", "on_sale", "paused", "sold_out"].includes(e.status) && it(() => { closeSheet(); editEvent(id); }, "i-ticket", "แก้ไขงาน")}
-      {it(() => { closeSheet(); evDuplicate(id); }, "i-copy", "ทำซ้ำเป็นงานใหม่")}
-      {["on_sale", "sold_out"].includes(e.status) && it(() => gate(id), "i-qr", "ไปหน้างาน")}
+      {it(() => orgOpenEvent(id), "i-chart", tr("เปิดจัดการอีเวนต์"))}
+      {["draft", "on_sale", "paused", "sold_out"].includes(e.status) && it(() => { closeSheet(); editEvent(id); }, "i-ticket", tr("แก้ไขข้อมูลอีเวนต์"))}
+      {it(() => { closeSheet(); evDuplicate(id); }, "i-copy", tr("คัดลอกสร้างเป็นอีเวนต์ใหม่"))}
+      {["on_sale", "sold_out"].includes(e.status) && it(() => gate(id), "i-qr", tr("ไปยังจุดปฏิบัติการหน้างาน"))}
     </div>
-    <button className="btn plain" onClick={closeSheet}>ปิด</button>
+    <button className="btn plain" onClick={closeSheet}>{tr("ปิด")}</button>
   </>));
 }
 
@@ -234,13 +235,13 @@ export function evDuplicate(id: string) {
   const src = orgEv(id), c = OL.duplicateEvent(src, "org-" + Date.now().toString(36));
   c.image = src.image && !live() ? src.image : null;
   if (live()) { c.live = false; c.zones = c.zones.map((z: any) => ({ ...z, live: false })); } else S.org.events.push(c);
-  S.org.draft = JSON.parse(JSON.stringify(c)); S.org.wizStep = 1; S.org.wizShow = false; emit(); toast("ทำซ้ำงานแล้ว ใส่วันเวลาใหม่ได้เลย"); go("orgWizard");
+  S.org.draft = JSON.parse(JSON.stringify(c)); S.org.wizStep = 1; S.org.wizShow = false; emit(); toast(tr("คัดลอกอีเวนต์สำเร็จ สามารถระบุวันและเวลาใหม่ได้ทันที")); go("orgWizard");
 }
 // the published copy of the event being edited (null for new events and drafts)
 export function wizOrig() { const d = S.org.draft; const e = d && orgEv(d.id); return e && e.status !== "draft" ? e : null; }
 const origZone = (z: any) => { const o = wizOrig(); return o && o.zones.find((x: any) => x.id === z.id); };
 export const zoneLocked = (z: any) => { const oz = origZone(z); return !!oz && (oz.sold || 0) + (oz.held || 0) > 0; };
-export const lockReason = (z: any) => OL.canEditZone(origZone(z), { price: origZone(z).price + 1 }).reason;
+export const lockReason = (z: any) => tr(OL.canEditZone(origZone(z), { price: origZone(z).price + 1 }).reason);
 export const wizTouch = () => { S.org.wizDirty = true; emit(); };
 export function wizErrors() {
   const d = S.org.draft, out: Record<string, string> = { ...OL.validateEvent(d, Date.now()).errors };
@@ -261,7 +262,7 @@ export function zoneTotals(d: any) {
 }
 export function capExample(d: any) {
   const z = d.zones.find((x: any) => x.kind !== "comp" && x.price > 0), face = z ? z.price : 100000, cap = OL.resaleCap(face, d.params.capMultiplier);
-  return `ตั๋ว ${B(face)} ขายต่อได้สูงสุด ${B(cap)} · ผู้ขายถูกหัก 6% = ${B(OL.commission(cap))}`;
+  return tr("บัตร {a} สามารถตั้งราคาขายต่อสูงสุด {b} · ผู้ขายถูกหักค่าธรรมเนียม 6% = {c}", { a: B(face), b: B(cap), c: B(OL.commission(cap)) });
 }
 export function wizGo(step: number) { S.org.wizStep = step; S.org.wizShow = false; emit(); window.scrollTo?.(0, 0); document.getElementById("scroll")?.scrollTo(0, 0); }
 export function wizNext() {
@@ -283,13 +284,13 @@ function wizUpsert() {
   refreshEvents(); return d;
 }
 export async function wizSaveDraft() {
-  if (live()) { await liveStep(async () => { if (await liveWizSave()) { emit(); toast("บันทึกแล้ว"); } }); return; }
-  wizUpsert(); S.org.wizDirty = false; emit(); mockToast("บันทึกร่างแล้ว");
+  if (live()) { await liveStep(async () => { if (await liveWizSave()) { emit(); toast(tr("บันทึกข้อมูลเรียบร้อยแล้ว")); } }); return; }
+  wizUpsert(); S.org.wizDirty = false; emit(); mockToast(tr("บันทึกฉบับร่างเรียบร้อยแล้ว"));
 }
 export async function wizPublish() {
   const o = S.org, errs = wizErrors(), keys = Object.keys(errs);
-  if (o.shop.verification !== "verified") { toast(live() ? "เผยแพร่ได้หลังทีมงานยืนยันร้าน" : "เผยแพร่ได้หลังยืนยันร้าน"); return; }
-  if (keys.length) { o.wizShow = true; emit(); toast("ยังมี " + keys.length + " เรื่องที่ต้องแก้ก่อนเผยแพร่"); return; }
+  if (o.shop.verification !== "verified") { toast(live() ? tr("จะสามารถเผยแพร่ได้ภายหลังทีมงานตรวจสอบอนุมัติร้านค้า") : tr("จะสามารถเผยแพร่ได้ภายหลังการอนุมัติร้านค้า")); return; }
+  if (keys.length) { o.wizShow = true; emit(); toast(tr("ยังมี {a} เรื่องที่ต้องแก้ก่อนเผยแพร่", { a: keys.length })); return; }
   const edited = !!wizOrig();
   if (live()) {
     await liveStep(async () => {
@@ -305,20 +306,20 @@ export async function wizPublish() {
 export async function wizBuyerView() {
   const id = S.org.draft.id; S.org.wizStep = 1; setMode("buyer");
   if (live() || id.startsWith("ev-")) await loadEvents(true);
-  const e = evById(id); if (!e) { toast("งานนี้ยังไม่แสดงในหน้าผู้ซื้อ"); return; }
+  const e = evById(id); if (!e) { toast(tr("อีเวนต์นี้ยังไม่แสดงผลในหน้ามุมมองผู้ซื้อ")); return; }
   S.ev = id; S.zone = Math.max(0, e.zones.findIndex((z: any) => z.left > 0)); S.qty = 1; emit(); go("event", { id });
 }
 export function wizToDash() { S.org.wizStep = 1; S.org.draft = null; emit(); go("orgDash", { replace: true }); }
 export function wizLeave() {
   if (!S.org.wizDirty) { S.org.draft = null; emit(); back("orgDash"); return; }
   sheet(() => (<>
-    <h2 style={{ fontSize: 19 }}>ยังไม่ได้บันทึก</h2><p className="small muted" style={{ margin: 0 }}>ต้องการเก็บสิ่งที่กรอกไว้เป็นร่างไหม</p>
+    <h2 style={{ fontSize: 19 }}>{tr("ข้อมูลยังไม่ถูกบันทึก")}</h2><p className="small muted" style={{ margin: 0 }}>{tr("ต้องการจัดเก็บข้อมูลที่กรอกไว้เป็นฉบับร่างหรือไม่?")}</p>
     <button className="btn" onClick={async () => {
       if (live()) { await liveStep(async () => { if (await liveWizSave()) { closeSheet(); S.org.draft = null; emit(); back("orgDash"); } else closeSheet(); }); return; }
-      wizUpsert(); S.org.wizDirty = false; S.org.draft = null; closeSheet(); emit(); mockToast("บันทึกร่างแล้ว"); back("orgDash");
-    }}>บันทึกร่าง</button>
-    <button className="btn plain" onClick={() => { S.org.wizDirty = false; S.org.draft = null; closeSheet(); emit(); back("orgDash"); }}>ทิ้งการแก้ไข</button>
-    <button className="btn plain" onClick={closeSheet}>กรอกต่อ</button>
+      wizUpsert(); S.org.wizDirty = false; S.org.draft = null; closeSheet(); emit(); mockToast(tr("บันทึกร่างแล้ว")); back("orgDash");
+    }}>{tr("บันทึกเป็นฉบับร่าง")}</button>
+    <button className="btn plain" onClick={() => { S.org.wizDirty = false; S.org.draft = null; closeSheet(); emit(); back("orgDash"); }}>{tr("ละทิ้งการแก้ไข")}</button>
+    <button className="btn plain" onClick={closeSheet}>{tr("กรอกข้อมูลต่อ")}</button>
   </>));
 }
 
@@ -327,11 +328,11 @@ export function wizLeave() {
    Demo: the data URL is kept on the event. Real shop: PUT /api/org/events/:id/poster (D1, migration 0009). */
 const POSTER_MAX = 1200, POSTER_BYTES = 1_000_000;
 export async function readPoster(file: File): Promise<string> {
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("ใช้ได้เฉพาะรูป JPG, PNG หรือ WebP");
-  if (file.size > 15_000_000) throw new Error("รูปใหญ่เกิน 15 MB");
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error(tr("รองรับเฉพาะไฟล์รูปภาพสกุล JPG, PNG หรือ WebP เท่านั้น"));
+  if (file.size > 15_000_000) throw new Error(tr("ขนาดไฟล์รูปภาพใหญ่เกิน 15 MB"));
   const url = URL.createObjectURL(file);
   try {
-    const img = await new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("เปิดรูปนี้ไม่ได้")); i.src = url; });
+    const img = await new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(tr("ไม่สามารถเปิดไฟล์รูปภาพนี้ได้"))); i.src = url; });
     const scale = Math.min(1, POSTER_MAX / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
     c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
@@ -339,14 +340,14 @@ export async function readPoster(file: File): Promise<string> {
       const data = c.toDataURL("image/jpeg", q);
       if (Math.floor((data.length - data.indexOf(",") - 1) * 3 / 4) <= POSTER_BYTES * 0.9) return data;
     }
-    throw new Error("รูปยังใหญ่เกิน 1 MB หลังย่อ ลองใช้รูปอื่น");
+    throw new Error(tr("ขนาดไฟล์รูปภาพยังคงใหญ่เกิน 1 MB ภายหลังการย่อขนาด กรุณาลองใช้รูปภาพอื่น"));
   } finally { URL.revokeObjectURL(url); }
 }
 // wizard: keeps the picture on the draft; a real shop uploads it after the event is saved
 export async function wizSetPoster(file: File | null) {
   const d = S.org.draft;
   if (!file) { d.image = null; d._posterRemove = true; wizTouch(); return; }
-  try { d.image = await readPoster(file); d._posterNew = true; d._posterRemove = false; wizTouch(); toast("ใส่รูปโปสเตอร์แล้ว", "ok"); }
+  try { d.image = await readPoster(file); d._posterNew = true; d._posterRemove = false; wizTouch(); toast(tr("อัปโหลดรูปภาพโปสเตอร์เรียบร้อยแล้ว"), "ok"); }
   catch (err: any) { toast(err.message, "err"); }
 }
 // event settings: saves right away
@@ -357,38 +358,38 @@ export async function stSetPoster(file: File | null) {
   if (live()) {
     await liveStep(async () => {
       const r = image ? await orgApi("PUT", `/api/org/events/${e.id}/poster`, { image }) : await orgApi("DELETE", `/api/org/events/${e.id}/poster`);
-      replaceLive(r.event); emit(); toast(image ? "อัปโหลดโปสเตอร์แล้ว" : "ลบรูปโปสเตอร์แล้ว", "ok"); loadEvents(true);
+      replaceLive(r.event); emit(); toast(image ? tr("อัปโหลดโปสเตอร์เรียบร้อยแล้ว") : tr("ลบรูปภาพโปสเตอร์เรียบร้อยแล้ว"), "ok"); loadEvents(true);
     });
     return;
   }
-  replaceOrgEvent({ ...e, image }); emit(); mockToast(image ? "เปลี่ยนรูปโปสเตอร์แล้ว" : "ลบรูปโปสเตอร์แล้ว");
+  replaceOrgEvent({ ...e, image }); emit(); mockToast(image ? tr("เปลี่ยนแปลงรูปภาพโปสเตอร์เรียบร้อยแล้ว") : tr("ลบรูปโปสเตอร์แล้ว"));
 }
 export function stSetSwatch(i: number) {
   const e = orgEv(S.org.oev);
-  if (live()) { liveStep(async () => { replaceLive((await orgApi("PATCH", "/api/org/events/" + e.id, { poster: i })).event); emit(); toast("เปลี่ยนพื้นหลังโปสเตอร์แล้ว", "ok"); }); return; }
-  replaceOrgEvent({ ...e, bg: POSTERS[i] }); emit(); mockToast("เปลี่ยนพื้นหลังโปสเตอร์แล้ว");
+  if (live()) { liveStep(async () => { replaceLive((await orgApi("PATCH", "/api/org/events/" + e.id, { poster: i })).event); emit(); toast(tr("เปลี่ยนแปลงพื้นหลังโปสเตอร์เรียบร้อยแล้ว"), "ok"); }); return; }
+  replaceOrgEvent({ ...e, bg: POSTERS[i] }); emit(); mockToast(tr("เปลี่ยนพื้นหลังโปสเตอร์แล้ว"));
 }
 
 /* ---------- event management ---------- */
-export function pause() { if (live()) return notLive(); const e = orgEv(S.org.oev); replaceOrgEvent({ ...e, status: "paused" }); emit(); mockToast("พักการขายแล้ว ผู้ซื้อยังเห็นงานแต่ซื้อไม่ได้"); }
-export function resume() { if (live()) return notLive(); const e = orgEv(S.org.oev); replaceOrgEvent({ ...e, status: "on_sale" }); emit(); mockToast("เปิดขายต่อแล้ว"); }
+export function pause() { if (live()) return notLive(); const e = orgEv(S.org.oev); replaceOrgEvent({ ...e, status: "paused" }); emit(); mockToast(tr("ระงับการจำหน่ายเรียบร้อย ผู้ซื้อยังคงมองเห็นอีเวนต์แต่ไม่สามารถซื้อบัตรได้")); }
+export function resume() { if (live()) return notLive(); const e = orgEv(S.org.oev); replaceOrgEvent({ ...e, status: "on_sale" }); emit(); mockToast(tr("เปิดจำหน่ายต่อเรียบร้อยแล้ว")); }
 export async function zoneSave(i: number, priceText: string | null, capText: string): Promise<string> {
   const e = orgEv(S.org.oev), z = e.zones[i];
   if (live()) {
     const cap = Number(capText.trim()); let price = z.price;
-    if (priceText !== null) { const p = OL.toSatang(priceText.trim()); if (Number.isNaN(p) || p % 100 || p < 2000) return "ราคาต้องเป็นบาทเต็ม อย่างน้อย 20฿"; price = p; }
-    if (!Number.isInteger(cap) || cap < 1) return "จำนวนต้องเป็นจำนวนเต็มอย่างน้อย 1";
+    if (priceText !== null) { const p = OL.toSatang(priceText.trim()); if (Number.isNaN(p) || p % 100 || p < 2000) return tr("ราคาต้องเป็นจำนวนเต็มในหน่วยบาท และมีมูลค่าอย่างน้อย 20฿"); price = p; }
+    if (!Number.isInteger(cap) || cap < 1) return tr("จำนวนต้องเป็นจำนวนเต็มอย่างน้อย 1");
     const zones = e.zones.map((x: any, k: number) => (k === i ? { ...x, price, capacity: cap } : x));
     let msg = "";
-    await liveStep(async () => { replaceLive((await orgApi("PATCH", "/api/org/events/" + e.id, { zones: toServerZones(zones) })).event); emit(); toast("บันทึกโซนแล้ว", "ok"); }, err => { msg = orgErrText(err); });
+    await liveStep(async () => { replaceLive((await orgApi("PATCH", "/api/org/events/" + e.id, { zones: toServerZones(zones) })).event); emit(); toast(tr("บันทึกข้อมูลโซนเรียบร้อยแล้ว"), "ok"); }, err => { msg = orgErrText(err); });
     return msg;
   }
   const patch: any = { capacity: Number(capText.trim() || 0) };
   if (priceText !== null) { const p = OL.toSatang(priceText.trim()); patch.price = Number.isNaN(p) ? 0 : p; }
   const can = OL.canEditZone(z, patch), merged = { ...z, ...patch }, v = OL.validateZone(merged);
-  const msg = !can.ok ? can.reason : !v.ok ? (Object.values(v.errors)[0] as string) : "";
+  const msg = tr(!can.ok ? can.reason : !v.ok ? (Object.values(v.errors)[0] as string) : "");
   if (msg) return msg;
-  replaceOrgEvent({ ...e, zones: e.zones.map((x: any, k: number) => (k === i ? merged : x)) }); emit(); mockToast("บันทึกโซนแล้ว"); return "";
+  replaceOrgEvent({ ...e, zones: e.zones.map((x: any, k: number) => (k === i ? merged : x)) }); emit(); mockToast(tr("บันทึกโซนแล้ว")); return "";
 }
 export function buyerRows(e: any) {
   const o = S.org, q = (o.bq || "").toLowerCase();
@@ -405,35 +406,35 @@ export function csv() {
   const e = orgEv(S.org.oev);
   if (live()) {
     const rows = S.org.orders[e.id];
-    if (!Array.isArray(rows)) { toast("รอโหลดคำสั่งซื้อก่อน"); return; }
-    downloadCsv("คำสั่งซื้อ-" + e.id + ".csv", [["ผู้ซื้อ", "อีเมล", "โซน", "ใบ", "ยอด (บาท)", "สถานะ", "ตั๋วที่ออก"], ...rows.map((r: any) => [r.buyer || "", r.email, r.zone, r.quantity, r.amountSatang / 100, ORDER_STATUS[r.status] || r.status, r.minted])]);
+    if (!Array.isArray(rows)) { toast(tr("กรุณารอโหลดข้อมูลคำสั่งซื้อสักครู่")); return; }
+    downloadCsv(tr("รายการคำสั่งซื้อ{a}.csv", { a: e.id }), [[tr("ข้อมูลผู้ซื้อ"), tr("อีเมล"), tr("โซนที่นั่ง"), tr("จำนวนใบ"), tr("ยอดเงินรวม (บาท)"), tr("สถานะ"), tr("บัตรที่ออก")], ...rows.map((r: any) => [r.buyer || "", r.email, r.zone, r.quantity, r.amountSatang / 100, ORDER_STATUS[r.status] || r.status, r.minted])]);
     return;
   }
   const em = (x: string) => (S.org.showEmails ? x : maskEmail(x));
-  downloadCsv("ผู้ซื้อ-" + e.id + ".csv", [["ชื่อ", "อีเมล", "โซน", "สถานะ", "เลขตั๋ว"], ...buyerRows(e).map((r: any) => [r.p.name, em(r.p.email), r.z.name, TICKET_STATUS[r.t.status] || r.t.status, r.t.ticketId])]);
-  toast("ส่งออก CSV แล้ว", "ok");
+  downloadCsv(tr("ผู้ซื้อ{a}.csv", { a: e.id }), [[tr("ชื่อ-นามสกุล"), tr("อีเมล"), tr("โซน"), tr("สถานะ"), tr("หมายเลขบัตร")], ...buyerRows(e).map((r: any) => [r.p.name, em(r.p.email), r.z.name, TICKET_STATUS[r.t.status] || r.t.status, r.t.ticketId])]);
+  toast(tr("ส่งออกข้อมูลเป็นไฟล์ CSV เรียบร้อยแล้ว"), "ok");
 }
-export function rsSave(capm: number) { const e = orgEv(S.org.oev); replaceOrgEvent({ ...e, params: { ...e.params, capMultiplier: capm / 100 } }); emit(); mockToast("บันทึกเพดานแล้ว"); }
+export function rsSave(capm: number) { const e = orgEv(S.org.oev); replaceOrgEvent({ ...e, params: { ...e.params, capMultiplier: capm / 100 } }); emit(); mockToast(tr("บันทึกเพดานราคาเรียบร้อยแล้ว")); }
 export async function stSave(f: { desc: string; venue: string; start: number | null; msg: string }): Promise<Record<string, string>> {
   const e = orgEv(S.org.oev), o = S.org;
-  if (!f.start) return { start: "ใส่วันเวลาเริ่มงาน" };
-  if (!f.venue.trim()) return { venue: "ใส่สถานที่" };
+  if (!f.start) return { start: tr("กรุณาระบุวันและเวลาเริ่มต้นอีเวนต์") };
+  if (!f.venue.trim()) return { venue: tr("กรุณาระบุสถานที่จัดงาน") };
   const changed = f.venue.trim() !== e.venue || f.start !== e.startAt;
   if (live()) {
     const body: any = { description: f.desc, venue: f.venue.trim() };
     if (f.start !== e.startAt) { body.startsAt = f.start; body.endsAt = e.endAt + (f.start - e.startAt); }
     let out = {};
     await liveStep(async () => { replaceLive((await orgApi("PATCH", "/api/org/events/" + e.id, body)).event); emit();
-      toast(f.msg ? "บันทึกแล้ว ระบบจริงยังไม่ส่งข้อความถึงผู้ซื้อ" : "บันทึกการตั้งค่าแล้ว"); loadEvents(true); }, err => { out = { start: orgErrText(err) }; });
+      toast(f.msg ? tr("บันทึกเรียบร้อย ระบบงานจริงยังไม่ได้ส่งข้อความนี้ตรงถึงผู้ซื้อ") : tr("บันทึกการตั้งค่าเรียบร้อยแล้ว")); loadEvents(true); }, err => { out = { start: orgErrText(err) }; });
     return out;
   }
-  if (changed && e.zones.reduce((a: number, z: any) => a + (z.sold || 0), 0) > 0 && !f.msg.trim()) return { msg: "เปลี่ยนสถานที่หรือวันเวลาหลังขายแล้ว ต้องเขียนข้อความแจ้งผู้ซื้อ" };
+  if (changed && e.zones.reduce((a: number, z: any) => a + (z.sold || 0), 0) > 0 && !f.msg.trim()) return { msg: tr("กรณียการเปลี่ยนแปลงสถานที่หรือวันเวลาภายหลังการจำหน่ายบัตร จำเป็นต้องระบุข้อความชี้แจงแจ้งให้ผู้ซื้อทราบ") };
   const shift = f.start - e.startAt;
   replaceOrgEvent({ ...e, description: f.desc, venue: f.venue.trim(), startAt: f.start, endAt: e.endAt ? e.endAt + shift : e.endAt, doorsAt: e.doorsAt ? e.doorsAt + shift : e.doorsAt });
   if (changed && f.msg.trim()) {
     const n = new Set(evTickets(e.id).filter((t: any) => ["valid", "listed"].includes(t.status)).map((t: any) => t.holderId)).size;
-    o.announcements.push({ id: "an-" + Date.now(), eventId: e.id, at: Date.now(), text: f.msg.trim(), recipients: n, zone: "all" }); mockToast("แจ้งผู้ซื้อ " + n + " คนแล้ว");
-  } else mockToast("บันทึกการตั้งค่าแล้ว");
+    o.announcements.push({ id: "an-" + Date.now(), eventId: e.id, at: Date.now(), text: f.msg.trim(), recipients: n, zone: "all" }); mockToast(tr("แจ้งผู้ซื้อ {a} คนแล้ว", { a: n }));
+  } else mockToast(tr("บันทึกการตั้งค่าแล้ว"));
   emit(); return {};
 }
 
@@ -461,27 +462,27 @@ export function cancelStart() {
   const done = new Set(S.org.ledger.filter((l: any) => l.type === "REFUND_OUT").map((l: any) => l.idempotencyKey));
   const plan = OL.planCancellation(e, S.org.tickets, done), payers = new Set(plan.refunds.map((r: any) => r.payerId));
   sheet(() => (<>
-    <h2 style={{ fontSize: 19 }}>ยกเลิก &quot;{e.name}&quot;?</h2>
-    <dl className="kv card num" style={{ margin: 0 }}><dt>ผู้ซื้อที่จะได้เงินคืน</dt><dd>{payers.size} คน</dd><dt>จำนวนรายการคืนเงิน</dt><dd>{plan.refunds.length} รายการ</dd>
-      <dt style={{ fontWeight: 600, color: "var(--ink)" }}>ยอดคืนรวม</dt><dd style={{ fontWeight: 700, color: "var(--red)" }}>{B(plan.total)}</dd></dl>
-    <ul className="small" style={{ margin: 0, paddingLeft: 18 }}><li>ร้านจะไม่ได้รับเงินจากงานนี้</li><li>ไม่เก็บค่าบริการและคอมมิชชันขายต่อ</li><li>ตั๋วทุกใบใช้เข้างานไม่ได้ทันที</li></ul>
-    <button className="btn org-danger-btn" onClick={cancelConfirmSheet}>ถัดไป</button><button className="btn plain" onClick={closeSheet}>ไม่ยกเลิก</button>
+    <h2 style={{ fontSize: 19 }}>ยกเลิก &quot;{tr(e.name)}&quot;?</h2>
+    <dl className="kv card num" style={{ margin: 0 }}><dt>{tr("ผู้ซื้อที่จะได้รับเงินคืน")}</dt><dd>{tr("{a} คน", { a: payers.size })}</dd><dt>{tr("จำนวนรายการคืนเงิน")}</dt><dd>{tr("{a} รายการ", { a: plan.refunds.length })}</dd>
+      <dt style={{ fontWeight: 600, color: "var(--ink)" }}>{tr("ยอดคืนเงินรวมทั้งหมด")}</dt><dd style={{ fontWeight: 700, color: "var(--red)" }}>{B(plan.total)}</dd></dl>
+    <ul className="small" style={{ margin: 0, paddingLeft: 18 }}><li>{tr("ร้านค้าจะไม่ได้รับรายได้จากอีเวนต์นี้")}</li><li>{tr("ไม่มีค่าธรรมเนียมบริการและไม่มีการหักคอมมิชชันขายต่อ")}</li><li>{tr("บัตรเข้าชมทุกใบจะถูกระงับสิทธิ์การเข้างานทันที")}</li></ul>
+    <button className="btn org-danger-btn" onClick={cancelConfirmSheet}>{tr("ดำเนินการถัดไป")}</button><button className="btn plain" onClick={closeSheet}>{tr("ไม่ยกเลิก")}</button>
   </>));
 }
 function CancelConfirm() {
   const e = orgEv(S.org.oev);
-  const [name, setName] = useState(""), [reason, setReason] = useState("สภาพอากาศ"), [err, setErr] = useState("");
+  const [name, setName] = useState(""), [reason, setReason] = useState(tr("สภาพอากาศ")), [err, setErr] = useState("");
   const go2 = async () => {
-    if (name.trim() !== e.name) { setErr("ชื่องานไม่ตรง พิมพ์ให้เหมือนกับด้านบน"); return; }
+    if (name.trim() !== e.name) { setErr(tr("ชื่องานอีเวนต์ไม่ถูกต้อง กรุณาพิมพ์ให้ตรงกันกับข้อความด้านบน")); return; }
     if (live()) {
       await liveStep(async () => {
         const r = await orgApi("POST", `/api/org/events/${e.id}/cancel`, { reason, confirmName: e.name }); replaceLive(r.event); emit(); loadEvents(true);
         sheet(() => (<>
-          <h2 style={{ fontSize: 19 }}>ยกเลิกงานแล้ว</h2>
-          <dl className="kv card num" style={{ margin: 0 }}><dt>ที่นั่งที่ Hold อยู่ (คืนแล้ว)</dt><dd>{r.heldReleased} รายการ</dd><dt>คำสั่งซื้อที่ต้องคืนเงิน</dt><dd>{r.toRefund.orders} รายการ</dd>
-            <dt style={{ fontWeight: 600, color: "var(--ink)" }}>ยอดที่ต้องคืน</dt><dd style={{ fontWeight: 700, color: "var(--red)" }}>{B(r.toRefund.amountSatang)}</dd></dl>
-          <div className="card small">ผู้ซื้อซื้อเพิ่มไม่ได้แล้ว การคืนเงินยังไม่อัตโนมัติ ทีมงาน JONGLOEI จะคืนเงินให้ผู้ซื้อตามรายการนี้</div>
-          <button className="btn" onClick={closeSheet}>เสร็จสิ้น</button>
+          <h2 style={{ fontSize: 19 }}>{tr("ยกเลิกอีเวนต์เรียบร้อยแล้ว")}</h2>
+          <dl className="kv card num" style={{ margin: 0 }}><dt>{tr("ที่นั่งที่อยู่ระหว่างการสำรอง (ดำเนินการคืนสู่ระบบแล้ว)")}</dt><dd>{tr("{a} รายการ", { a: r.heldReleased })}</dd><dt>{tr("คำสั่งซื้อที่ต้องดำเนินการคืนเงิน")}</dt><dd>{tr("{a} รายการ", { a: r.toRefund.orders })}</dd>
+            <dt style={{ fontWeight: 600, color: "var(--ink)" }}>{tr("ยอดเงินที่ต้องคืน")}</dt><dd style={{ fontWeight: 700, color: "var(--red)" }}>{B(r.toRefund.amountSatang)}</dd></dl>
+          <div className="card small">{tr("ผู้ซื้อไม่สามารถทำรายการซื้อเพิ่มได้แล้ว กระบวนการคืนเงินยังไม่เป็นระบบอัตโนมัติ ทีมงาน JONGLOEI จะเป็นผู้ดำเนินการคืนเงินให้แก่ผู้ซื้อตามรายการนี้")}</div>
+          <button className="btn" onClick={closeSheet}>{tr("เสร็จสิ้นกระบวนการ")}</button>
         </>));
       }, er => setErr(orgErrText(er)));
       return;
@@ -489,10 +490,10 @@ function CancelConfirm() {
     const plan = orgCancelEvent(e.id, reason); sheet(() => <CancelProgress plan={plan} />);
   };
   return (<>
-    <h2 style={{ fontSize: 19 }}>ยืนยันการยกเลิกงาน</h2>
-    <Fld id="cx-name" label="พิมพ์ชื่องานเพื่อยืนยัน" err={err} hint={"ชื่องาน: " + e.name}><input id="cx-name" value={name} onChange={x => setName(x.target.value)} autoComplete="off" {...errA("cx-name", err, true)} /></Fld>
-    <Fld id="cx-reason" label="เหตุผล"><select id="cx-reason" value={reason} onChange={x => setReason(x.target.value)}>{["สภาพอากาศ", "ศิลปินยกเลิก", "สถานที่ไม่พร้อม", "ขายไม่ถึงเป้า", "อื่น ๆ"].map(x => <option key={x}>{x}</option>)}</select></Fld>
-    <button className="btn org-danger-btn" onClick={go2}>{live() ? "ยกเลิกงาน" : "ยกเลิกงานและคืนเงินทุกคน"}</button><button className="btn plain" onClick={closeSheet}>กลับ</button>
+    <h2 style={{ fontSize: 19 }}>{tr("ยืนยันการยกเลิกอีเวนต์")}</h2>
+    <Fld id="cx-name" label={tr("กรุณาพิมพ์ชื่องานเพื่อยืนยัน")} err={err} hint={tr("ชื่องาน: {a}", { a: tr(e.name) })}><input id="cx-name" value={name} onChange={x => setName(x.target.value)} autoComplete="off" {...errA("cx-name", err, true)} /></Fld>
+    <Fld id="cx-reason" label={tr("เหตุผลอื่นๆ")}><select id="cx-reason" value={reason} onChange={x => setReason(x.target.value)}>{[tr("สภาพอากาศ"), tr("ศิลปินยกเลิกการแสดง"), tr("สถานที่ไม่พร้อมใช้งาน"), tr("ยอดจำหน่ายไม่ถึงเป้าหมาย"), tr("อื่น ๆ")].map(x => <option key={x}>{x}</option>)}</select></Fld>
+    <button className="btn org-danger-btn" onClick={go2}>{live() ? tr("ยกเลิกอีเวนต์") : tr("ยกเลิกอีเวนต์และดำเนินการคืนเงินให้แก่ผู้ซื้อทั้งหมด")}</button><button className="btn plain" onClick={closeSheet}>{tr("ย้อนกลับ")}</button>
   </>);
 }
 const cancelConfirmSheet = () => sheet(() => <CancelConfirm />);
@@ -502,57 +503,57 @@ function CancelProgress({ plan }: { plan: any }) {
   const [n, setN] = useState(0);
   useState(() => { let k = 0; const iv = setInterval(() => { k++; setN(k); if (k >= rows.length) clearInterval(iv); }, 350); return iv; });
   return (<>
-    <h2 style={{ fontSize: 19 }}>กำลังคืนเงินผู้ซื้อ</h2><span className="pill warn" style={{ alignSelf: "flex-start" }}>จำลอง: เดโมไม่มีการโอนเงินจริง</span>
+    <h2 style={{ fontSize: 19 }}>{tr("กำลังดำเนินการคืนเงินให้แก่ผู้ซื้อ")}</h2><span className="pill warn" style={{ alignSelf: "flex-start" }}>{tr("ระบบทดลอง: ไม่มีธุรกรรมการโอนเงินจริง")}</span>
     <ol className="steps">{rows.map(([p, amt], i) => (<li key={p} className={i < n ? "done" : i === n ? "active" : ""}><span className="s"><svg><use href="#i-check" /></svg></span>
-      <span><b>{orgPerson(p).name}</b><small className="num">{B(amt)} · {i < n ? "คืนแล้ว" : "รอ"}</small></span></li>))}</ol>
-    {by.size > rows.length && <div className="small muted">และอีก {by.size - rows.length} คน</div>}
-    <div className="small muted">รวมคืน {B(plan.total)} · {plan.refunds.length} รายการ</div>
-    <button className="btn" onClick={closeSheet}>เสร็จสิ้น</button>
+      <span><b>{orgPerson(p).name}</b><small className="num">{B(amt)} · {i < n ? tr("คืนเงินแล้ว") : tr("รอการดำเนินการ")}</small></span></li>))}</ol>
+    {by.size > rows.length && <div className="small muted">{tr("และอีก {a} คน", { a: by.size - rows.length })}</div>}
+    <div className="small muted">{tr("รวมคืน {a} · {b} รายการ", { a: B(plan.total), b: plan.refunds.length })}</div>
+    <button className="btn" onClick={closeSheet}>{tr("เสร็จสิ้น")}</button>
   </>);
 }
 
 /* ---------- comps, promo codes, announcements (demo only) ---------- */
 export function compIssue(name: string, email: string, zoneId: string): Record<string, string> {
   const e = orgEv(S.org.oev), zone = e.zones.find((z: any) => z.id === zoneId), em = email.trim().toLowerCase();
-  if (!name.trim()) return { name: "ใส่ชื่อผู้รับ" };
-  if (!EMAIL_RE.test(em)) return { email: "อีเมลไม่ถูกต้อง" };
-  if (!zone) return { zone: "เลือกโซน" };
-  if (zone.sold + zone.held >= zone.capacity) return { zone: "บัตรเชิญโซนนี้เต็มแล้ว (" + zone.sold + "/" + zone.capacity + ") เพิ่มจำนวนในหน้าแก้ไขงาน" };
+  if (!name.trim()) return { name: tr("กรุณาระบุชื่อผู้รับ") };
+  if (!EMAIL_RE.test(em)) return { email: tr("อีเมลไม่ถูกต้อง") };
+  if (!zone) return { zone: "กรุณาเลือกโซนที่นั่ง" };
+  if (zone.sold + zone.held >= zone.capacity) return { zone: tr("บัตรเชิญโซนนี้เต็มจำนวนโควตาแล้ว (") + zone.sold + "/" + zone.capacity + tr(") กรุณาเพิ่มจำนวนโควตาในหน้าแก้ไขข้อมูลอีเวนต์") };
   const gid = "guest-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   S.org.buyers[gid] = { name: name.trim(), email: em, phone: "" };
   S.org.tickets.push({ ticketId: e.id + "-" + zone.id + "-" + (zone.sold + 1), eventId: e.id, zoneId: zone.id, holderId: gid, status: "valid", usedAt: null, checkinMethod: null,
     hops: [{ idx: 0, payerId: gid, paid: 0, at: Date.now() }], invite: true });
   replaceOrgEvent({ ...e, zones: e.zones.map((z: any) => (z === zone ? { ...z, sold: z.sold + 1 } : z)) });
-  emit(); mockToast("ส่งบัตรเชิญถึง " + em + " แล้ว"); return {};
+  emit(); mockToast(tr("ส่งบัตรเชิญถึง {a} แล้ว", { a: em })); return {};
 }
 export function promoCreate(f: { code: string; kind: string; value: string; zone: string; start: number | null; end: number | null; max: string }): Record<string, string> {
   const e = orgEv(S.org.oev), errs: Record<string, string> = {}, code = f.code.trim().toUpperCase(), max = Number(f.max);
-  if (!/^[A-Z0-9]{3,20}$/.test(code)) errs.code = "โค้ดต้องเป็นอังกฤษหรือตัวเลข 3-20 ตัว";
-  else if (S.org.promos.some((p: any) => p.code === code)) errs.code = "มีโค้ดนี้อยู่แล้ว";
+  if (!/^[A-Z0-9]{3,20}$/.test(code)) errs.code = tr("รหัสต้องประกอบด้วยตัวอักษรภาษาอังกฤษหรือตัวเลขความยาว 3-20 ตัว");
+  else if (S.org.promos.some((p: any) => p.code === code)) errs.code = tr("มีรหัสส่วนลดนี้อยู่ในระบบแล้ว");
   let value = Number(f.value);
-  if (f.kind === "percent") { if (!Number.isInteger(value) || value < 1 || value > 100) errs.value = "เปอร์เซ็นต์ต้องเป็นจำนวนเต็ม 1-100"; }
-  else { value = OL.toSatang(f.value); if (Number.isNaN(value) || value < 100) errs.value = "ใส่จำนวนเงินอย่างน้อย 1฿"; }
-  if (!f.start) errs.start = "ใส่วันเวลาเริ่มใช้";
-  if (!f.end) errs.end = "ใส่วันเวลาหมดอายุ"; else if (f.start && f.end <= f.start) errs.end = "หมดอายุต้องหลังวันเริ่มใช้";
-  if (!Number.isInteger(max) || max < 1) errs.max = "จำนวนครั้งต้องเป็นจำนวนเต็มอย่างน้อย 1";
+  if (f.kind === "percent") { if (!Number.isInteger(value) || value < 1 || value > 100) errs.value = tr("ส่วนลดเป็นเปอร์เซ็นต์ต้องเป็นจำนวนเต็มระหว่าง 1-100"); }
+  else { value = OL.toSatang(f.value); if (Number.isNaN(value) || value < 100) errs.value = tr("กรุณาระบุจำนวนเงินส่วนลดอย่างน้อย 1฿"); }
+  if (!f.start) errs.start = tr("กรุณาระบุวันและเวลาเริ่มต้นใช้งาน");
+  if (!f.end) errs.end = tr("กรุณาระบุวันและเวลาหมดอายุ"); else if (f.start && f.end <= f.start) errs.end = tr("วันเวลาหมดอายุต้องอยู่ภายหลังวันเวลาเริ่มต้นใช้งาน");
+  if (!Number.isInteger(max) || max < 1) errs.max = tr("จำนวนสิทธิ์การใช้งานต้องเป็นจำนวนเต็มอย่างน้อย 1");
   if (Object.keys(errs).length) return errs;
   S.org.promos.push({ code, eventId: e.id, ...(f.kind === "percent" ? { percentOff: value } : { amountOff: value }), ...(f.zone !== "all" ? { zoneId: f.zone } : {}),
     startsAt: f.start, endsAt: f.end, maxUses: max, used: 0, disabled: false });
-  emit(); mockToast("สร้างโค้ด " + code + " แล้ว"); return {};
+  emit(); mockToast(tr("สร้างโค้ด {a} แล้ว", { a: code })); return {};
 }
-export function promoToggle(code: string) { const p = S.org.promos.find((x: any) => x.code === code); if (p) { p.disabled = !p.disabled; emit(); mockToast(p.disabled ? "ปิดโค้ด " + code + " แล้ว" : "เปิดโค้ด " + code + " แล้ว"); } }
+export function promoToggle(code: string) { const p = S.org.promos.find((x: any) => x.code === code); if (p) { p.disabled = !p.disabled; emit(); mockToast(p.disabled ? tr("ปิดโค้ด {a} แล้ว", { a: code }) : tr("เปิดโค้ด {a} แล้ว", { a: code })); } }
 export function promoTest(code: string, zoneId: string) {
   const e = orgEv(S.org.oev), z = e.zones.find((x: any) => x.id === zoneId);
-  if (!z) return "เลือกโซนก่อน";
+  if (!z) return tr("กรุณาเลือกโซนที่นั่งก่อน");
   const r = OL.applyPromo(code, S.org.promos.filter((p: any) => !p.eventId || p.eventId === e.id), z.id, z.price, Date.now());
-  return r.ok ? "ราคาหลังลด " + B(r.price) + " (จาก " + B(z.price) + ")" : PROMO_WHY[r.reason];
+  return r.ok ? tr("ราคาหลังลด {a} (จาก {b})", { a: B(r.price), b: B(z.price) }) : PROMO_WHY[r.reason];
 }
 export function annSend(zone: string, text: string) {
   const e = orgEv(S.org.oev);
-  if (!text.trim()) return "เขียนข้อความก่อนส่ง";
+  if (!text.trim()) return tr("กรุณาระบุข้อความก่อนทำการส่ง");
   const n = new Set(evTickets(e.id).filter((t: any) => ["valid", "listed"].includes(t.status) && (zone === "all" || t.zoneId === zone)).map((t: any) => t.holderId)).size;
   S.org.announcements.push({ id: "an-" + Date.now(), eventId: e.id, at: Date.now(), text: text.trim(), recipients: n, zone });
-  emit(); mockToast("ส่งประกาศถึง " + n + " คนแล้ว"); return "";
+  emit(); mockToast(tr("ส่งประกาศถึง {a} คนแล้ว", { a: n })); return "";
 }
 // announcements a buyer should see on a ticket: whole event, or their own zone
 export function ticketAnnouncements(bt: any) {
@@ -566,12 +567,12 @@ export function finRow(e: any, now: number) {
   const o = S.org;
   if (e.status === "cancelled") {
     const refunded = o.ledger.filter((l: any) => l.eventId === e.id && l.type === "REFUND_OUT").reduce((a: number, l: any) => a + l.amount, 0);
-    return { e, kind: "cancelled", gross: 0, fee: 0, net: 0, refunded, payAt: null, paid: false, label: "ยกเลิก · ไม่มีการจ่าย", tickets: [] as any[] };
+    return { e, kind: "cancelled", gross: 0, fee: 0, net: 0, refunded, payAt: null, paid: false, label: tr("ยกเลิก · ไม่มีกระแสเงินสดทำรายการ"), tickets: [] as any[] };
   }
   const tickets = evTickets(e.id).filter((t: any) => t.status !== "refunded"), r = OL.settleEvent(e, tickets), payAt = OL.payoutAt(e);
   const gross = tickets.reduce((a: number, t: any) => a + (t.hops[0] ? t.hops[0].paid : 0), 0);
   const over = e.endAt && now >= e.endAt, paid = e.status === "ended" && payAt !== null && payAt <= now;
-  const label = paid ? "จ่ายแล้ว" : over || e.status === "ended" ? "รอช่วงตรวจสอบ 24 ชม." : "รองานจบ";
+  const label = paid ? tr("จ่ายเงินแล้ว") : over || e.status === "ended" ? tr("รอรอบระยะเวลาตรวจสอบ 24 ชั่วโมง") : tr("รอสิ้นสุดอีเวนต์");
   return { e, kind: "live", gross, fee: r.shopFee, net: r.shopNet, refunded: 0, payAt, paid, label, tickets, settle: r };
 }
 
@@ -597,7 +598,7 @@ export function gateShow(valid: boolean, text: string, zone?: string) {
   else if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
 }
 export const gateClose = () => { S.gateResult = null; emit(); };
-export function callManager() { gateClose(); if (live()) toast("ระบบยังไม่ส่งแจ้งเตือนถึงผู้จัดการ ให้ติดต่อผู้จัดการโดยตรง"); else mockToast("แจ้งผู้จัดการให้มาที่ประตูแล้ว"); }
+export function callManager() { gateClose(); if (live()) toast(tr("ระบบยังไม่ได้ส่งการแจ้งเตือนถึงผู้จัดการโดยตรง กรุณาติดต่อผู้จัดการผ่านช่องทางอื่น")); else mockToast(tr("แจ้งเตือนผู้จัดการประจำจุดตรวจเรียบร้อยแล้ว")); }
 function simCase(c: number) {
   const e = orgEv(S.org.oev), T = evTickets(e.id), now = Date.now();
   const pick = (pred: (t: any) => boolean) => T.find(pred), other = S.org.tickets.find((t: any) => t.eventId !== e.id), cx = S.org.events.find((x: any) => x.status === "cancelled");
@@ -617,28 +618,28 @@ function simCase(c: number) {
 }
 function showRun(r: any, ticket: any, ev: any) {
   const p = ticket ? orgPerson(ticket.holderId) : null, z = ticket && ev.zones.find((x: any) => x.id === ticket.zoneId);
-  gateShow(r.valid, r.valid ? (p ? p.name : "") : OL.reasonText(r.reason), r.valid && z ? z.name : "");
+  gateShow(r.valid, r.valid ? (p ? p.name : "") : tr(OL.reasonText(r.reason)), r.valid && z ? z.name : "");
 }
 export function sim(c: number) {
   const args = simCase(c); closeSheet();
-  if (!args) { toast("ไม่มีตั๋วตัวอย่างสำหรับกรณีนี้"); return; }
+  if (!args) { toast(tr("ไม่มีข้อมูลบัตรตัวอย่างสำหรับกรณีจำลองนี้")); return; }
   const [ev, ticket, signer, ts] = args, r = gateRun(ev, ticket, signer, ts, "scan"); emit(); showRun(r, ticket, ev);
 }
 export function simOpen() {
   sheet(() => (<>
-    <h2 style={{ fontSize: 19 }}>จำลองการสแกน</h2><p className="small muted" style={{ margin: 0 }}>เลือกสถานการณ์ ระบบจะหยิบตั๋วจริงของงานนี้มาตรวจ</p>
+    <h2 style={{ fontSize: 19 }}>{tr("จำลองกระบวนการสแกน")}</h2><p className="small muted" style={{ margin: 0 }}>{tr("กรุณาเลือกสถานการณ์จำลอง ระบบจะสุ่มดึงข้อมูลบัตรจริงของอีเวนต์นี้มาตรวจสอบ")}</p>
     {SIM_CASES.map(([c, l]) => <button key={c} className="btn plain" onClick={() => sim(c)}>{c}. {l}</button>)}
-    <button className="btn plain" onClick={closeSheet}>ปิด</button>
+    <button className="btn plain" onClick={closeSheet}>{tr("ปิด")}</button>
   </>));
 }
 export function manualIn(ticketId: string) {
   const e = orgEv(S.org.oev), t = S.org.tickets.find((x: any) => x.ticketId === ticketId), p = orgPerson(t.holderId);
   sheet(() => (<>
-    <h2 style={{ fontSize: 19 }}>ยืนยันเช็กอินมือ</h2>
-    <dl className="kv card" style={{ margin: 0 }}><dt>ชื่อ</dt><dd>{p.name}</dd><dt>โซน</dt><dd>{(e.zones.find((z: any) => z.id === t.zoneId) || {}).name || ""}</dd><dt>เลขตั๋ว</dt><dd className="mono">{t.ticketId}</dd></dl>
-    <p className="small muted" style={{ margin: 0 }}>การเช็กอินมือถูกบันทึกว่าทำโดย {gateWho()} ตรวจบัตรประชาชนหรืออีเมลยืนยันก่อนกดยืนยัน</p>
-    <button className="btn" onClick={() => { const r = gateRun(e, t, t.holderId, Date.now(), "manual"); closeSheet(); emit(); if (r.valid) mockToast("เช็กอินแล้ว"); else showRun(r, t, e); }}>ยืนยันเช็กอิน</button>
-    <button className="btn plain" onClick={closeSheet}>ยกเลิก</button>
+    <h2 style={{ fontSize: 19 }}>{tr("ยืนยันการบันทึกเช็กอินด้วยตนเอง")}</h2>
+    <dl className="kv card" style={{ margin: 0 }}><dt>{tr("ชื่อ")}</dt><dd>{tr(p.name)}</dd><dt>{tr("โซน")}</dt><dd>{(e.zones.find((z: any) => z.id === t.zoneId) || {}).name || ""}</dd><dt>{tr("เลขตั๋ว")}</dt><dd className="mono">{t.ticketId}</dd></dl>
+    <p className="small muted" style={{ margin: 0 }}>{tr("การเช็กอินมือถูกบันทึกว่าทำโดย {a} ตรวจบัตรประชาชนหรืออีเมลยืนยันก่อนกดยืนยัน", { a: gateWho() })}</p>
+    <button className="btn" onClick={() => { const r = gateRun(e, t, t.holderId, Date.now(), "manual"); closeSheet(); emit(); if (r.valid) mockToast(tr("เช็กอินเรียบร้อยแล้ว")); else showRun(r, t, e); }}>{tr("ยืนยันการเช็กอิน")}</button>
+    <button className="btn plain" onClick={closeSheet}>{tr("ยกเลิก")}</button>
   </>));
 }
 
@@ -646,7 +647,7 @@ export function manualIn(ticketId: string) {
 export async function liveGateLoad() {
   const id = S.org.oev;
   try { const d = await orgApi("GET", "/api/checkin/events/" + encodeURIComponent(id)); if (S.org.oev !== id) return; S.org.liveGate = { id, used: d.used, total: d.total, scans: d.scans }; emit(); }
-  catch (err: any) { console.error("check-in counts failed", err); if (err.status === 404) toast("บัญชีนี้สแกนงานนี้ไม่ได้"); }
+  catch (err: any) { console.error("check-in counts failed", err); if (err.status === 404) toast(tr("บัญชีผู้ใช้นี้ไม่ได้รับสิทธิ์สแกนอีเวนต์นี้")); }
 }
 export async function liveGateCounts() {
   S.org.gateCountsAt = Date.now();
@@ -662,7 +663,7 @@ export async function gateCheck(code: string, typed: boolean) {
   gateCam.last = code; gateCam.lastAt = Date.now(); gateCam.busy = true;
   try {
     const r = await orgApi("POST", "/api/checkin/events/" + encodeURIComponent(ev.id) + "/scan", { code });
-    const text = r.valid ? (r.ticket && r.ticket.holder) || "" : (LIVE_REASON[r.reason] || r.reason) + (r.reason === "already_used" && r.ticket && r.ticket.usedAt ? ` เมื่อ ${OL.thaiTime(r.ticket.usedAt)} น.` : "");
+    const text = r.valid ? (r.ticket && r.ticket.holder) || "" : (LIVE_REASON[r.reason] || r.reason) + (r.reason === "already_used" && r.ticket && r.ticket.usedAt ? tr(" เมื่อ {a} น.", { a: timeOf(r.ticket.usedAt) }) : "");
     gateShow(r.valid, text, r.valid && r.ticket ? `${r.ticket.zone} · Token #${r.ticket.tokenId}` : "");
   } catch (err) { console.error("scan failed", err); toast(orgErrText(err)); }
   finally { gateCam.busy = false; liveGateLoad(); }
@@ -679,7 +680,7 @@ export async function camStart(elId: string) {
       (text: string) => gateCheck(text, false), () => {});
   } catch (err) {
     console.error("camera failed", err); scanner = null; emit();
-    toast("เปิดกล้องไม่ได้ ใช้ช่องวางรหัสแทน", "err");
+    toast(tr("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาใช้ช่องกรอกรหัสรหัสแทน"), "err");
   }
 }
 export async function camStop() {
@@ -697,24 +698,24 @@ export async function orgApi(method: string, path: string, body?: any) {
   if (!res.ok) { const err: any = new Error((data && data.error) || "http_" + res.status); err.status = res.status; err.data = data; throw err; }
   return data;
 }
-const ORG_ERR: Record<string, string> = { authentication_required: "กรุณาเข้าสู่ระบบใหม่", forbidden: "บทบาทของคุณทำรายการนี้ไม่ได้", shop_not_verified: "เผยแพร่ได้หลังทีมงานยืนยันร้าน",
-  not_a_draft: "งานนี้เผยแพร่ไปแล้ว", event_closed: "งานนี้ปิดหรือถูกยกเลิกแล้ว แก้ไขไม่ได้", changed_meanwhile: "มีผู้ซื้อตั๋วระหว่างบันทึก โหลดข้อมูลใหม่แล้วลองอีกครั้ง",
-  already_in_shop: "บัญชีนี้อยู่ในร้านอื่นแล้ว", already_cancelled: "งานนี้ถูกยกเลิกไปแล้ว", event_not_found: "ไม่พบงานนี้", no_shop: "บัญชีนี้ยังไม่มีร้าน", member_not_found: "ไม่พบสมาชิกนี้",
-  invalid_image: "ไฟล์รูปไม่ถูกต้อง ใช้ JPG, PNG หรือ WebP", image_too_large: "รูปใหญ่เกิน 1 MB" };
-const FIELD_ERR: Record<string, string> = { unsafe_characters: "ห้ามใช้อักขระ < > \" ' `", required: "ต้องกรอก", too_long: "ยาวเกินไป", in_past: "ต้องเป็นเวลาในอนาคต", before_start: "ต้องหลังเวลาเริ่ม",
-  duplicate: "ชื่อซ้ำกับโซนอื่น", duplicate_name: "ชื่อซ้ำกับโซนเดิม", locked_by_orders: "มีผู้ซื้อแล้ว เปลี่ยนไม่ได้", invalid: "ค่าไม่ถูกต้อง", too_many: "เกินจำนวนที่รับได้",
-  mismatch: "ไม่ตรง", unknown_zone: "ไม่พบโซนนี้", not_editable: "แก้โซนนี้ไม่ได้", too_large: "ไฟล์ใหญ่เกิน 1 MB" };
-const FIELD_NAME: Record<string, string> = { name: "ชื่อ", venue: "สถานที่", category: "หมวด", description: "รายละเอียด", short: "ชื่อบนโปสเตอร์", poster: "โปสเตอร์", image: "รูปโปสเตอร์", startsAt: "วันเวลาเริ่ม", endsAt: "วันเวลาจบ",
-  zones: "โซนตั๋ว", email: "อีเมล", role: "บทบาท", reason: "เหตุผล", confirmName: "ชื่องาน", phone: "เบอร์โทร", type: "ประเภท", contactLine: "LINE OA" };
+const ORG_ERR: Record<string, string> = tmap({ authentication_required: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง", forbidden: "บทบาทสิทธิ์ของผู้ใช้งานไม่สามารถทำรายการนี้ได้", shop_not_verified: "เผยแพร่ได้หลังทีมงานยืนยันร้าน",
+  not_a_draft: "อีเวนต์นี้ผ่านการเผยแพร่ไปแล้ว", event_closed: "อีเวนต์นี้ปิดให้บริการหรือถูกยกเลิกแล้ว ไม่สามารถแก้ไขข้อมูลได้", changed_meanwhile: "มีผู้ซื้อบัตรเข้ามาในระหว่างการบันทึกข้อมูล ระบบได้โหลดข้อมูลล่าสุดแล้ว กรุณาลองใหม่อีกครั้ง",
+  already_in_shop: "บัญชีผู้ใช้นี้สังกัดอยู่ภายใต้ร้านค้าอื่นแล้ว", already_cancelled: "อีเวนต์นี้ถูกยกเลิกไปแล้ว", event_not_found: "ไม่พบข้อมูลอีเวนต์นี้", no_shop: "บัญชีผู้ใช้นี้ยังไม่มีการสร้างร้านค้า", member_not_found: "ไม่พบข้อมูลสมาชิกรายนี้",
+  invalid_image: "ไฟล์รูปภาพไม่ถูกต้อง รองรับเฉพาะสกุล JPG, PNG หรือ WebP เท่านั้น", image_too_large: "ขนาดไฟล์รูปภาพใหญ่เกิน 1 MB" });
+const FIELD_ERR: Record<string, string> = tmap({ unsafe_characters: "ห้ามใช้อักขระพิเศษ < > \" ' `", required: "ต้องกรอก", too_long: "ยาวเกินไป", in_past: "ต้องเป็นเวลาในอนาคต", before_start: "ต้องหลังเวลาเริ่ม",
+  duplicate: "ชื่อซ้ำซ้อนกับโซนที่นั่งอื่น", duplicate_name: "ชื่อซ้ำซ้อนกับโซนเดิม", locked_by_orders: "มีผู้ซื้อบัตรแล้ว ไม่สามารถเปลี่ยนแปลงข้อมูลได้", invalid: "ค่าข้อมูลไม่ถูกต้อง", too_many: "เกินจำนวนความจุที่รองรับได้",
+  mismatch: "ข้อมูลไม่ตรงกัน", unknown_zone: "ไม่พบข้อมูลโซนนี้", not_editable: "ไม่สามารถแก้ไขข้อมูลโซนนี้ได้", too_large: "ไฟล์มีขนาดใหญ่เกิน 1 MB" });
+const FIELD_NAME: Record<string, string> = tmap({ name: "ชื่อ", venue: "สถานที่จัดงาน", category: "หมวดหมู่อีเวนต์", description: "รายละเอียดเพิ่มเติม", short: "ชื่อแสดงบนโปสเตอร์", poster: "โปสเตอร์ประชาสัมพันธ์", image: "รูปภาพโปสเตอร์", startsAt: "วันและเวลาเริ่มต้น", endsAt: "วันและเวลาสิ้นสุด",
+  zones: "โซนตั๋ว", email: "อีเมล", role: "บทบาทหน้าที่", reason: "เหตุผล", confirmName: "ชื่องาน", phone: "หมายเลขโทรศัพท์", type: "ประเภทธุรกิจ", contactLine: "LINE OA" });
 export function orgErrText(err: any) {
-  const d = err && err.data; if (!d) return "เชื่อมต่อระบบไม่สำเร็จ ลองอีกครั้ง";
+  const d = err && err.data; if (!d) return tr("เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   const [k, v] = (Object.entries(d.fields || {})[0] || []) as [string, string];
   if (k) {
     const m = /^zones\.(\d+)\.(\w+)$/.exec(k), b = /^below_taken:(\d+)$/.exec(v);
-    const where = m ? `โซนที่ ${+m[1] + 1} (${({ name: "ชื่อ", price: "ราคา", capacity: "จำนวน", color: "สี", id: "รหัส" } as any)[m[2]] || m[2]})` : FIELD_NAME[k] || k;
-    return where + ": " + (b ? `ลดได้ต่ำสุด ${b[1]} ที่ (ขายแล้วและกำลังจองอยู่)` : FIELD_ERR[v] || v);
+    const where = m ? tr("โซนที่ {a} ({b})", { a: +m[1] + 1, b: ({ name: tr("ชื่อ"), price: tr("ราคา"), capacity: tr("จำนวน"), color: "สี", id: "รหัส" } as any)[m[2]] || m[2] }) : FIELD_NAME[k] || k;
+    return where + ": " + (b ? tr("สามารถลดจำนวนลงได้ต่ำสุด {a} ที่นั่ง (เนื่องจากมีผู้ซื้อและอยู่ระหว่างการจอง)", { a: b[1] }) : FIELD_ERR[v] || v);
   }
-  return ORG_ERR[d.error] || "ทำรายการไม่สำเร็จ (" + d.error + ")";
+  return ORG_ERR[d.error] || tr("ทำรายการไม่สำเร็จ ({a})", { a: d.error });
 }
 const teamFrom = (team: any[], me: string) => team.map(m => ({ email: m.email || me, role: m.role }));
 function fromServerShop(s: any, email: string, role: string) {
@@ -724,7 +725,7 @@ function fromServerShop(s: any, email: string, role: string) {
 function fromServerEvent(e: any, shopId: string) {
   let status = ({ draft: "draft", on_sale: "on_sale", sold_out: "sold_out", closed: "ended", cancelled: "cancelled" } as any)[e.status] || e.status;
   if (["on_sale", "sold_out"].includes(status) && e.endsAt && e.endsAt < Date.now()) status = "ended";
-  return { id: e.id, shopId, live: true, name: e.name, short: e.short || "", category: e.category || "ปาร์ตี้", description: e.description || "", venue: e.venue || "", mapUrl: "",
+  return { id: e.id, shopId, live: true, name: e.name, short: e.short || "", category: e.category || tr("ปาร์ตี้"), description: e.description || "", venue: e.venue || "", mapUrl: "",
     bg: POSTERS[e.poster] || POSTERS[0], image: e.posterUrl || null, status, cancelReason: e.cancelReason || "", startAt: e.startsAt, endAt: e.endsAt, doorsAt: null, chainEventId: e.chainEventId,
     params: { ...ORG_PARAMS },
     zones: (e.zones || []).map((z: any) => ({ id: z.id, live: true, name: z.name, kind: "standing", price: z.price * 100, capacity: z.capacity ?? 0, sold: z.sold ?? 0, held: z.held || 0,
@@ -738,14 +739,14 @@ const UNSAFE_RE = /[<>"'`]/;
 function liveWizErrors(d: any) {
   const out: Record<string, string> = {};
   if (UNSAFE_RE.test(d.name || "")) out.name = FIELD_ERR.unsafe_characters;
-  if (!String(d.venue || "").trim()) out.venue = "ใส่สถานที่"; else if (UNSAFE_RE.test(d.venue)) out.venue = FIELD_ERR.unsafe_characters;
-  if (UNSAFE_RE.test((d.description || "") + (d.short || ""))) out.name = out.name || "รายละเอียดหรือชื่อบนโปสเตอร์มีอักขระ < > \" ' `";
+  if (!String(d.venue || "").trim()) out.venue = tr("ใส่สถานที่"); else if (UNSAFE_RE.test(d.venue)) out.venue = FIELD_ERR.unsafe_characters;
+  if (UNSAFE_RE.test((d.description || "") + (d.short || ""))) out.name = out.name || tr("รายละเอียดหรือชื่อบนโปสเตอร์มีอักขระอักษรพิเศษที่ไม่ได้รับอนุญาต < > \" ' `");
   d.zones.forEach((z: any, i: number) => {
     if (UNSAFE_RE.test(z.name || "")) out[`zones.${i}.name`] = FIELD_ERR.unsafe_characters;
-    if (Number.isInteger(z.price) && (z.price % 100 || z.price < 2000)) out[`zones.${i}.price`] = "ระบบจริงรับราคาเป็นบาทเต็ม อย่างน้อย 20฿";
+    if (Number.isInteger(z.price) && (z.price % 100 || z.price < 2000)) out[`zones.${i}.price`] = tr("ระบบงานจริงรองรับราคาหน่วยเป็นบาทเต็ม และมีมูลค่าอย่างน้อย 20฿");
   });
   const o = wizOrig();
-  if (o && o.zones.some((z: any) => !d.zones.some((x: any) => x.id === z.id))) out.zones = "โซนที่เผยแพร่แล้วลบไม่ได้ ลดจำนวนที่ขายแทน";
+  if (o && o.zones.some((z: any) => !d.zones.some((x: any) => x.id === z.id))) out.zones = tr("โซนที่เผยแพร่แล้วไม่สามารถลบออกได้ แนะนำให้ใช้วิธีลดจำนวนการจำหน่ายแทน");
   return out;
 }
 function liveOrgState(me: any) {
@@ -769,12 +770,12 @@ export async function liveStep(fn: () => Promise<void>, onErr?: (err: any) => vo
   try { await fn(); }
   catch (err: any) {
     console.error("Organizer API failed", err);
-    if (err && err.status === 401) { S.signedIn = false; S.afterSignup = "orglive"; save(); toast("กรุณาเข้าสู่ระบบใหม่"); googleLogin(); return; }
+    if (err && err.status === 401) { S.signedIn = false; S.afterSignup = "orglive"; save(); toast(tr("กรุณาเข้าสู่ระบบใหม่")); googleLogin(); return; }
     if (onErr) onErr(err); else toast(orgErrText(err), "err");
   } finally { liveBusy = false; S.busy = false; emit(); rerenderSheet(); }
 }
 export async function orgLiveStart() {
-  if (!S.auth.google) { toast("ระบบจริงใช้ได้เมื่อเปิดผ่านเว็บไซต์ JONGLOEI"); return; }
+  if (!S.auth.google) { toast(tr("ระบบงานจริงสามารถใช้งานได้เมื่อเปิดผ่านเว็บไซต์ทางการของ JONGLOEI เท่านั้น")); return; }
   if (!S.signedIn) { S.orgLiveWanted = true; S.afterSignup = "orglive"; googleLogin(); return; }
   await liveStep(async () => {
     const me = await orgApi("GET", "/api/org/me");
@@ -796,13 +797,13 @@ function replaceLive(se: any) {
 }
 async function liveWizSave() {
   const o = S.org, d = o.draft, errs = wizErrors(), keys = Object.keys(errs);
-  if (keys.length) { o.wizShow = true; o.wizStep = errStep(keys[0]); emit(); focusLater(errField(keys[0])); toast("ยังมี " + keys.length + " เรื่องที่ต้องแก้ก่อนบันทึก"); return null; }
+  if (keys.length) { o.wizShow = true; o.wizStep = errStep(keys[0]); emit(); focusLater(errField(keys[0])); toast(tr("ยังมี {a} เรื่องที่ต้องแก้ก่อนบันทึก", { a: keys.length })); return null; }
   const r = d.id.startsWith("ev-") ? await orgApi("PATCH", "/api/org/events/" + d.id, toServerEvent(d)) : await orgApi("POST", "/api/org/events", toServerEvent(d));
   let ev = replaceLive(r.event);
   // the poster picture goes up after the event exists; a failed upload keeps the event and says so
   if (d._posterNew && d.image && d.image.startsWith("data:")) {
     try { ev = replaceLive((await orgApi("PUT", `/api/org/events/${ev.id}/poster`, { image: d.image })).event); }
-    catch (err) { toast("บันทึกงานแล้ว แต่อัปโหลดรูปโปสเตอร์ไม่สำเร็จ: " + orgErrText(err), "err"); }
+    catch (err) { toast(tr("บันทึกงานแล้ว แต่อัปโหลดรูปโปสเตอร์ไม่สำเร็จ: {a}", { a: orgErrText(err) }), "err"); }
   } else if (d._posterRemove && ev.image) {
     try { ev = replaceLive((await orgApi("DELETE", `/api/org/events/${ev.id}/poster`)).event); } catch (err) { toast(orgErrText(err), "err"); }
   }

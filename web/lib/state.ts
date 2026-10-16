@@ -3,12 +3,13 @@
 // in satang (see lib/org-logic.js); buyer events carry whole baht.
 import { useSyncExternalStore } from "react";
 import OLmod from "./org-logic";
+import { getLang, tr } from "./i18n";
 
 export const OL: any = OLmod as any;
 
 export const HOUR = 3600000, DAY = 24 * HOUR;
 export const CONTRACT = "0x7a3F9e21B4c0D58aE6f1b2C9d04E7f3A15b8c91E";
-export const fmt = (n: number) => n.toLocaleString("th-TH") + "฿";
+export const fmt = (n: number) => (getLang() === "en" ? "฿" + n.toLocaleString("en-US") : n.toLocaleString("th-TH") + "฿");
 export const short = (a: string) => a.slice(0, 6) + "…" + a.slice(-4);
 export const isLocal = (id: string) => String(id || "").startsWith("org-");
 
@@ -109,7 +110,7 @@ export function evById(id: string): any {
   return EV.all.find(e => e.id === id) || (o && isLocal(id) && o.events.find((e: any) => e.id === id) ? toBuyerEvent(o.events.find((e: any) => e.id === id)) : undefined);
 }
 export const minPrice = (ev: any) => Math.min(...ev.zones.map((z: any) => z.p));
-export const initial = () => [...String(S.user.name || S.user.email || "?").trim()][0] || "?";
+export const initial = () => [...tr(String(S.user.name || S.user.email || "?")).trim()][0] || "?";
 
 /* ---------- organizer demo seed ---------- */
 export function orgSeed(now: number) {
@@ -171,7 +172,7 @@ export function ensureOrg() {
 }
 export const orgEv = (id: string) => S.org.events.find((e: any) => e.id === id);
 export function replaceOrgEvent(ev: any) { S.org.events = S.org.events.map((e: any) => (e.id === ev.id ? ev : e)); refreshEvents(); }
-export function orgPerson(id: string) { if (id === "me") return { name: S.user.name, email: S.user.email, phone: "" }; return S.org.buyers[id] || { name: id, email: "", phone: "" }; }
+export function orgPerson(id: string) { if (id === "me") return { name: tr(S.user.name), email: S.user.email, phone: "" }; const b = S.org.buyers[id]; return b ? { ...b, name: tr(b.name) } : { name: id, email: "", phone: "" }; }
 export function ledgerAdd(x: any) { if (S.org.ledger.some((l: any) => l.idempotencyKey === x.idempotencyKey)) return false; S.org.ledger.push({ id: x.idempotencyKey, status: "DONE", ...x }); return true; }
 export const myEvents = () => S.org.events.filter((e: any) => (e.shopId || "shop-demo") === S.org.shop.id);
 export const myEventIds = () => new Set(myEvents().map((e: any) => e.id));

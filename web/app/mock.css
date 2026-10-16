@@ -749,3 +749,9 @@ body{padding:0}
 .org-result .rzone{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:999px;background:var(--zone-1);font-size:18px;font-weight:600;box-shadow:0 0 0 2px rgb(255 255 255 / .6)}
 .org-result .rtext{margin:0;font-size:24px;font-weight:600;line-height:1.35;max-width:22ch;text-align:center}
 .org-result .racts{width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.langsw{display:inline-flex;align-items:stretch;height:36px;padding:0;border-radius:999px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:13px;font-weight:600;overflow:hidden;flex:none}
+.langsw span{display:flex;align-items:center;padding:0 10px}
+.langsw span.on{background:var(--red);color:#fff}
+.side .langsw{align-self:flex-start;margin-top:8px;border-color:rgb(255 255 255 / .5);color:#fff}
+.side .langsw span.on{background:#fff;color:var(--red)}
+

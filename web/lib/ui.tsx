@@ -2,6 +2,7 @@
 // Toast and bottom sheet (dialog on desk), shared by every screen. A sheet is a render function,
 // so it always shows the current state; Esc and the scrim close it, and focus returns to the opener.
 import { ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
+import { tr, useLang } from "./i18n";
 
 type Toast = { id: number; msg: string; bad: boolean } | null;
 const ui: { toast: Toast; sheet: null | (() => ReactNode); opener: HTMLElement | null } = { toast: null, sheet: null, opener: null };
@@ -11,15 +12,16 @@ const bump = () => { v++; ls.forEach(l => l()); };
 const sub = (l: () => void) => { ls.add(l); return () => { ls.delete(l); }; };
 const useUi = () => useSyncExternalStore(sub, () => v, () => 0);
 
-// error toasts (red, alert icon) are spotted from the wording unless kind says otherwise
+// error toasts (red, alert icon) are spotted from the wording (Thai or English) unless kind says otherwise
+const BAD = /ไม่สำเร็จ|ไม่ได้|ผิดพลาด|couldn.t|could not|can.t |cannot|unable|failed|not successful|error|invalid|expired/i;
 export function toast(msg: string, kind?: "ok" | "err") {
-  const bad = kind === "err" || (kind === undefined && /ไม่สำเร็จ|ไม่ได้|ผิดพลาด/.test(String(msg)));
+  const bad = kind === "err" || (kind === undefined && BAD.test(String(msg)));
   const id = Date.now() + Math.random();
-  ui.toast = { id, msg, bad }; bump();
+  ui.toast = { id, msg: tr(String(msg)), bad }; bump();
   setTimeout(() => { if (ui.toast && ui.toast.id === id) { ui.toast = null; bump(); } }, 2600);
 }
 // a demo action that is not wired to an API yet: it still works locally and says so
-export const mockToast = (msg: string) => toast(msg + " (ข้อมูลจำลองระบบ)", "ok");
+export const mockToast = (msg: string) => toast(tr(msg) + tr(" (ข้อมูลจำลองระบบ)"), "ok");
 
 export function sheet(render: () => ReactNode) {
   if (!ui.sheet && typeof document !== "undefined") ui.opener = document.activeElement as HTMLElement;
@@ -37,7 +39,7 @@ export const rerenderSheet = bump;
 const FOCUSABLE = 'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])';
 
 export function SheetHost() {
-  useUi();
+  useUi(); useLang();
   const box = useRef<HTMLDivElement>(null);
   const open = !!ui.sheet;
   useEffect(() => {
@@ -72,7 +74,7 @@ export function SheetHost() {
 }
 
 export function ToastHost() {
-  useUi();
+  useUi(); useLang();
   const t = ui.toast;
   if (!t) return null;
   return (
