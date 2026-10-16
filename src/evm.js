@@ -177,5 +177,6 @@ export const SELECTORS = {
   ownerOf: selector('ownerOf(uint256)'),
   used: selector('used(uint256)'),
   eventOf: selector('eventOf(uint256)'),
+  nextTokenId: selector('nextTokenId()'),
 };
 export const callData = (fn, tokenId) => SELECTORS[fn] + BigInt(tokenId).toString(16).padStart(64, '0');
