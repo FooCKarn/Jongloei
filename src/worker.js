@@ -23,7 +23,7 @@
 // the mock-up keeps its demo login. Without THIRDWEB_SECRET_KEY login works but no wallet
 // is made.
 
-import { handleOrganizer } from './organizer.js';
+import { handleOrganizer, servePoster, posterUrl } from './organizer.js';
 import { handleCheckin, advanceMarkUsed } from './checkin.js';
 import { keccak256, toHex, callData, SELECTORS } from './evm.js';
 import {
@@ -80,6 +80,8 @@ export default {
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
       if (url.pathname === '/auth/logout' && request.method === 'POST') return logout(request, env);
       if (url.pathname === '/api/dev/test-mint' && request.method === 'POST') return testMint(request, env);
+      const posterPath = url.pathname.match(/^\/api\/posters\/(ev-[0-9a-f]{12})$/);
+      if (posterPath && request.method === 'GET') return servePoster(env.DB, posterPath[1]);
       if (url.pathname.startsWith('/api/org/') || url.pathname.startsWith('/api/admin/hosts')) {
         return handleOrganizer(request, env, ctx, url, { currentUser, json, expireOrder, logEvent });
       }
@@ -110,24 +112,25 @@ async function me(request, env) {
 
 async function events(request, env) {
   try {
-    const list = capacity => env.DB.prepare(
+    const list = (capacity, posterAt) => env.DB.prepare(
       `SELECT e.id, e.name, e.short_name AS short, e.category AS tag, e.event_date AS date,
-              e.event_time AS time, e.venue, e.poster_background AS bg, e.sold_percent AS sold,
+              e.event_time AS time, e.venue, e.poster_background AS bg, e.sold_percent AS sold, ${posterAt} AS posterAt,
               z.zone_name AS zone, z.price, z.color, ${capacity} AS capacity, ${AVAILABLE_SEATS} AS remaining
        FROM events e JOIN event_zones z ON z.event_id = e.id
        WHERE e.status = 'on_sale' ORDER BY e.event_date, e.id, z.sort_order`,
     ).all();
-    // Until 0006_organizer.sql is applied the column does not exist; keep the list working.
-    const rows = await list('z.capacity').catch(err => {
-      if (/no such column/.test(String(err?.message || err))) return list('NULL');
-      throw err;
-    });
+    // Until 0006_organizer.sql / 0009_posters.sql are applied the columns do not exist; keep the list working.
+    const missing = err => /no such column/.test(String(err?.message || err));
+    const rows = await list('z.capacity', 'e.poster_image_at')
+      .catch(err => { if (missing(err)) return list('z.capacity', 'NULL'); throw err; })
+      .catch(err => { if (missing(err)) return list('NULL', 'NULL'); throw err; });
     const byId = new Map();
     for (const row of rows.results || []) {
       let event = byId.get(row.id);
       if (!event) {
         event = { id: row.id, name: row.name, short: row.short, tag: row.tag, date: row.date,
-          time: row.time, venue: row.venue, bg: row.bg, sold: row.sold, zones: [], cap: 0, taken: 0 };
+          time: row.time, venue: row.venue, bg: row.bg, sold: row.sold, posterUrl: posterUrl(row.id, row.posterAt),
+          zones: [], cap: 0, taken: 0 };
         byId.set(row.id, event);
       }
       event.zones.push({ z: row.zone, p: row.price, left: row.remaining, c: row.color });

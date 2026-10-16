@@ -59,3 +59,31 @@ test('helpers', () => {
   assert.equal(maskEmail('a@x.co'), 'a*@x.co');
   assert.equal(maskEmail(null), '');
 });
+
+/* ---------- poster images (0009_posters.sql) ---------- */
+import { parsePosterImage, posterUrl, POSTER_MAX_BYTES } from '../../src/organizer.js';
+
+const dataUrl = (mime, bytes) => `data:${mime};base64,` + Buffer.from(bytes).toString('base64');
+const JPEG = [0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46];
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const WEBP = [...Buffer.from('RIFF'), 0, 0, 0, 0, ...Buffer.from('WEBPVP8 ')];
+
+test('a poster image is accepted only when its bytes match its type', () => {
+  assert.equal(parsePosterImage(dataUrl('image/jpeg', JPEG)).value.mime, 'image/jpeg');
+  assert.equal(parsePosterImage(dataUrl('image/png', PNG)).value.mime, 'image/png');
+  assert.equal(parsePosterImage(dataUrl('image/webp', WEBP)).value.mime, 'image/webp');
+  assert.equal(parsePosterImage(dataUrl('image/jpeg', PNG)).error, 'invalid');           // declared type lies
+  assert.equal(parsePosterImage(dataUrl('image/svg+xml', [...Buffer.from('<svg/>')])).error, 'invalid');
+  assert.equal(parsePosterImage('https://example.com/x.jpg').error, 'invalid');
+  assert.equal(parsePosterImage(undefined).error, 'invalid');
+});
+
+test('a poster image over the size limit is refused', () => {
+  const big = new Uint8Array(POSTER_MAX_BYTES + 1);big.set(JPEG);
+  assert.equal(parsePosterImage(dataUrl('image/jpeg', big)).error, 'too_large');
+});
+
+test('the poster URL changes with every upload', () => {
+  assert.equal(posterUrl('ev-0123456789ab', null), null);
+  assert.equal(posterUrl('ev-0123456789ab', 5), '/api/posters/ev-0123456789ab?v=5');
+});

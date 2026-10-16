@@ -1,0 +1,90 @@
+/* Tailwind utilities without its preflight reset: the screens use the design-system classes in
+   mock.css (ported from the canvas), which expect browser defaults. Tokens follow design/tokens.css. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./mock.css" layer(components);
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-red: var(--red);
+  --color-on-red: var(--on-red);
+  --color-ok: var(--ok-solid);
+  --color-warn: var(--warn-solid);
+  --color-danger: var(--danger-solid);
+  --color-info: var(--info-solid);
+  --font-display: var(--f-display);
+  --font-body: var(--f-body);
+}
+
+/* poster with an uploaded picture: the image fills the block, a dark fade keeps white text readable */
+.has-img { background-image: linear-gradient(to top, rgb(0 0 0 / .55), rgb(0 0 0 / .05) 55%), var(--pimg) !important; background-size: cover !important; background-position: center !important; }
+.has-img::after { display: none; }
+.upl { display: flex; flex-direction: column; gap: 10px; }
+.upl-prev { position: relative; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: var(--surface-2) center / cover no-repeat; box-shadow: inset 0 0 0 1px var(--line); }
+.upl-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 120px; padding: 16px; border-radius: 12px; border: 0; background: var(--bg); box-shadow: inset 0 0 0 1.5px var(--red); color: var(--ink); cursor: pointer; text-align: center; }
+.upl-drop b { color: var(--red); }
+
+/* progress bar: the % sits centred in the fill, or just right of it when the fill is too short */
+.pbar-t { position: relative; }
+.pbar-t > i { display: block; height: 100%; border-radius: 999px; background: var(--red); }
+.pbar-t > b { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; }
+
+/* date and time pickers (O5 step 1 on the canvas) */
+.dt-row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 10px; }
+.dt-cell { position: relative; min-width: 0; }
+.dt-pick { height: 48px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; border: 0; border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; text-align: left; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.dt-pick svg { width: 20px; height: 20px; color: var(--muted); flex: none; }
+.dt-pick .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-pick .v.ph { color: var(--muted); }
+.dt-pick:hover { box-shadow: inset 0 0 0 1px var(--muted); }
+.dt-pick[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--red); }
+.dt-pick[aria-expanded="true"] svg { color: var(--red); }
+.dt-pick[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--danger-solid); }
+.dt-pick:disabled { background: var(--surface-2); color: var(--muted); cursor: default; }
+.dt-pop { position: absolute; z-index: 30; top: calc(100% + 8px); box-sizing: border-box; width: 340px; max-width: calc(100vw - 32px); padding: 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px rgb(0 0 0 / .38); display: flex; flex-direction: column; gap: 10px; }
+.dt-pop.l { left: 0; } .dt-pop.r { right: 0; width: 312px; }
+.dt-head { display: flex; align-items: center; justify-content: space-between; }
+.dt-head b { font-family: var(--f-display); font-size: 16px; }
+.dt-nav { width: 40px; height: 40px; border: 0; border-radius: 8px; display: grid; place-items: center; background: transparent; color: var(--ink); cursor: pointer; }
+.dt-nav:hover { background: var(--surface-2); }
+.dt-nav svg { width: 20px; height: 20px; }
+.dt-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; row-gap: 2px; }
+.dt-cal.wk { font-size: 12px; font-weight: 600; color: var(--muted); }
+.dt-day { height: 40px; border: 0; border-radius: 999px; background: transparent; color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.dt-day:hover { background: var(--surface-2); }
+.dt-day.out { color: var(--muted); }
+.dt-day.today { box-shadow: inset 0 0 0 1.5px var(--line); }
+.dt-day.span { background: rgb(160 0 24 / .18); border-radius: 0; }
+.dt-day:disabled { color: var(--line); background: transparent; cursor: default; }
+.dt-day[aria-pressed="true"] { background: var(--red); color: var(--on-red); font-weight: 600; border-radius: 999px; }
+.dt-foot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.dt-lb { font-size: 13px; font-weight: 600; color: var(--muted); }
+.dt-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.dt-grid.m { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dt-tm { height: 36px; border: 0; border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; box-shadow: inset 0 0 0 1px var(--line-soft); cursor: pointer; }
+.dt-tm:hover { box-shadow: inset 0 0 0 1px var(--muted); }
+.dt-tm[aria-checked="true"] { background: var(--red); color: var(--on-red); font-weight: 600; box-shadow: none; }
+.dt-chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--red); background: var(--bg); color: var(--red); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.dt-chip.on { background: var(--red); color: var(--on-red); }
+.dt-clear { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; padding: 8px 4px; }
+
+/* zone colour swatches (O5 step 2) */
+.zsw { display: flex; gap: 8px; flex-wrap: wrap; }
+.zsw button { width: 36px; height: 36px; border: 0; border-radius: 999px; cursor: pointer; display: grid; place-items: center; color: #fff; }
+.zsw button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.zsw button svg { width: 18px; height: 18px; }
+
+/* uploaded picture on .poster (its background lives on ::before) */
+.poster.has-img::before { background: linear-gradient(to top, rgb(0 0 0 / .55), rgb(0 0 0 / .05) 55%), var(--pimg) center / cover no-repeat; }
+.poster.has-img::after { display: none; }
+/* side column of a two-column organizer page (not the organizer sidebar, which is .side) */
+.col.cside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.stage.desk .col.cside { position: sticky; top: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px; }
+/* an uploaded poster usually carries its own title, so the generated big type steps aside */
+.has-img .big, .has-img .pbig, .thumb.has-img > b { visibility: hidden; }

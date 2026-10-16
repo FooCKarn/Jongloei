@@ -1,0 +1,9 @@
+{
+  "name": "jongloei",
+  "private": true,
+  "description": "Root scripts for Cloudflare Workers Builds: the Worker serves the static export in web/out",
+  "scripts": {
+    "build": "npm --prefix web ci && npm --prefix web run build",
+    "test": "node --test tests/organizer/logic.test.js tests/worker/*.test.mjs"
+  }
+}
