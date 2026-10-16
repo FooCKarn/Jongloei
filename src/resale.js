@@ -116,7 +116,9 @@ async function listListings(request, env, url, deps) {
     `SELECT l.id, l.ticket_id, l.event_id, l.price, l.face_price, l.status, l.seller_id, l.created_at,
             t.zone, t.token_id, t.transfers, t.owner_wallet,
             e.starts_at, e.transfer_cutoff_s, e.resale_cap_bps,
-            EXISTS (SELECT 1 FROM resale_orders o WHERE o.listing_id = l.id AND o.status = 'pending') AS held
+            EXISTS (SELECT 1 FROM resale_orders o WHERE o.listing_id = l.id AND o.status = 'pending') AS held,
+            (SELECT o.status FROM resale_orders o WHERE o.listing_id = l.id ORDER BY o.created_at DESC LIMIT 1) AS order_status,
+            (SELECT o.review_reason FROM resale_orders o WHERE o.listing_id = l.id ORDER BY o.created_at DESC LIMIT 1) AS order_review_reason
      FROM resale_listings l JOIN tickets t ON t.id = l.ticket_id JOIN events e ON e.id = l.event_id
      WHERE ${mine ? `l.seller_id = ? AND l.status IN ${LISTING_STATUSES_LIVE}`
                   : `l.status = 'active' AND e.cancelled_at IS NULL AND e.status != 'closed'
@@ -128,6 +130,7 @@ async function listListings(request, env, url, deps) {
     id: l.id, ticketId: l.ticket_id, eventId: l.event_id, zone: l.zone, tokenId: l.token_id,
     price: l.price, facePrice: l.face_price, cap: resaleCap(l.face_price, l.resale_cap_bps),
     transfers: l.transfers, seller: shortAddress(l.owner_wallet), status: l.status,
+    orderStatus: l.order_status || null, orderReviewReason: l.order_review_reason || null,
     held: Boolean(l.held), mine: Boolean(user && l.seller_id === user.id),
     closesAt: l.starts_at == null ? null : l.starts_at - l.transfer_cutoff_s * 1000, createdAt: l.created_at,
   }));

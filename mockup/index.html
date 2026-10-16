@@ -1238,7 +1238,9 @@ ticket(){
   const locked=t.status!=='active'||t.minting||t.failed;
   const qr=t.minting||t.failed?`<div class="qrstate">${t.minting?'กำลังออกตั๋วบนบล็อกเชน<br>QR จะขึ้นเมื่อออกตั๋วเสร็จ':'การออกตั๋วมีปัญหา<br>ทีมงานกำลังตรวจสอบ'}</div>`
     :t.status==='refunded'?`<div class="qrstate" style="color:#DC2626;font-weight:600">งานถูกยกเลิก<br><span style="font-weight:400;color:#6E6265">คืนเงิน ${fmt(t.refundAmount||0)} แล้ว ตั๋วใบนี้ใช้เข้างานไม่ได้</span></div>`
-    :t.status==='listed'?`<div class="qrstate">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`
+    :t.status==='listed'?(t.listingSold
+      ?`<div class="qrstate">${t.listingOrderStatus==='needs_review'?'ขายตั๋วแล้ว รอตรวจสอบการโอน':'ขายตั๋วแล้ว กำลังโอนให้ผู้ซื้อ'}<br><span class="small">เมื่อโอนบนบล็อกเชนเสร็จ ตั๋วจะออกจากบัญชีนี้</span></div>`
+      :`<div class="qrstate">ตั๋วกำลังลงขายอยู่<br>ยกเลิกการขายเพื่อใช้ QR</div>`)
     :t.status==='used'?`<div class="qrstate" style="color:#1D7A48;font-weight:600">เข้างานแล้ว<br><span style="font-weight:400;color:#6E6265">ตั๋วถูกล็อก โอนหรือขายต่อไม่ได้</span></div>`
     :`<canvas id="entryqr" width="29" height="29" aria-label="QR เข้างาน"></canvas>
       <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" stroke-width="4"/><circle id="ringfg" cx="18" cy="18" r="15" fill="none" stroke="#A00018" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="0" stroke-linecap="round"/></svg>QR ใหม่ใน <b id="qrcd" class="num">60</b> วินาที</div>`;
@@ -1253,7 +1255,7 @@ ticket(){
     <div class="vstack" style="gap:16px">
       ${nftCard(t,true)}
       <div class="btncol row2"><button class="bigbtn sec" data-act="resell" ${locked?'disabled':''}>ขายต่อ</button><button class="bigbtn sec" data-act="transfer" ${locked||t.real||t.transfers>=2?'disabled':''}>โอนให้เพื่อน</button></div>
-      ${t.status==='listed'?`<button class="bigbtn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
+      ${t.status==='listed'&&!t.listingSold?`<button class="bigbtn plain" data-act="unlist">ยกเลิกการลงขาย</button>`:''}
       ${t.real?'<p class="small muted" style="margin:0">ลงขายได้หลังได้ตั๋ว 6 ชั่วโมง ส่วนการโอนให้เพื่อนจะเปิดในเวอร์ชันถัดไป</p>':`<button class="bigbtn plain" data-act="scan" ${t.status!=='active'?'disabled':''}>จำลอง: เจ้าหน้าที่สแกนหน้างาน</button>`}
     </div>
   </div></div>`;
@@ -3203,7 +3205,7 @@ async function loadResale(){
   try{
     const [market,mine]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[]})));
     S.realListings=market.listings.map(l=>({lid:l.id,ev:l.eventId,zone:l.zone,face:l.facePrice,price:l.price,seller:l.seller,transfers:l.transfers,tid:l.tokenId,held:l.held,mine:l.mine,real:true}));
-    for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold'}}
+    for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold';t.listingOrderStatus=l.orderStatus;t.listingReviewReason=l.orderReviewReason}}
   }catch(err){console.error('Resale API failed',err)}
 }
 const RESALE_ERRORS={holding_period:'ลงขายได้หลังได้ตั๋วครบ 6 ชั่วโมง',transfer_closed:'ปิดการขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',invalid_price:'ราคาเกินเพดาน 125% ของราคาหน้าบัตร',
