@@ -834,68 +834,42 @@ const fmt=n=>n.toLocaleString('th-TH')+'฿';
 const CONTRACT='0x7a3F9e21B4c0D58aE6f1b2C9d04E7f3A15b8c91E';
 const OL=window.OrgLogic;
 
-/* events from /api/events (or this fallback); organizer events are added by refreshEvents() */
-let BASE_EVENTS=[
-  {id:'neon',name:'BKK Neon Nights 2026',short:'NEON\nNIGHTS',tag:'คอนเสิร์ต',date:'ส. 21 พ.ย. 2569',time:'19:00',venue:'อิมแพ็ค อารีนา เมืองทองธานี',bg:'linear-gradient(140deg,#A00018,#4A0010 70%,#1E0508)',
-   zones:[{z:'Standing A',p:2500,left:182,c:'var(--zone-1)'},{z:'Seat B',p:3800,left:64,c:'var(--zone-2)'},{z:'VIP Front',p:5500,left:9,c:'var(--zone-3)'}],sold:86},
-  {id:'jazz',name:'Siam River Jazz Festival',short:'RIVER\nJAZZ',tag:'เทศกาล',date:'ส. 5 ธ.ค. 2569',time:'16:00',venue:'ลานริมน้ำ เจริญกรุง',bg:'linear-gradient(160deg,#C2412D,#7E0013 60%,#2B0A0E)',
-   zones:[{z:'บัตรวันเดียว',p:1800,left:420,c:'var(--zone-1)'},{z:'บัตร 2 วัน',p:3200,left:150,c:'var(--zone-2)'}],sold:58},
-  {id:'fan',name:'Starlight Fan Meeting in Bangkok',short:'STAR\nLIGHT',tag:'แฟนมีตติ้ง',date:'อา. 13 ธ.ค. 2569',time:'17:30',venue:'ธันเดอร์โดม เมืองทองธานี',bg:'linear-gradient(150deg,#D6455A,#A00018 45%,#3D0710)',
-   zones:[{z:'Zone C',p:2900,left:0,c:'var(--zone-1)'},{z:'Zone B',p:4200,left:31,c:'var(--zone-2)'},{z:'Hi-Touch A',p:6900,left:4,c:'var(--zone-3)'}],sold:97},
-  {id:'standup',name:'Late Night Stand-up Special',short:'LATE\nNIGHT',tag:'สแตนด์อัป',date:'ศ. 9 ม.ค. 2570',time:'20:00',venue:'สามย่านมิตรทาวน์ ฮอลล์',bg:'linear-gradient(130deg,#8A1020,#2A0A0D)',
-   zones:[{z:'Regular',p:1500,left:240,c:'var(--zone-1)'},{z:'Front Row',p:2600,left:22,c:'var(--zone-2)'}],sold:41},
-];
+/* The catalog is always loaded from D1. There is no browser-only event fallback. */
+let BASE_EVENTS=[];
 let EVENTS=BASE_EVENTS;
-// organizer events that left the buyer list (cancelled / ended) still resolve, so tickets for them keep rendering
-const evById=id=>{const o=demoOrg();return EVENTS.find(e=>e.id===id)||(o&&isLocal(id)&&o.events.find(e=>e.id===id)?toBuyerEvent(o.events.find(e=>e.id===id)):undefined)};
-// the organizer demo state (localStorage); while a real shop is open in organizer mode it waits in S.orgDemo
-const demoOrg=()=>S.org&&S.org.live?S.orgDemo:S.org;
+const evById=id=>EVENTS.find(e=>e.id===id);
 // buyer screens put event and zone names straight into HTML, so text an organizer typed is escaped here (poster() escapes its own tag/short)
 const escName=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toBuyerEvent(ev){
   const b=OL.toBuyerEvent(ev);
   return {...b,name:escName(b.name),venue:escName(b.venue),zones:b.zones.map(z=>({...z,z:escName(z.z)}))};
 }
-const isLocal=id=>String(id||'').startsWith('org-');
 
 /* ---------- state ---------- */
 const S={
-  auth:{google:false},signedIn:false,user:{name:'ชนกานต์',email:'chonnakarn@gmail.com',wallet:'0x4B21c7aE90F3d18b52A6e4c0F7D93a1B2e8C5d07'},
-  tab:'home',stack:['home'],ev:'neon',zone:0,qty:1,pay:'promptpay',
+  auth:{google:false},signedIn:false,  user:{name:'',email:'',wallet:''},
+  tab:'home',stack:['home'],ev:'',zone:0,qty:1,pay:'stripe',
   tickets:[],
   q:'',cat:'ทั้งหมด',mcat:'all',
-  listings:[
-    {lid:1,ev:'fan',zone:'Zone B',face:4200,price:4600,seller:'0x91aD…3F0c',transfers:1,tid:1182},
-    {lid:2,ev:'neon',zone:'VIP Front',face:5500,price:6200,seller:'0x2C77…e19A',transfers:0,tid:66},
-    {lid:3,ev:'fan',zone:'Zone C',face:2900,price:2900,seller:'0x5bE0…7712',transfers:0,tid:2045},
-  ],
+  listings:[],
   sel:null,qrTimer:null,payTimer:null,nextTid:1311,buyingListing:null,ticketView:'qr',mtab:'active',
   mode:'buyer',org:null,
 };
 const short=a=>a.slice(0,6)+'…'+a.slice(-4);
 
-/* ---------- saved state (this browser only) ---------- */
-const KEY='jongloei-demo-v1';
-function save(){
-  // S.org.shop is the live copy of the signed-in organizer's shop; keep the shops list in step before writing
-  if(S.org&&S.org.shop&&S.org.shops)S.org.shops=S.org.shops.map(s=>s.id===S.org.shop.id?S.org.shop:s);
-  // a real shop (S.org.live) is never written here; only the wish to reopen it after a reload
-  const live=!!(S.org&&S.org.live)||!!S.orgLive;
-  try{localStorage.setItem(KEY,JSON.stringify({signedIn:S.signedIn,tickets:S.tickets,listings:S.listings,nextTid:S.nextTid,left:BASE_EVENTS.map(e=>e.zones.map(z=>z.left)),mode:S.mode,org:demoOrg(),orgLive:live}))}catch(_){}
-}
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(!d)return;
-  Object.assign(S,{signedIn:!!d.signedIn,tickets:d.tickets||[],listings:d.listings||S.listings,nextTid:d.nextTid||S.nextTid,mode:d.mode==='org'?'org':'buyer',org:d.org||null,orgLiveWanted:!!d.orgLive});
-}catch(_){}}
+/* ---------- server-backed state ---------- */
+const save=()=>{};
+const load=()=>{};
 async function loadEvents(){
-  if(!/^https?:$/.test(location.protocol))return;
+  if(!/^https?:$/.test(location.protocol)){toast('กรุณาเปิดเว็บผ่าน URL ของ Worker');return}
   try{
     const response=await fetch('/api/events',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/events');
-    if(!Array.isArray(data)||!data.length)throw new Error('empty_event_list');
+    if(!Array.isArray(data))throw new Error('invalid_event_list');
     BASE_EVENTS=data;refreshEvents();
   }catch(err){
     console.error('Event API failed',err);
-    toast('โหลดรายการงานจากระบบไม่สำเร็จ กำลังใช้ข้อมูลสำรอง');
+    BASE_EVENTS=[];refreshEvents();toast('โหลดรายการงานจากระบบไม่สำเร็จ กรุณาลองใหม่');
   }
 }
 const initial=()=>[...String(S.user.name||S.user.email||'?').trim()][0]||'?';
@@ -968,14 +942,10 @@ function orgSeed(now){
     oev:null,etab:'overview',evFilter:'all',draft:null,wizStep:1,wizErr:{},onboard:{step:1,data:{}},bq:'',bzone:'all',bstatus:'all',showEmails:false};
 }
 function ensureOrg(){
-  if(!S.org||!Array.isArray(S.org.events)||!S.org.accounts){S.org=orgSeed(Date.now());if(!S.listings.some(l=>l.orgTicketId))S.listings.push({...SEED_LISTING})}
-  refreshEvents();
+  return S.org;
 }
 function refreshEvents(){
-  const o=demoOrg();
-  const pub=o?o.events.filter(e=>['on_sale','sold_out','paused'].includes(e.status)).map(e=>toBuyerEvent(e)):[];
-  const loaded=new Set(BASE_EVENTS.map(e=>e.id));
-  EVENTS=BASE_EVENTS.concat(pub.filter(e=>!loaded.has(e.id)));
+  EVENTS=BASE_EVENTS;
 }
 const orgEv=id=>S.org.events.find(e=>e.id===id);
 function replaceOrgEvent(ev){S.org.events=S.org.events.map(e=>e.id===ev.id?ev:e);refreshEvents()}
@@ -983,10 +953,9 @@ function orgPerson(id){if(id==='me')return {name:S.user.name,email:S.user.email,
 function ledgerAdd(x){if(S.org.ledger.some(l=>l.idempotencyKey===x.idempotencyKey))return false;S.org.ledger.push({id:x.idempotencyKey,status:'DONE',...x});return true}
 function setMode(mode){
   stopTimers();closeSheet();
-  // the real shop steps aside while the buyer side runs, so buyer code only ever sees the demo organizer state
   const leavingLiveOrg=mode==='buyer'&&S.org&&S.org.live;
-  if(leavingLiveOrg){S.orgLive=S.org;S.org=S.orgDemo;S.orgDemo=null;refreshEvents()}
-  else if(mode==='org'&&S.orgLive){S.orgDemo=S.org;S.org=S.orgLive;S.orgLive=null}
+  if(leavingLiveOrg){S.orgLive=S.org;S.org=null}
+  else if(mode==='org'&&S.orgLive){S.org=S.orgLive;S.orgLive=null}
   S.mode=mode;S.tab=mode==='org'?'orgDash':'home';S.stack=[S.tab];render();
   if(leavingLiveOrg)loadEvents().then(render).catch(err=>console.error('Buyer event refresh failed',err));
 }
@@ -1099,7 +1068,7 @@ home(){
     ${cur?`<span class="mark" aria-hidden="true" translate="no">${esc(cur.short)}</span>
     <div class="hero-in ev"><span class="date num">${cur.date}</span><h2>${cur.name}</h2><p class="num">${cur.date} · ${cur.time} · ${cur.venue}</p>
       <button class="cta num" data-ev="${cur.id}">ซื้อตั๋ว เริ่มต้น ${fmt(minPrice(cur))}<svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div>`
-    :`<div class="hero-in"><h2>ตั๋วงานที่ปลอมไม่ได้ ขายต่อได้อย่างยุติธรรม</h2><p>จ่ายด้วย PromptPay ไม่มีค่าบริการ · งานยกเลิกคืนเงินอัตโนมัติ · ขายต่อในแอปได้ไม่เกิน 1.25 เท่าของราคาหน้าบัตร</p>
+    :`<div class="hero-in"><h2>ตั๋วงานที่ปลอมไม่ได้ ขายต่อได้อย่างยุติธรรม</h2><p>จ่ายผ่าน Stripe Checkout · งานยกเลิกคืนเงินอัตโนมัติ · ขายต่อในแอปได้ไม่เกิน 1.25 เท่าของราคาหน้าบัตร</p>
       <button class="cta" data-act="seeall">ดูงานทั้งหมด<svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div>`}
     <div class="hero-ctl"><button class="arw l" data-slide="-1" aria-label="สไลด์ก่อนหน้า"><svg><use href="#i-back"/></svg></button>
       <div class="dots" role="group" aria-label="เลือกสไลด์">${slides.map((s,k)=>`<button data-slideto="${k}" aria-pressed="${k===i}" aria-label="${k?'สไลด์ '+(k+1)+': '+esc(s.name):'สไลด์ 1: แนะนำเว็บ'}"><span></span></button>`).join('')}</div>
@@ -1132,7 +1101,7 @@ event(){
   const z=e.zones[S.zone];
   const owned=S.tickets.filter(t=>t.ev===e.id).length,cap=Math.max(0,4-owned);
   if(S.qty>Math.max(1,cap))S.qty=Math.max(1,cap);
-  const local=isLocal(e.id),sub=z.p*S.qty,fee=local?0:Math.round(sub*0.03);
+  const sub=z.p*S.qty,fee=Math.round(sub*0.03);
   const off=cap===0||z.left<=0||e.paused;
   const cta=e.paused?'ปิดรับชั่วคราว':cap===0?'ครบ 4 ใบต่อบัญชีแล้ว':z.left<=0?'โซนนี้ขายหมด':'ไปชำระเงิน';
   const rows=e.zones.map((zz,i)=>{const on=i===S.zone&&zz.left>0&&!e.paused;return `<button class="zr" role="radio" aria-checked="${on}" data-zone="${i}" ${zz.left===0||e.paused?'disabled':''}>
@@ -1156,7 +1125,7 @@ event(){
         <div><svg aria-hidden="true"><use href="#i-shield"/></svg><div><b>ตั๋วปลอมไม่ได้</b><p>ตรวจได้ว่าใครเป็นเจ้าของ</p></div></div>
         <div><svg aria-hidden="true"><use href="#i-swap"/></svg><div><b>ขายต่อได้ไม่เกิน 1.25×</b><p><button class="lnk" style="font-size:13px" data-act="rules">อ่านเงื่อนไขขายต่อ</button></p></div></div>
         <div><svg aria-hidden="true"><use href="#i-refund"/></svg><div><b>งานยกเลิก คืนเงินอัตโนมัติ</b><p>ได้คืนเท่าที่จ่ายจริง</p></div></div>
-        <div><svg aria-hidden="true"><use href="#i-qrpay"/></svg><div><b>จ่ายด้วย PromptPay</b><p>ไม่ต้องส่งสลิป ไม่มีค่า gas</p></div></div>
+        <div><svg aria-hidden="true"><use href="#i-card"/></svg><div><b>จ่ายผ่าน Stripe Checkout</b><p>ชำระเงินอย่างปลอดภัยบน Stripe</p></div></div>
       </section>
       <section aria-labelledby="h-about" style="display:flex;flex-direction:column;gap:8px"><h2 id="h-about" class="h2">เกี่ยวกับงาน</h2><p class="muted" style="margin:0;font-size:15px">${esc(about)}</p></section>
       <section class="vstack d-hide" aria-labelledby="h-zones-m"><h2 id="h-zones-m" class="h2">เลือกโซน</h2>${zones}</section>
@@ -1166,7 +1135,7 @@ event(){
       <div class="vstack d-hide" style="gap:2px"><span class="small muted">โซนที่เลือก</span><b style="font-family:var(--f-display);font-size:18px">${z.left>0?z.z:'—'}</b></div>
       <div class="qtyrow"><div style="display:flex;flex-direction:column"><span style="font-weight:500">จำนวน</span><span class="small muted num">${owned?'มีแล้ว '+owned+' ใบ · ':''}ซื้อได้อีก ${cap} ใบ (ไม่เกิน 4 ใบต่อคน)</span></div>
         <div class="stepper"><button data-q="-1" aria-label="ลดจำนวน" ${S.qty<=1?'disabled':''}><svg width="18" height="18"><use href="#i-minus"/></svg></button><output class="num" aria-live="polite">${S.qty}</output><button data-q="1" aria-label="เพิ่มจำนวน" ${S.qty>=cap?'disabled':''}><svg width="18" height="18"><use href="#i-plus"/></svg></button></div></div>
-      <dl class="sum num"><dt>${z.z} × ${S.qty}</dt><dd>${fmt(sub)}</dd><dt>ค่าบริการ${local?'':' 3%'}</dt><dd>${fmt(fee)}</dd><dt>ค่า gas</dt><dd>ฟรี</dd><dt class="tot">รวม</dt><dd>${fmt(sub+fee)}</dd></dl>
+      <dl class="sum num"><dt>${z.z} × ${S.qty}</dt><dd>${fmt(sub)}</dd><dt>ค่าบริการ 3%</dt><dd>${fmt(fee)}</dd><dt>ค่า gas</dt><dd>ฟรี</dd><dt class="tot">รวม</dt><dd>${fmt(sub+fee)}</dd></dl>
       <button class="bigbtn m-hide" data-act="buy" ${off?'disabled':''}>${cta}${off?'':'<svg aria-hidden="true"><use href="#i-arrow"/></svg>'}</button>
       <p class="small muted" style="margin:0">เรากันที่นั่งให้ 10 นาทีหลังกดชำระเงิน</p>
     </aside>
@@ -1177,20 +1146,19 @@ checkout(){
   appbar('ตรวจสอบคำสั่งซื้อ');S.full=true;
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const zone=L?L.zone:e.zones[S.zone].z;const unit=L?L.price:buyUnit(e);const qty=L?1:S.qty;
-  const local=isLocal(e.id),face=L?L.price:e.zones[S.zone].p;
-  const sub=L?unit:buyTotal(e),fee=local||L?0:Math.round(sub*0.03),disc=face*qty-sub;   // organizer events: the shop pays the service fee (context.md 9); resale: the seller pays the 6% commission
+  const face=L?L.price:e.zones[S.zone].p;
+  const sub=L?unit:buyTotal(e),fee=L?0:Math.round(sub*0.03),disc=face*qty-sub;
   return `<div class="wrap narrow-w">
   ${titleRow('ตรวจสอบคำสั่งซื้อ')}
   <section class="ocard" aria-label="รายการที่ซื้อ">${thumb(e)}
     <div class="info"><b>${e.name}</b><span class="num muted">${e.date} · ${e.time} น.</span><span class="muted">${e.venue}</span><span class="num">จำนวน ${qty} ใบ</span>${L?'<span class="pill info" style="align-self:flex-start;margin-top:4px">ตั๋วขายต่อ</span>':''}</div>
     ${zchip(e,zone)}</section>
   <section class="sect"><h2>ช่องทางชำระเงิน</h2>
-    <button class="payopt" data-pay="stripe" aria-pressed="true"><span class="lg">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">จ่ายด้วย PromptPay หรือบัตรในหน้า Stripe</span></span><span class="rd"></span></button>
+    <button class="payopt" data-pay="stripe" aria-pressed="true"><span class="lg">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">ชำระด้วยวิธีที่เปิดใช้งานใน Stripe Sandbox</span></span><span class="rd"></span></button>
   </section>
-  ${local&&!L?`<div class="field"><label for="promo-input">โค้ดส่วนลด</label><div class="row"><input id="promo-input" value="${esc(S.promo&&S.promo.ev===e.id?S.promo.code:'')}" autocomplete="off" style="flex:1"><button class="btn plain" style="width:auto;padding:10px 14px;font-size:14px" data-o="promoApply">ใช้โค้ด</button></div><span class="hint" id="promo-msg" role="status">${S.promo&&S.promo.ev===e.id?esc(S.promo.msg):''}</span></div>`:''}
   <dl class="sum num" style="padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)">
     <dt>ราคาบัตร ${qty} ใบ</dt><dd>${fmt(face*qty)}</dd>${disc>0?`<dt class="disc">ส่วนลด</dt><dd>−${fmt(disc)}</dd>`:''}
-    <dt>ค่าบริการ${local||L?'':' 3%'}</dt><dd>${L?'ไม่มี (ผู้ขายจ่ายคอมมิชชัน)':fmt(fee)}</dd><dt>ค่า gas</dt><dd>ฟรี</dd><dt class="tot">ยอดชำระ</dt><dd>${fmt(sub+fee)}</dd></dl>
+    <dt>ค่าบริการ${L?'':' 3%'}</dt><dd>${L?'ไม่มี (ผู้ขายจ่ายคอมมิชชัน)':fmt(fee)}</dd><dt>ค่า gas</dt><dd>ฟรี</dd><dt class="tot">ยอดชำระ</dt><dd>${fmt(sub+fee)}</dd></dl>
   <button class="bigbtn" data-act="topay">ชำระเงิน</button>
   <p class="note">(กดแล้วเรากันที่นั่งให้ 10 นาที ระหว่างนี้ยังไม่มีการตัดเงิน)</p>
   </div>`;
@@ -1199,27 +1167,24 @@ pay(){
   appbar('จ่ายเงิน');S.full=true;
   const L=S.buyingListing;const e=evById(L?L.ev:S.ev);
   const qty=L?1:S.qty,zone=L?L.zone:e.zones[S.zone].z;
-  const sub=L?L.price:buyTotal(e);const total=sub+(isLocal(e.id)||L?0:Math.round(sub*0.03));
+  const sub=L?L.price:buyTotal(e);const total=sub+(L?0:Math.round(sub*0.03));
   return `<div class="wrap narrow-w ctr">
   ${titleRow('จ่ายเงิน')}
   <div style="display:flex;flex-direction:column;gap:4px"><p style="margin:0;font-size:15px">เรากันที่นั่งไว้ให้แล้ว</p><p class="cd">เหลือ <b id="paycd" class="num">10:00</b> ก่อนหมดเวลา</p></div>
-  <div class="qrcard"><div class="tqr"><span>THAI QR PAYMENT</span><span>PromptPay</span></div>
-    <canvas id="payqr" width="29" height="29" aria-label="QR PromptPay"></canvas>
-    <div style="line-height:1.3"><div style="font-size:13px;color:#6E6265">บจก. จองเลย (ตัวอย่าง)</div><div class="amt num">${fmt(total)}</div></div></div>
+  <div class="card"><b>Stripe Checkout</b><p class="small muted">ยอดชำระ ${fmt(total)} · ระบบจะเปิดหน้าชำระเงินของ Stripe</p></div>
   <dl class="rows num"><dt style="font-weight:600">${e.name}</dt><dd style="font-weight:600">${fmt(total)}</dd><dt>ที่นั่ง ${esc(zone)}</dt><dd>จำนวน ${qty} ใบ</dd></dl>
-  <p class="small muted" style="margin:0">เปิดแอปธนาคาร สแกน QR ยอดเงินขึ้นให้อัตโนมัติ ไม่ต้องส่งสลิป ระบบตรวจยอดให้เอง</p>
+  <p class="small muted" style="margin:0">Stripe จะยืนยันการชำระเงินผ่าน webhook ก่อนออกตั๋ว</p>
   <div class="btncol"><button class="bigbtn" data-act="paid">ไปชำระเงินด้วย Stripe</button><button class="bigbtn plain" data-act="back">ยกเลิก</button></div>
   </div>`;
 },
 minting(){
   appbar('กำลังออกตั๋ว');S.full=true;
-  const pp=isLocal(S.buyingListing?S.buyingListing.ev:S.ev);
   return `<div class="wrap narrow-w ctr">
-  <span class="pill ok">${pp?'ชำระเงินสำเร็จ (จำลอง)':'ชำระเงินสำเร็จ'}</span>
+  <span class="pill ok">ชำระเงินสำเร็จ</span>
   <h1 class="ftitle">กำลังออกตั๋ว</h1><p class="muted" style="margin:0">ห้ามปิดหน้านี้ ใช้เวลาไม่เกิน 1 นาที</p>
   <ol class="steps" id="mintsteps">
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>${pp?'ได้รับเงินผ่าน PromptPay':'ได้รับเงินผ่าน Stripe'}</b><small>${pp?'ผู้ให้บริการชำระเงินแจ้งยอดมาแล้ว (จำลอง)':'ระบบได้รับการยืนยันจาก Stripe'}</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ตรวจยอดเงิน</b><small>${pp?'ยอด เลขอ้างอิง อายุคำสั่งซื้อ และไม่ซ้ำ':'ตรวจรายการที่ลงนามแล้วและไม่ซ้ำ'}</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ได้รับการยืนยันจาก Stripe</b><small>ระบบตรวจรายการที่ลงนามแล้วและไม่ซ้ำ</small></span></li>
+    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ตรวจยอดเงิน</b><small>ตรวจจำนวนเงิน สถานะ และอายุคำสั่งซื้อ</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ออกตั๋วบนบล็อกเชน</b><small>สร้างตั๋วที่ปลอมไม่ได้ และล็อกที่นั่งให้คุณ</small></span></li>
     <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ส่งเข้าบัญชีของคุณ</b><small class="mono">${short(S.user.wallet)}</small></span></li>
   </ol></div>`;
@@ -1331,7 +1296,6 @@ profile(){
       ${theme}
       <div class="pcard"><b class="small">สำหรับผู้ที่คุ้นเคยกับ wallet</b><span class="small muted">เชื่อมต่อ wallet ของคุณเอง หรือย้ายตั๋วออกไปเก็บที่อื่น ไม่จำเป็นสำหรับการใช้งานทั่วไป</span><button class="bigbtn plain" data-act="toast" data-msg="ฟีเจอร์นี้อยู่ในแผนพัฒนาถัดไป">เชื่อมต่อ wallet ของฉัน</button></div>
       <button class="bigbtn plain" data-act="logout">ออกจากระบบ</button>
-      <button class="lnk" data-act="reset" style="align-self:center">ล้างข้อมูลเดโมทั้งหมด</button>
     </div>
   </div></div>`;
 },
@@ -2203,22 +2167,15 @@ function xAnn(e){
 }
 // announcements a buyer should see on a ticket: whole event, or their own zone
 function ticketAnn(bt){
-  if(!bt||!isLocal(bt.ev)||!S.org)return '';
-  const ot=S.org.tickets.find(x=>x.ticketId===bt.orgTicketId),list=S.org.announcements.filter(a=>a.eventId===bt.ev&&(a.zone==='all'||(ot&&a.zone===ot.zoneId))).slice(-2).reverse();
-  return list.length?`<div class="card" style="display:flex;flex-direction:column;gap:6px" role="status"><b>ประกาศจากผู้จัด</b>${list.map(a=>`<div class="small">${esc(a.text)}<div class="muted">${OL.thaiDate(a.at)} · ${OL.thaiTime(a.at)} น.</div></div>`).join('')}</div>`:'';
+  return '';
 }
 // price a buyer pays per ticket for an organizer event, with an applied promo code (baht)
 function buyUnit(e){
-  const z=e.zones[S.zone];
-  if(isLocal(e.id)&&S.promo&&S.promo.ev===e.id){const r=OL.applyPromo(S.promo.code,S.org.promos,z.zoneId,Math.round(z.p*100),Date.now());if(r.ok)return r.price/100}
-  return z.p;
+  return e.zones[S.zone].p;
 }
 // total for S.qty tickets: a promo code with fewer uses left than S.qty discounts only that many (finishMint does the same per ticket)
 function buyTotal(e){
-  const z=e.zones[S.zone],unit=buyUnit(e);
-  if(unit===z.p)return unit*S.qty;
-  const p=S.org.promos.find(x=>x.code===S.promo.code),n=Math.min(S.qty,Math.max(0,p.maxUses-(p.used||0)));
-  return unit*n+z.p*(S.qty-n);
+  return buyUnit(e)*S.qty;
 }
 
 const wizGo=step=>{wizCollect();S.org.wizStep=step;S.org.wizShow=false;render()};
@@ -2433,13 +2390,13 @@ orgWelcome(){
   appbar('สำหรับผู้จัดงาน');S.full=true;
   return `<section class="ohero"><div class="in"><h1>ขายตั๋วโดยไม่ต้องตรวจสลิป ไม่ต้องตามเงินคืนเอง</h1>
       <p>สำหรับร้าน บาร์ ผู้จัด pop-up ครู workshop และทีมจัดแฟนมีต ที่ไม่มีทีมไอที ตั้งงานเสร็จในไม่กี่นาที</p>
-      ${S.auth.google?`<div class="acts"><button class="pri" data-o="orgLive">สมัครร้านหรือเข้าสู่ระบบด้วย Google</button><button class="sec" data-o="orgSignup">ลองเดโม</button></div>
-      <p class="small">${S.signedIn?'ใช้บัญชี '+esc(S.user.email)+' ที่เข้าสู่ระบบอยู่':'ระบบจะพาไปเข้าสู่ระบบ Google ก่อน'} · ร้านและงานถูกบันทึกจริง ส่วนเดโมเก็บข้อมูลไว้ในเบราว์เซอร์นี้</p>`
-      :'<div class="acts"><button class="pri" data-o="orgSignup">สมัครร้าน</button><button class="sec" data-o="orgLogin">เข้าสู่ระบบผู้จัด</button></div>'}</div></section>
+      <div class="acts"><button class="pri" data-o="orgLive">สมัครร้านหรือเข้าสู่ระบบด้วย Google</button></div>
+      <p class="small">${S.signedIn?'ใช้บัญชี '+esc(S.user.email)+' ที่เข้าสู่ระบบอยู่':'ระบบจะพาไปเข้าสู่ระบบ Google ก่อน'} · ร้านและงานถูกบันทึกในระบบจริง</p>
+      </div></section>
   <div class="wrap"><div class="wgrid">
     <section aria-labelledby="h-why" style="display:flex;flex-direction:column;gap:16px"><h2 id="h-why" class="h2">สิ่งที่ระบบทำแทนคุณ</h2>
       <ol class="benefits">
-        <li><span class="n num">1</span><div><b>ตรวจเงินให้เอง</b><p>ผู้ซื้อจ่ายผ่าน PromptPay ระบบยืนยันยอดกับผู้ให้บริการชำระเงิน ไม่ต้องเปิดดูสลิปทีละใบ</p></div></li>
+        <li><span class="n num">1</span><div><b>ตรวจเงินให้เอง</b><p>ผู้ซื้อจ่ายผ่าน Stripe ระบบยืนยันยอดอัตโนมัติ ไม่ต้องเปิดดูสลิปทีละใบ</p></div></li>
         <li><span class="n num">2</span><div><b>ยกเลิกงานแล้วคืนเงินให้ทุกคน</b><p>ฝนตก ศิลปินป่วย กดยกเลิกครั้งเดียว ผู้ซื้อทุกคนได้เงินคืนเท่าที่จ่ายจริงอัตโนมัติ</p></div></li>
         <li><span class="n num">3</span><div><b>ไม่มีตั๋วผี ไม่มีราคาโก่ง</b><p>ตั๋วขายต่อได้เฉพาะในระบบ ราคาไม่เกิน 1.25 เท่า และสแกนเข้างานได้แค่คนที่ถือตั๋วจริง</p></div></li>
       </ol></section>
@@ -2447,8 +2404,6 @@ orgWelcome(){
       <aside class="pcard" aria-labelledby="h-fee"><h2 id="h-fee" style="font-size:18px">ค่าบริการ</h2><p style="margin:0">5 บาท + 3% ต่อใบ เก็บจากร้าน ผู้ซื้อไม่เสียเพิ่ม</p>
         <dl class="fee num"><dt>ตั๋ว</dt><dd>1,000฿</dd><dt>ค่าบริการ</dt><dd>35฿</dd><dt class="t">คุณได้รับต่อใบ</dt><dd>965฿</dd></dl>
         <p class="small muted" style="margin:0">ไม่มีค่าแรกเข้า ไม่มีรายเดือน รับเงิน 24 ชม. หลังงานจบ</p></aside>
-      <div class="pcard"><b class="small">ลองด้วยบัญชีตัวอย่าง (เดโม)</b>
-        <button class="btn plain" data-o="useDemoShop">เจ้าของร้าน Rooftop 88</button><button class="btn plain" data-o="demoManager">ผู้จัดการ</button><button class="btn plain" data-o="demoGate">พนักงานหน้างาน</button><button class="btn plain" data-o="adminOpen">ทีมงาน JONGLOEI (ตรวจร้าน)</button></div>
     </div>
   </div></div>`;
 },
@@ -2723,11 +2678,11 @@ async function live(fn,onErr){
   }finally{liveBusy=false}
 }
 async function orgLiveStart(){
-  if(!S.auth.google){toast('ระบบจริงใช้ได้เมื่อเปิดผ่านเว็บไซต์ JONGLOEI');return}
+  if(!S.auth.google){googleLogin();return}
   if(!S.signedIn){S.orgLiveWanted=true;S.afterSignup='orglive';googleLogin();return}
   await live(async()=>{
     const me=await orgApi('GET','/api/org/me');
-    if(!(S.org&&S.org.live)){if(!S.orgLive)ensureOrg();S.orgLive=null;S.orgDemo=S.org}
+    if(!(S.org&&S.org.live)){S.orgLive=null}
     S.org=liveOrgState(me);S.orgLiveWanted=true;
     if(S.org.shop)await orgLiveReload();
     stopTimers();closeSheet();S.mode='org';
@@ -2736,8 +2691,8 @@ async function orgLiveStart(){
   });
 }
 function orgLiveStop(){
-  if(S.org&&S.org.live){S.org=S.orgDemo;S.orgDemo=null}
-  S.orgLive=null;S.orgLiveWanted=false;if(!S.org)ensureOrg();refreshEvents();save();
+  if(S.org&&S.org.live)S.org=null;
+  S.orgLive=null;S.orgLiveWanted=false;refreshEvents();save();
 }
 function replaceLive(se){
   const o=S.org,ev=fromServerEvent(se,o.shop.id);
@@ -2888,8 +2843,7 @@ const AFTER={
     const f=$('#gate-form');if(f)f.addEventListener('submit',ev=>{ev.preventDefault();orgAct('gateCode',f,ev)});
   },
   pay(){
-    drawQR($('#payqr'),'pp'+Date.now());
-    let s=600;S.payTimer=setInterval(()=>{s--;const el=$('#paycd');if(!el)return;el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');if(s<=0){clearInterval(S.payTimer);el.textContent='หมดอายุ';const pb=document.querySelector('[data-act="paid"]');if(pb)pb.outerHTML='<button class="bigbtn" data-act="newqr">สร้าง QR ใหม่</button>'}},1000);
+    S.payTimer=null;
   },
   minting(){
     const lis=[...document.querySelectorAll('#mintsteps li')];let i=0;
@@ -2931,7 +2885,7 @@ function finishMint(){
   }else{
     const e=evById(S.ev);const z=e.zones[S.zone];
     let sold=null;
-    if(isLocal(e.id)){
+    if(false){
       const r=OL.recordPrimarySale(orgEv(e.id),z.zoneId,S.qty,'me',S.tickets.filter(x=>x.ev===e.id).length,Date.now());
       if(!r.ok){toast({sold_out:'ที่นั่งโซนนี้ไม่พอแล้ว',over_limit:'ซื้อได้ไม่เกิน 4 ใบต่อบัญชี',not_on_sale:'งานนี้ปิดรับชั่วคราว',invalid_qty:'จำนวนตั๋วไม่ถูกต้อง'}[r.reason]);S.stack=['home','event'];S.tab='home';render();return}
       if(S.promo&&S.promo.ev===e.id)for(const ot of r.tickets){const res=OL.applyPromo(S.promo.code,S.org.promos,ot.zoneId,ot.hops[0].paid,Date.now());
@@ -3026,23 +2980,10 @@ function openSignup(after){
   S.afterSignup=after||null;
   sheet(`<div class="row" style="gap:12px"><svg width="44" height="44"><use href="#logo"/></svg><div><h2 style="font-size:19px">เข้าสู่ระบบ JongLoei</h2><div class="small muted">ซื้อ ขาย และเก็บตั๋วไว้ในที่เดียว</div></div></div>
   <button class="social" data-act="google"><span class="g" style="background:#4285F4">G</span>ดำเนินการต่อด้วย Google</button>
-  <button class="social" data-act="otp">ใช้อีเมลและรหัส OTP</button>
+  <p class="small muted" style="margin:0;text-align:center">เข้าสู่ระบบด้วย Google เพื่อใช้งานบัญชีและรับตั๋วจากระบบ</p>
   <p class="small muted" style="margin:0;text-align:center">ไม่ต้องมี wallet ระบบจะสร้างกระเป๋าตั๋วให้คุณอัตโนมัติ</p>
   <div style="text-align:center"><button class="linkbtn" data-act="toast" data-msg="การเชื่อมต่อ wallet เดิมอยู่ในแผนพัฒนาถัดไป">มี wallet อยู่แล้ว? เชื่อมต่อ wallet</button></div>
   <div class="card row between" style="gap:12px"><div class="small"><b>จัดงานเองใช่ไหม?</b><br><span class="muted">สมัครหรือเข้าสู่ระบบด้วยบัญชีผู้จัดงาน แยกจากบัญชีผู้ซื้อ</span></div><button class="btn ghost" style="width:auto;padding:10px 14px;font-size:14px;white-space:nowrap" data-act="orgmode">สำหรับผู้จัดงาน</button></div>`);
-}
-function walletCreating(){
-  sheet(`<h2 style="font-size:19px;text-align:center">กำลังเตรียมบัญชีของคุณ</h2>
-  <ol class="steps" id="wsteps">
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>ยืนยันตัวตนกับ Google</b><small>${esc(S.user.email)}</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>สร้างกระเป๋าตั๋ว (wallet) ให้อัตโนมัติ</b><small>ผ่าน thirdweb ไม่ต้องจำ seed phrase</small></span></li>
-    <li><span class="s"><svg><use href="#i-check"/></svg></span><span><b>พร้อมใช้งาน</b><small class="mono">${short(S.user.wallet)}</small></span></li>
-  </ol><div id="wdone"></div>`);
-  const lis=[...document.querySelectorAll('#wsteps li')];let i=0;lis[0].classList.add('active');
-  const iv=setInterval(()=>{if(!document.contains(lis[0])){clearInterval(iv);return}
-    lis[i].classList.remove('active');lis[i].classList.add('done');i++;
-    if(i<lis.length)lis[i].classList.add('active');
-    else{clearInterval(iv);S.signedIn=true;$('#wdone').innerHTML=`<button class="btn" data-act="signedin">เริ่มใช้งาน</button>`}},900);
 }
 function openResell(){
   const t=S.sel,cap=Math.floor(t.price*1.25),cut=v=>Math.round(v*6)/100;
@@ -3056,10 +2997,6 @@ function openResell(){
   $('#rprice').addEventListener('input',ev=>{const v=+ev.target.value||0;const ok=v>0&&v<=cap;
     $('#rhint').className='hint'+(ok?'':' err');$('#rhint').textContent=ok?`ราคาหน้าบัตร ${fmt(t.price)} · ตั้งได้สูงสุด ${fmt(cap)} (125%)`:`ตั้งราคาได้ระหว่าง 1฿ ถึง ${fmt(cap)} เพื่อป้องกันการโก่งราคา`;
     $('#rfee').textContent=fmt(cut(v));$('#rget').textContent=fmt(v-cut(v));$('#rlist').disabled=!ok});
-}
-function openReset(){
-  sheet(`<h2 style="font-size:20px">ล้างข้อมูลเดโม?</h2><p class="muted" style="margin:0">ตั๋ว รายการขายต่อ และประวัติทั้งหมดในเดโมนี้จะถูกล้าง แล้วเริ่มใหม่ ย้อนกลับไม่ได้</p>
-  <button class="btn org-danger-btn" data-act="doreset">ล้างข้อมูลเดโม</button><button class="btn plain" data-act="close">ยกเลิก</button>`);
 }
 function openRules(){
   sheet(`<h2 style="font-size:20px">เงื่อนไขการขายต่อ</h2>
@@ -3112,8 +3049,8 @@ $('#device').addEventListener('click',e=>{
     case 'viewticket':S.ticketView='qr';go('ticket');break;
     case 'tickets':go('tickets',true);break;
     case 'signup':openSignup();break;
-    case 'google':if(S.auth.google){googleLogin();return}walletCreating();break;
-    case 'otp':if(S.auth.google){toast('เข้าสู่ระบบด้วยอีเมลจะเปิดให้ใช้เร็วๆ นี้ ใช้ Google ไปก่อนได้เลย');return}walletCreating();break;
+    case 'google':googleLogin();break;
+    case 'otp':toast('กรุณาเข้าสู่ระบบด้วย Google');break;
     case 'signedin':closeSheet();toast('สร้างกระเป๋าตั๋วเรียบร้อย');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;resumeAfter(n);}else render();break;
     case 'resell':openResell();break;
     case 'transfer':openTransfer();break;
@@ -3132,8 +3069,6 @@ $('#device').addEventListener('click',e=>{
     case 'seeall':case 'searchgo':{if(S.stack[S.stack.length-1]!=='home')go('home',true);const s=$('#onsale');if(s)s.scrollIntoView({behavior:'smooth',block:'start'});break}
     case 'rules':openRules();break;
     case 'newqr':render();break;
-    case 'reset':openReset();break;
-    case 'doreset':try{localStorage.removeItem(KEY)}catch(_){}location.reload();break;
     case 'hidenote':S.hideMarketNote=true;render();break;
     case 'theme':{const light=document.documentElement.dataset.theme!=='light';if(light)document.documentElement.dataset.theme='light';else delete document.documentElement.dataset.theme;try{localStorage.setItem('jongloei-theme',light?'light':'dark')}catch(_){}render();break}
     case 'logout':if(S.auth.google)fetch('/auth/logout',{method:'POST',credentials:'same-origin'}).catch(()=>{});S.signedIn=false;save();go('home',true);break;
@@ -3233,12 +3168,11 @@ async function checkAuth(){
   if(S.orgLiveWanted&&me.user&&S.mode==='org'&&!(S.org&&S.org.live))orgLiveStart();
   loadMyTickets();
   handleCheckoutReturn();
-  if(result==='new'&&me.user)walletCreating();
-  else if(result==='ok'&&me.user){toast('เข้าสู่ระบบแล้ว');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;resumeAfter(n)}}
+  if(result==='ok'&&me.user){toast('เข้าสู่ระบบแล้ว');if(S.afterSignup){const n=S.afterSignup;S.afterSignup=null;resumeAfter(n)}}
   else if(result==='error')toast('เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง');
 }
 
-/* tickets minted by the Worker after a verified payment (GET /api/tickets) */
+/* Tickets minted by the Worker after a verified Stripe payment (GET /api/tickets). */
 function realTicket(t){
   return {key:t.id,tid:t.tokenId??'…',ev:t.eventId,zone:t.zone,price:t.price,
     status:t.status==='minting'||t.status==='mint_failed'?'active':t.status,
@@ -3257,8 +3191,8 @@ async function loadMyTickets(){
   }catch(err){console.error('Ticket API failed',err)}
 }
 
-/* resale on the Worker (src/resale.js); demo listings stay in S.listings for file:// and demo login */
-function marketListings(){return S.auth.google?(S.realListings||[]):S.listings}
+/* Resale listings are always loaded from the Worker. */
+function marketListings(){return S.realListings||[]}
 async function loadResale(){
   try{
     const [market,mine]=await Promise.all(['/api/resale/listings','/api/resale/listings?mine=1'].map(u=>fetch(u,{credentials:'same-origin'}).then(r=>r.ok?r.json():{listings:[]})));
