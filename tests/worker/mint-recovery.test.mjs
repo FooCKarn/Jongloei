@@ -88,7 +88,7 @@ test('thirdweb stuck on a mint that landed: the ticket is read from the chain', 
 });
 
 test('a just-queued mint waits for thirdweb without reading the chain', async () => {
-  const { DB, env } = setup({ age: 1 * MIN });
+  const { DB, env } = setup({ age: 20000 });
   const sent = mockNetwork({ status: 'SUBMITTED', minted: [[9, 4]] });
   await cron(env);
   assert.equal(order(DB).status, 'paid');
