@@ -983,9 +983,11 @@ function ledgerAdd(x){if(S.org.ledger.some(l=>l.idempotencyKey===x.idempotencyKe
 function setMode(mode){
   stopTimers();closeSheet();
   // the real shop steps aside while the buyer side runs, so buyer code only ever sees the demo organizer state
-  if(mode==='buyer'&&S.org&&S.org.live){S.orgLive=S.org;S.org=S.orgDemo;S.orgDemo=null;refreshEvents()}
+  const leavingLiveOrg=mode==='buyer'&&S.org&&S.org.live;
+  if(leavingLiveOrg){S.orgLive=S.org;S.org=S.orgDemo;S.orgDemo=null;refreshEvents()}
   else if(mode==='org'&&S.orgLive){S.orgDemo=S.org;S.org=S.orgLive;S.orgLive=null}
   S.mode=mode;S.tab=mode==='org'?'orgDash':'home';S.stack=[S.tab];render();
+  if(leavingLiveOrg)loadEvents().then(render).catch(err=>console.error('Buyer event refresh failed',err));
 }
 // the organizer area has its own account, so it never asks for the buyer's Google sign-in
 function enterOrg(){if(S.orgLiveWanted&&S.signedIn&&!S.orgLive&&!(S.org&&S.org.live))orgLiveStart();else setMode('org')}
@@ -1599,8 +1601,9 @@ const ORG_ACTIONS={
   },
   teamRemove(el){const sh=S.org.shop;sh.team=sh.team.filter(m=>m.email!==el.dataset.email||m.role==='owner');render()},
   newEvent(){
+    if(!S.org.live){orgLiveStart();return}
     const hr=Math.ceil(Date.now()/HOUR)*HOUR;
-    S.org.draft={id:'org-'+Date.now().toString(36),shopId:S.org.shop.id,name:'',short:'',category:'ปาร์ตี้',description:'',venue:'',mapUrl:'',bg:POSTERS[0],status:'draft',cancelReason:'',
+    S.org.draft={id:'draft-'+Date.now().toString(36),shopId:S.org.shop.id,name:'',short:'',category:'ปาร์ตี้',description:'',venue:'',mapUrl:'',bg:POSTERS[0],status:'draft',cancelReason:'',
       startAt:null,endAt:null,doorsAt:null,params:{...ORG_PARAMS},zones:[]};S.org.wizStep=1;S.org.wizErr={};go('orgWizard')},
   editEvent(el){const e=orgEv(el.dataset.id);S.org.draft=JSON.parse(JSON.stringify(e));S.org.wizStep=1;S.org.wizErr={};go('orgWizard')},
   evFilter(el){S.org.evFilter=el.dataset.v;render()},
@@ -2237,6 +2240,7 @@ Object.assign(ORG_ACTIONS,{
   wizSaveDraft(){wizCollect();wizUpsert();S.org.wizDirty=false;save();toast('บันทึกร่างแล้ว')},
   wizPublish(){
     wizCollect();const o=S.org,errs=wizErrors(),keys=Object.keys(errs);
+    if(String(o.draft?.id||'').startsWith('org-')){toast('งานใหม่ต้องสร้างในโหมดระบบจริง จึงจะเปิดขายและรับชำระผ่าน Stripe ได้');return}
     if(o.shop.verification!=='verified'){toast('เผยแพร่ได้หลังยืนยันร้าน');return}
     if(keys.length){o.wizShow=true;toast('ยังมี '+keys.length+' เรื่องที่ต้องแก้ก่อนเผยแพร่');render();return}
     const edited=!!wizOrig();const d=o.draft;if(!edited)d.status='on_sale';
@@ -2806,7 +2810,9 @@ const LIVE_ACTIONS={
   camToggle(){gateCam.stream?gateCamStop():gateCamStart()},
   callManager(){const r=document.getElementById('org-result');if(r)r.remove();toast('ระบบยังไม่ส่งแจ้งเตือนถึงผู้จัดการ ให้ติดต่อผู้จัดการโดยตรง')},
   gateCode(){const el=$('#gate-code');if(!el)return;const v=el.value;el.value='';gateCheck(v,true)},
-  evDuplicate(el){const src=orgEv(el.dataset.id),c=OL.duplicateEvent(src,'org-'+Date.now().toString(36));
+  evDuplicate(el){
+    if(!S.org.live){orgLiveStart();return}
+    const src=orgEv(el.dataset.id),c=OL.duplicateEvent(src,'draft-'+Date.now().toString(36));
     c.live=false;c.zones=c.zones.map(z=>({...z,live:false}));
     S.org.draft=JSON.parse(JSON.stringify(c));S.org.wizStep=1;S.org.wizErr={};toast('ทำซ้ำงานแล้ว ใส่วันเวลาใหม่ได้เลย');go('orgWizard')},
   async wizSaveDraft(){await live(async()=>{if(await liveWizSave()){toast('บันทึกแล้ว');render()}})},
