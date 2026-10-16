@@ -53,7 +53,7 @@ const MAX_MINT_ATTEMPTS = 3;
 // thirdweb can keep a mint "pending" after it landed (its bundler failing receipt lookups with
 // RECEIPT_QUERY_FAILED retries forever), so after a few minutes the mint is looked up on chain,
 // and after 30 minutes with nothing found the order goes to review instead of waiting forever.
-const MINT_CHAIN_CHECK_AFTER_MS = 3 * 60000;
+const MINT_CHAIN_CHECK_AFTER_MS = 60000;
 const MINT_REVIEW_AFTER_MS = 30 * 60000;
 const MINT_SCAN_MAX = 60; // token ids read per chain check; ids below the last settled order are skipped
 // Seats a buyer can still take in zone z: not sold (remaining, reduced on verified payment by
