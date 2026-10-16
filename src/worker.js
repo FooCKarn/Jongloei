@@ -73,7 +73,7 @@ export default {
       if (url.pathname === '/auth/google/callback' && request.method === 'GET') return callback(request, env);
       if (url.pathname === '/auth/logout' && request.method === 'POST') return logout(request, env);
       if (url.pathname === '/api/dev/test-mint' && request.method === 'POST') return testMint(request, env);
-      if (url.pathname.startsWith('/api/org/') || url.pathname === '/api/admin/hosts/verify') {
+      if (url.pathname.startsWith('/api/org/') || url.pathname.startsWith('/api/admin/hosts')) {
         return handleOrganizer(request, env, ctx, url, { currentUser, json, expireOrder, logEvent });
       }
       if (url.pathname.startsWith('/api/tickets/') || url.pathname.startsWith('/api/checkin/')) {
