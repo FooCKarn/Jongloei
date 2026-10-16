@@ -1184,8 +1184,7 @@ checkout(){
     <div class="info"><b>${e.name}</b><span class="num muted">${e.date} · ${e.time} น.</span><span class="muted">${e.venue}</span><span class="num">จำนวน ${qty} ใบ</span>${L?'<span class="pill info" style="align-self:flex-start;margin-top:4px">ตั๋วขายต่อ</span>':''}</div>
     ${zchip(e,zone)}</section>
   <section class="sect"><h2>ช่องทางชำระเงิน</h2>
-    ${local?`<button class="payopt" data-pay="promptpay" aria-pressed="true"><span class="lg">QR</span><span><b>PromptPay</b> <span class="pill warn">จำลอง</span><br><span class="small muted">งานจากผู้จัดในเดโม ไม่มีการตัดเงินจริง</span></span><span class="rd"></span></button>`
-    :`<button class="payopt" data-pay="promptpay" aria-pressed="true"><span class="lg">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">จ่ายด้วย PromptPay หรือบัตรในหน้า Stripe</span></span><span class="rd"></span></button>`}
+    <button class="payopt" data-pay="stripe" aria-pressed="true"><span class="lg">STRIPE</span><span><b>Stripe Checkout</b><br><span class="small muted">จ่ายด้วย PromptPay หรือบัตรในหน้า Stripe</span></span><span class="rd"></span></button>
   </section>
   ${local&&!L?`<div class="field"><label for="promo-input">โค้ดส่วนลด</label><div class="row"><input id="promo-input" value="${esc(S.promo&&S.promo.ev===e.id?S.promo.code:'')}" autocomplete="off" style="flex:1"><button class="btn plain" style="width:auto;padding:10px 14px;font-size:14px" data-o="promoApply">ใช้โค้ด</button></div><span class="hint" id="promo-msg" role="status">${S.promo&&S.promo.ev===e.id?esc(S.promo.msg):''}</span></div>`:''}
   <dl class="sum num" style="padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line-soft)">
@@ -1208,7 +1207,7 @@ pay(){
     <div style="line-height:1.3"><div style="font-size:13px;color:#6E6265">บจก. จองเลย (ตัวอย่าง)</div><div class="amt num">${fmt(total)}</div></div></div>
   <dl class="rows num"><dt style="font-weight:600">${e.name}</dt><dd style="font-weight:600">${fmt(total)}</dd><dt>ที่นั่ง ${esc(zone)}</dt><dd>จำนวน ${qty} ใบ</dd></dl>
   <p class="small muted" style="margin:0">เปิดแอปธนาคาร สแกน QR ยอดเงินขึ้นให้อัตโนมัติ ไม่ต้องส่งสลิป ระบบตรวจยอดให้เอง</p>
-  <div class="btncol">${isLocal(e.id)?`<button class="bigbtn" data-act="paid">จำลองการจ่ายเงิน (เดโม)</button>`:`<button class="bigbtn" data-act="paid">ไปชำระเงินด้วย Stripe</button>`}<button class="bigbtn plain" data-act="back">ยกเลิก</button></div>
+  <div class="btncol"><button class="bigbtn" data-act="paid">ไปชำระเงินด้วย Stripe</button><button class="bigbtn plain" data-act="back">ยกเลิก</button></div>
   </div>`;
 },
 minting(){
@@ -3105,8 +3104,7 @@ $('#device').addEventListener('click',e=>{
   const a=b.dataset.act;
   switch(a){
     case 'buy':S.buyingListing=null;if(!S.signedIn){openSignup('checkout');return}go('checkout');break;
-    case 'topay':if(isLocal(S.buyingListing?S.buyingListing.ev:S.ev))go('pay');else startStripeCheckout();break;
-    case 'paid':if(isLocal(S.buyingListing?S.buyingListing.ev:S.ev))go('minting');else startStripeCheckout();break;
+    case 'topay':case 'paid':startStripeCheckout();break;
     case 'orgmode':enterOrg();break;
     case 'back':back();break;
     case 'home':go('home',true);break;
