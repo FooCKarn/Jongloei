@@ -14,6 +14,7 @@
 //   POST /auth/logout            -> revoke the session
 //   POST /api/dev/test-mint      -> admin only: mint one test ticket to the caller's wallet
 //   /api/org/*, /api/admin/hosts -> organizer API, see src/organizer.js
+//   /api/resale/*                -> resale market and its checkout, see src/resale.js
 //
 // Secrets (set in Cloudflare, never committed): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 // THIRDWEB_SECRET_KEY, STRIPE_SECRET_KEY (prefer an rk_ restricted key), and
@@ -22,6 +23,9 @@
 // is made.
 
 import { handleOrganizer } from './organizer.js';
+import {
+  handleResale, confirmResalePayment, releaseResaleBySession, resaleCheckoutStatus, cancelResaleCheckout, resaleSweep,
+} from './resale.js';
 
 const SESSION_COOKIE = 'jl_session';
 const STATE_COOKIE = 'jl_oauth';
@@ -70,6 +74,7 @@ export default {
       if (url.pathname.startsWith('/api/org/') || url.pathname === '/api/admin/hosts/verify') {
         return handleOrganizer(request, env, ctx, url, { currentUser, json, expireOrder, logEvent });
       }
+      if (url.pathname.startsWith('/api/resale/')) return handleResale(request, env, ctx, url, resaleDeps);
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
         return json({ error: 'not_found' }, 404);
       }
@@ -218,7 +223,10 @@ async function checkoutStatus(request, env, ctx) {
     `SELECT id, event_id, zone, quantity, status, expires_at, mint_tx_id
      FROM payment_orders WHERE stripe_session_id = ? AND user_id = ?`,
   ).bind(sessionId, user.id).first();
-  if (!order) return json({ error: 'order_not_found' }, 404);
+  if (!order) {
+    const resale = await resaleCheckoutStatus(env, ctx, user, sessionId, resaleDeps);
+    return resale ? json(resale, 200, { 'cache-control': 'no-store' }) : json({ error: 'order_not_found' }, 404);
+  }
   // Keep the flow moving even when the cron trigger is not set up.
   if (order.status === 'paid') ctx.waitUntil(advanceOrder(env, order).catch(err => console.error('advance failed', err)));
   return json({
@@ -240,7 +248,7 @@ async function cancelCheckout(request, env, ctx) {
   const order = await env.DB.prepare(
     `SELECT id, stripe_session_id FROM payment_orders WHERE id = ? AND user_id = ? AND status = 'pending'`,
   ).bind(String(body?.orderId || ''), user.id).first();
-  if (!order) return json({ ok: true, released: false });
+  if (!order) return json({ ok: true, released: await cancelResaleCheckout(env, ctx, user, String(body?.orderId || ''), resaleDeps) });
   return json({ ok: true, released: await expireOrder(env, order, ctx) });
 }
 
@@ -286,13 +294,17 @@ async function stripeWebhook(request, env, ctx) {
     `INSERT INTO webhook_events (id, provider, type) VALUES (?, 'stripe', ?) ON CONFLICT DO NOTHING`,
   ).bind(event.id, event.type).run();
   if (!claim.meta.changes) return json({ received: true, duplicate: true });
+  // Resale orders live in their own table (src/resale.js); the metadata only picks the table,
+  // every check still runs on the session fetched again from Stripe.
+  const resale = session.metadata?.kind === 'resale';
   try {
     if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
-      await confirmPayment(env, ctx, session.id);
+      if (resale) await confirmResalePayment(env, ctx, session.id, resaleDeps);
+      else await confirmPayment(env, ctx, session.id);
     } else if (event.type === 'checkout.session.async_payment_failed') {
-      await releaseOrderBySession(env.DB, session.id, 'failed');
+      await (resale ? releaseResaleBySession : releaseOrderBySession)(env.DB, session.id, 'failed');
     } else if (event.type === 'checkout.session.expired') {
-      await releaseOrderBySession(env.DB, session.id, 'expired');
+      await (resale ? releaseResaleBySession : releaseOrderBySession)(env.DB, session.id, 'expired');
     }
   } catch (err) {
     console.error('stripe webhook failed', event.id, err && err.stack || err);
@@ -581,6 +593,10 @@ async function settleMint(env, orderId, polls = 1) {
 
 // Token ids minted to `wallet` by the ticket contract in this transaction (ERC-721 Transfer from 0x0).
 async function mintedTokenIds(env, txHash, wallet) {
+  return parseMintedTokenIds(await receiptLogs(env, txHash), TICKET_CONTRACT, wallet);
+}
+
+async function receiptLogs(env, txHash) {
   const res = await fetch(env.FUJI_RPC_URL || FUJI_RPC, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -588,8 +604,7 @@ async function mintedTokenIds(env, txHash, wallet) {
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) throw new Error(`fuji rpc ${res.status}`);
-  const logs = (await res.json())?.result?.logs || [];
-  return parseMintedTokenIds(logs, TICKET_CONTRACT, wallet);
+  return (await res.json())?.result?.logs || [];
 }
 
 function parseMintedTokenIds(logs, contract, wallet) {
@@ -635,6 +650,7 @@ async function scheduled(_controller, env, ctx) {
   ctx.waitUntil(Promise.all([
     expireHolds(env, ctx).catch(err => console.error('hold sweep failed', err && err.stack || err)),
     advancePaidOrders(env).catch(err => console.error('mint sweep failed', err && err.stack || err)),
+    resaleSweep(env, ctx, resaleDeps).catch(err => console.error('resale sweep failed', err && err.stack || err)),
   ]));
 }
 
@@ -969,6 +985,12 @@ async function currentUser(request, env) {
     wallet: row.wallet || null,
   };
 }
+
+// What src/resale.js uses from this file (function declarations are hoisted).
+const resaleDeps = {
+  currentUser, json, ensureWallet, stripeRequest, stripeGetSession, writeTicketContract, waitForTransaction,
+  receiptLogs, HOLD_MS, TICKET_CONTRACT, ERC721_TRANSFER_TOPIC,
+};
 
 /* ---------- helpers ---------- */
 
