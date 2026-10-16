@@ -105,13 +105,24 @@ test('resale: FAILED and still with the seller: freed for another attempt as bef
   assert.equal(order(DB).transfer_tx_id, null);
 });
 
+test('resale: thirdweb still pending right after sending, but already on chain: fulfilled at once', async () => {
+  const { DB, env } = setup();
+  resaleOrder(DB, 0);
+  const sent = mockNetwork({ status: 'SUBMITTED', owner: WALLET.buyer });
+  await cron(env);
+  assert.equal(order(DB).status, 'fulfilled');
+  assert.equal(ticket(DB, 't1').owner_wallet, WALLET.buyer);
+  assert.equal(sent.writes, 0);
+});
+
 test('resale: pending, not on chain: waits, then review after 30 min', async () => {
   let { DB, env } = setup();
   resaleOrder(DB, 1 * MIN);
   let sent = mockNetwork({ status: 'SUBMITTED' });
   await cron(env);
   assert.equal(order(DB).status, 'paid');
-  assert.equal(sent.chainReads, 0);
+  assert.equal(order(DB).transfer_tx_id, 'tw-tx-1');
+  assert.equal(sent.writes, 0);
 
   ({ DB, env } = setup());
   resaleOrder(DB, 31 * MIN);
