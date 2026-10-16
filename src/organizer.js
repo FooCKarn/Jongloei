@@ -15,7 +15,10 @@
 //   POST   /api/org/events/:id/publish     owner, manager: verified shops only; gives chain_event_id
 //   POST   /api/org/events/:id/cancel      owner: stop sales, release seat holds
 //   GET    /api/org/events/:id/orders      owner, manager: orders with masked e-mails
-//   POST   /api/admin/hosts/verify         admin: { userId, status: verified | rejected, note }
+//   PUT    /api/org/shop/document          owner: { name, mime, data (base64) } ID card / company certificate
+//   GET    /api/admin/hosts?status=        admin: review queue (pending by default, or verified | rejected | all)
+//   GET    /api/admin/hosts/:id/document   admin: the uploaded file
+//   POST   /api/admin/hosts/verify         admin: { userId, status: verified | rejected, note }; verifying needs a document
 //
 // Compatibility with the paid flow (0004/0005, src/worker.js):
 //   * Event ids start with "ev-". The mock-up treats "org-" ids as its own local demo events.
@@ -140,10 +143,13 @@ export async function handleOrganizer(request, env, ctx, url, deps) {
   const db = env.DB;
 
   if (path === '/api/admin/hosts/verify' && method === 'POST') return verifyHost(db, user, body, deps);
+  if (path === '/api/admin/hosts' && method === 'GET') return listHosts(db, user, url.searchParams.get('status'), deps);
+  const doc = path.match(/^\/api\/admin\/hosts\/([^/]+)\/document$/);
+  if (doc && method === 'GET') return hostDocument(db, user, decodeURIComponent(doc[1]), deps);
 
   const access = await hostAccess(db, user);
   if (path === '/api/org/me' && method === 'GET') {
-    return json({ user: { id: user.id, name: user.name, email: user.email }, shop: access && shopJson(access.shop), role: access?.role || null });
+    return json({ user: { id: user.id, name: user.name, email: user.email }, shop: access && shopJson(access.shop), role: access?.role || null, admin: user.role === 'admin' });
   }
   if (path === '/api/org/shop' && method === 'POST') return createShop(db, user, access, body, deps, request);
   if (!access) return json({ error: 'no_shop' }, 403);
@@ -151,6 +157,7 @@ export async function handleOrganizer(request, env, ctx, url, deps) {
   const forbidden = () => json({ error: 'forbidden' }, 403);
 
   if (path === '/api/org/shop' && method === 'PATCH') return allow('owner') ? updateShop(db, access, body, deps) : forbidden();
+  if (path === '/api/org/shop/document' && method === 'PUT') return allow('owner') ? uploadDocument(db, user, access, body, deps) : forbidden();
   if (path === '/api/org/team') {
     if (!allow('owner')) return forbidden();
     if (method === 'GET') return json({ team: await teamRows(db, access) });
@@ -179,18 +186,24 @@ export async function handleOrganizer(request, env, ctx, url, deps) {
 
 // The caller's shop and role: owner of a host_profiles row, or a member listed by e-mail.
 export async function hostAccess(db, user) {
-  const own = await db.prepare('SELECT * FROM host_profiles WHERE user_id = ?').bind(user.id).first();
+  const own = await db.prepare(`${SHOP_SELECT} WHERE h.user_id = ?`).bind(user.id).first();
   if (own) return { hostId: own.user_id, role: 'owner', shop: own };
   if (!user.email) return null;
   const member = await db.prepare(
-    `SELECT m.role AS member_role, h.* FROM host_members m JOIN host_profiles h ON h.user_id = m.host_id WHERE m.email = ?`,
+    `SELECT m.role AS member_role, ${SHOP_COLS} FROM host_members m JOIN host_profiles h ON h.user_id = m.host_id
+     LEFT JOIN host_documents d ON d.host_id = h.user_id WHERE m.email = ?`,
   ).bind(user.email).first();
   return member ? { hostId: member.user_id, role: member.member_role, shop: member } : null;
 }
 
+// host_profiles plus the metadata (never the bytes) of its verification document
+const SHOP_COLS = `h.*, d.file_name AS doc_name, d.mime AS doc_mime, d.size AS doc_size, d.uploaded_at AS doc_uploaded_at`;
+const SHOP_SELECT = `SELECT ${SHOP_COLS} FROM host_profiles h LEFT JOIN host_documents d ON d.host_id = h.user_id`;
+
 const shopJson = s => ({
   id: s.user_id, name: s.shop_name, type: s.shop_type, contactLine: s.contact_line_id, phone: s.contact_phone,
   verification: s.verification_status, verificationNote: s.verification_note,
+  document: s.doc_name ? { name: s.doc_name, mime: s.doc_mime, size: s.doc_size, uploadedAt: s.doc_uploaded_at } : null,
 });
 
 function shopInput(body, partial) {
@@ -214,7 +227,7 @@ async function createShop(db, user, access, body, deps, request) {
     db.prepare(`UPDATE users SET role = 'host' WHERE id = ? AND role = 'guest'`).bind(user.id),
     deps.logEvent(db, user.id, 'host_created', { shop: value.name }, request.headers.get('cf-connecting-ip')),
   ]);
-  const shop = await db.prepare('SELECT * FROM host_profiles WHERE user_id = ?').bind(user.id).first();
+  const shop = await db.prepare(`${SHOP_SELECT} WHERE h.user_id = ?`).bind(user.id).first();
   return deps.json({ shop: shopJson(shop), role: 'owner' }, 201);
 }
 
@@ -227,7 +240,7 @@ async function updateShop(db, access, body, deps) {
     await db.prepare(`UPDATE host_profiles SET ${keys.map(k => cols[k] + ' = ?').join(', ')} WHERE user_id = ?`)
       .bind(...keys.map(k => value[k]), access.hostId).run();
   }
-  const shop = await db.prepare('SELECT * FROM host_profiles WHERE user_id = ?').bind(access.hostId).first();
+  const shop = await db.prepare(`${SHOP_SELECT} WHERE h.user_id = ?`).bind(access.hostId).first();
   return deps.json({ shop: shopJson(shop) });
 }
 
@@ -236,6 +249,10 @@ async function verifyHost(db, user, body, deps) {
   if (!['verified', 'rejected'].includes(body?.status) || typeof body?.userId !== 'string') return deps.json({ error: 'invalid_input' }, 400);
   const note = text(body.note, { max: 300 });
   if (note.error) return deps.json({ error: 'invalid_input', fields: { note: note.error } }, 400);
+  if (body.status === 'verified') {
+    const docRow = await db.prepare('SELECT 1 FROM host_documents WHERE host_id = ?').bind(body.userId).first();
+    if (!docRow) return deps.json({ error: 'no_document' }, 409);
+  }
   const now = Date.now();
   const res = await db.prepare(
     `UPDATE host_profiles SET verification_status = ?, verification_note = ?, verified_by = ?, verified_at = ? WHERE user_id = ?`,
@@ -243,6 +260,79 @@ async function verifyHost(db, user, body, deps) {
   if (!res.meta.changes) return deps.json({ error: 'shop_not_found' }, 404);
   await deps.logEvent(db, body.userId, 'host_' + body.status, { by: user.id }, null).run();
   return deps.json({ ok: true });
+}
+
+/* ---------- verification documents ---------- */
+
+export const DOC_MAX_BYTES = 1024 * 1024;
+// first bytes of each accepted type; the declared type must match the file itself
+const DOC_MAGIC = {
+  'image/jpeg': b => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  'image/png': b => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((x, i) => b[i] === x),
+  'image/webp': b => String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP',
+  'application/pdf': b => String.fromCharCode(...b.slice(0, 5)) === '%PDF-',
+};
+
+// { name, mime, data } -> { value: { name, mime, bytes } } or { errors }
+export function validateDocument(body) {
+  const errors = {};
+  const name = typeof body?.name === 'string' ? body.name.replace(/[<>"'`\\/\u0000-\u001f\u007f]/g, '_').trim().slice(-100) : '';
+  if (!name) errors.name = 'required';
+  if (!DOC_MAGIC[body?.mime]) errors.mime = 'invalid';
+  let bytes = null;
+  if (typeof body?.data !== 'string' || !body.data) errors.data = 'required';
+  else if (body.data.length > Math.ceil(DOC_MAX_BYTES / 3) * 4 + 4) errors.data = 'too_large';
+  else {
+    try { bytes = Uint8Array.from(atob(body.data), c => c.charCodeAt(0)); } catch { errors.data = 'invalid'; }
+    if (bytes && bytes.length > DOC_MAX_BYTES) errors.data = 'too_large';
+    else if (bytes && !errors.mime && !DOC_MAGIC[body.mime](bytes)) errors.data = 'type_mismatch';
+  }
+  return Object.keys(errors).length ? { errors } : { value: { name, mime: body.mime, bytes } };
+}
+
+async function uploadDocument(db, user, access, body, deps) {
+  if (access.shop.verification_status === 'verified') return deps.json({ error: 'already_verified' }, 409);
+  const { errors, value } = validateDocument(body);
+  if (errors) return deps.json({ error: 'invalid_input', fields: errors }, 400);
+  const now = Date.now();
+  await db.batch([
+    db.prepare(
+      `INSERT INTO host_documents (host_id, file_name, mime, size, data, uploaded_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (host_id) DO UPDATE SET file_name = excluded.file_name, mime = excluded.mime, size = excluded.size,
+         data = excluded.data, uploaded_at = excluded.uploaded_at`,
+    ).bind(access.hostId, value.name, value.mime, value.bytes.length, value.bytes, now),
+    // a rejected shop that sends a new document goes back into the queue
+    db.prepare(`UPDATE host_profiles SET verification_status = 'pending', verification_note = NULL, updated_at = ?
+                WHERE user_id = ? AND verification_status = 'rejected'`).bind(now, access.hostId),
+    deps.logEvent(db, access.hostId, 'host_document_uploaded', { by: user.id, size: value.bytes.length }, null),
+  ]);
+  const shop = await db.prepare(`${SHOP_SELECT} WHERE h.user_id = ?`).bind(access.hostId).first();
+  return deps.json({ shop: shopJson(shop) });
+}
+
+async function listHosts(db, user, status, deps) {
+  if (user.role !== 'admin') return deps.json({ error: 'forbidden' }, 403);
+  status = status || 'pending';
+  if (!['pending', 'verified', 'rejected', 'all'].includes(status)) return deps.json({ error: 'invalid_input' }, 400);
+  const rows = (await db.prepare(
+    `${SHOP_SELECT.replace('FROM host_profiles h', ', u.email AS owner_email, u.display_name AS owner_name FROM host_profiles h JOIN users u ON u.id = h.user_id')}
+     ${status === 'all' ? '' : 'WHERE h.verification_status = ?'} ORDER BY h.created_at LIMIT 200`,
+  ).bind(...(status === 'all' ? [] : [status])).all()).results || [];
+  return deps.json({
+    hosts: rows.map(r => ({ ...shopJson(r), ownerEmail: r.owner_email, ownerName: r.owner_name, createdAt: r.created_at, verifiedAt: r.verified_at })),
+  });
+}
+
+async function hostDocument(db, user, hostId, deps) {
+  if (user.role !== 'admin') return deps.json({ error: 'forbidden' }, 403);
+  const row = await db.prepare('SELECT file_name, mime, data FROM host_documents WHERE host_id = ?').bind(hostId).first();
+  if (!row) return deps.json({ error: 'document_not_found' }, 404);
+  return new Response(new Uint8Array(row.data), {
+    headers: {
+      'content-type': row.mime, 'x-content-type-options': 'nosniff', 'cache-control': 'private, no-store',
+      'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.file_name)}`,
+    },
+  });
 }
 
 async function teamRows(db, access) {

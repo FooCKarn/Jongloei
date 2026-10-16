@@ -26,6 +26,7 @@ export const QR_FUTURE_SKEW = 15;  // seconds a code may be ahead of the server 
 const CHAIN_ID = 43113;
 const CODE_RE = /^JL1\.([1-9][0-9]{0,15})\.([1-9][0-9]{0,11})\.([A-Za-z0-9_-]{86,88})$/;
 const MAX_MARK_USED_ATTEMPTS = 3;
+const MARK_USED_RETRY_AFTER_MS = 30 * 60000; // since the scan; then each stuck attempt is freed
 
 // Reasons a scan is refused; the scan page shows these in Thai.
 export const REASONS = [
@@ -279,7 +280,7 @@ export async function markUsed(env, ticketId) {
 
 export async function settleMarkUsed(env, ticketId, polls = 1) {
   const t = await env.DB.prepare(
-    `SELECT token_id, mark_used_tx_id FROM tickets WHERE id = ? AND status = 'used' AND mark_used_tx_hash IS NULL`,
+    `SELECT token_id, mark_used_tx_id, used_at FROM tickets WHERE id = ? AND status = 'used' AND mark_used_tx_hash IS NULL`,
   ).bind(ticketId).first();
   if (!t?.mark_used_tx_id || t.mark_used_tx_id === 'sending') return;
   let tx = { status: 'QUEUED' };
@@ -292,7 +293,19 @@ export async function settleMarkUsed(env, ticketId, polls = 1) {
   }
   if (tx.status === 'CONFIRMED' && tx.hash) {
     await env.DB.prepare('UPDATE tickets SET mark_used_tx_hash = ? WHERE id = ?').bind(tx.hash, ticketId).run();
-  } else if (tx.status === 'FAILED') {
+  } else if (tx.status !== 'FAILED') {
+    // thirdweb can keep a write pending after it landed: the chain says whether it is done.
+    // Not on chain long after the scan: free it for another attempt (a duplicate only reverts),
+    // so the attempt limit ends the loop.
+    const chain = await readChain(env, t.token_id).catch(() => null);
+    if (chain?.used) {
+      await env.DB.prepare('UPDATE tickets SET mark_used_tx_hash = ? WHERE id = ? AND mark_used_tx_id = ?')
+        .bind('already-used-on-chain', ticketId, t.mark_used_tx_id).run();
+    } else if (chain && Date.now() - (t.used_at || 0) > MARK_USED_RETRY_AFTER_MS) {
+      await env.DB.prepare(`UPDATE tickets SET mark_used_tx_id = NULL, mark_used_error = ? WHERE id = ? AND mark_used_tx_id = ?`)
+        .bind(`markUsed not confirmed by thirdweb (${tx.status}) and not used on chain`, ticketId, t.mark_used_tx_id).run();
+    }
+  } else {
     const chain = await readChain(env, t.token_id).catch(() => null);
     await env.DB.prepare(
       `UPDATE tickets SET mark_used_tx_id = NULL, mark_used_error = ?, mark_used_tx_hash = ? WHERE id = ? AND mark_used_tx_id = ?`,

@@ -1,9 +1,9 @@
 # JONGLOEI (จองเลย)
 
-**ตั๋วที่ตรวจสอบได้ ซื้อง่ายด้วย PromptPay ขายต่อได้อย่างแฟร์**
+**ตั๋วที่ตรวจสอบได้ ซื้อผ่าน Stripe Checkout ขายต่อได้อย่างแฟร์**
 U-Hackathon 2026 · Web3 Track · by team **Caffeine Commit** · *(เดิมชื่อ FairTicket)*
 
-JONGLOEI is a ticketing platform for small and mid-size organizers. Shops create an event in minutes. Guests sign in with Google, pay with PromptPay and get an NFT ticket in their own wallet. If an event is cancelled, everyone is refunded automatically, exactly what they paid. Next: moving escrow and payouts into the smart contract, so you don't have to trust us.
+JONGLOEI is a ticketing platform for small and mid-size organizers. Shops create an event in minutes. Guests sign in with Google, pay through Stripe Checkout in the configured Stripe Sandbox, and get an NFT ticket in their own wallet. If an event is cancelled, everyone is refunded automatically, exactly what they paid.
 
 > **MVP status:** the ticket is a real NFT (ERC-721) on Avalanche Fuji in the user's thirdweb wallet. The money is **not** held by a contract yet: baht is recorded in the platform's ledger, and the time and price rules are enforced by the backend. On-chain escrow, refund and settlement are future work. The full project context is in [`context.md`](context.md); if this README and `context.md` disagree, `context.md` wins.
 
@@ -31,7 +31,7 @@ None of them both verify payment without slips and guarantee a refund if the eve
 
 ## Key features (MVP)
 
-- PromptPay payment verified with the payment gateway, never by a slip
+- Stripe Checkout payment verified by signed webhooks, never by a slip
 - NFT ticket minted into the user's wallet after payment is confirmed
 - Wallet-signed dynamic QR for entry, Valid / Invalid with a reason
 - Resale on the platform in baht, with a price cap and a holding period
@@ -40,8 +40,8 @@ None of them both verify payment without slips and guarantee a refund if the eve
 ## How it works (MVP)
 
 1. **Shop creates an event:** price, seats, date.
-2. **Guest picks a seat:** the system creates an order and **holds the seat for 10 minutes**, then shows a PromptPay QR tied to that order.
-3. **Guest pays with PromptPay:** the gateway sends a webhook and the backend runs **5 checks** before minting: webhook signature, re-query the status from the gateway API, amount and currency, reference and expiry, and that the order has never been minted.
+2. **Guest picks a seat:** the system creates an order and **holds the seat for 10 minutes**, then redirects to Stripe Checkout.
+3. **Guest pays in Stripe Checkout:** Stripe sends a webhook and the backend runs **5 checks** before minting: webhook signature, re-query the status from Stripe, amount and currency, reference and expiry, and that the order has never been minted.
 4. **Two-step status:** "ชำระเงินแล้ว กำลังออกตั๋ว" (seat guaranteed) → the backend relayer mints the ERC-721 into the guest's wallet and pays the gas → "ได้รับตั๋วแล้ว" and the QR appears.
 5. **Gate checks the QR** against `ownerOf` and the registry, then calls `markUsed`.
 6. **After the event:** the shop and each reseller are paid from the ledger. If the event is cancelled, each payer is refunded exactly what they paid. No-shows are not refunded.
@@ -139,7 +139,7 @@ Resale is paid with PromptPay like a first sale. After the 5 checks pass, the re
 
 ## Front-end (Next.js)
 
-The guest app (Thai UI, white and crimson theme), with a phone view and a desktop web view. Sign-in with Google is real (below); events come from `/api/events`; everything else is sample data kept in the browser. Built with **Next.js 15 (App Router), React 19 and Tailwind v4** and exported to plain static files that the Worker serves.
+The frontend is a ticketing app in Thai and English (switch in the top bar) with a phone view and a desktop web view. Google sign-in, event catalog, organizer management, Stripe Checkout, D1 orders, webhook fulfillment, tickets, and resale all use the Worker API. There is no browser-only event, account, ticket, payment, or organizer demo mode.
 
 - Source: `web/` — screens in `web/components/screens/`, state and actions in `web/lib/`, the app shell in `web/components/AppFrame.tsx`.
 - Run locally: `cd web && npm install && npm run dev` (needs the Worker for `/api/*`; without it the home page falls back to sample events). `npm run build` writes the static site to `web/out`.
@@ -148,9 +148,9 @@ The guest app (Thai UI, white and crimson theme), with a phone view and a deskto
 
 ### Organizer mode
 
-The same page has a second mode for **organizers** (bars, workshops, pop-ups, small concerts). Open **บัญชี → เข้าโหมดผู้จัดงาน** (or "สำหรับผู้จัดงาน" in the desktop header). Everything here is sample data kept in the browser (`localStorage`); no backend, no real money. Screens that show money carry a "ข้อมูลตัวอย่าง" / "จำลอง" label.
+The same page has a second mode for **organizers** (bars, workshops, pop-ups, small concerts). Open **บัญชี → เข้าโหมดผู้จัดงาน** (or "สำหรับผู้จัดงาน" in the desktop header). Organizer mode requires the real Google session and reads and writes shop/event data through the Worker and D1.
 
-- **Organizer account:** organizers sign up and log in with their own (simulated) Google account, separate from the buyer's login. No buyer sign-in is needed, and logging out of one side never logs out the other. One account belongs to one shop; an owner can invite managers and door staff, who log in with the invited e-mail and get that role. Sample accounts: `owner@rooftop88.example`, `manager@example.com`, `door.staff@example.com`. Real organizer Google sign-in needs an account type in the Worker session and is future work.
+- **Organizer account:** organizers use the signed-in Google account. One account belongs to one shop; an owner can invite managers and door staff, who use their own authenticated account and role.
 - **Shop onboarding:** four steps (shop, tax ID, PromptPay payout account, ID document), then a simulated 3-second verification. Unverified shops can draft events but not publish. Team roles: owner, manager, door staff.
 - **Dashboard:** today's sales, net revenue, next payout, held seats, a to-do list, a 14-day sales chart, and the event list (with duplicate).
 - **Create / edit event:** 4-step wizard with a zone editor (standing, seated, table, comp), a **poster image upload** (client-resized to ≤1200 px JPEG, stored as a D1 BLOB — migration `0009_posters.sql`; `PUT`/`DELETE /api/org/events/:id/poster`; demo keeps the image in the browser), separate date and time pickers, sale windows for early-bird pricing, a resale price cap (1.00–1.25×), and a live fee preview (฿5 + 3% per ticket, `ticket ฿1,000 → ฿35`). Zones that already have buyers lock their price and cannot shrink below sold + held.
@@ -158,22 +158,13 @@ The same page has a second mode for **organizers** (bars, workshops, pop-ups, sm
 - **Door:** simulated scan with 8 cases (valid, used, old QR, future QR, other event, cancelled, old owner, listed) and manual check-in by name, e-mail, ticket number or last 4 phone digits.
 - **Finance:** pending / paid / fees / refunded, per-event payout date (event end + 24 h), per-ticket split for resold tickets, and a printable summary (not a tax invoice).
 
-Published organizer events appear on the buyer home page and are bought through a **simulated** PromptPay flow (events from `/api/events` still use Stripe). Buying, checking in and cancelling update both sides, so the whole loop can be shown in two minutes.
-
-**2-minute demo**
-1. Profile → organizer mode → "สมัครผู้จัดงานด้วย Google" (or "เข้าสู่ระบบ" with a sample account, e.g. the Rooftop 88 owner).
-2. Dashboard → สร้างงานใหม่ → fill the basics, start from the "บาร์" zone template, publish.
-3. Switch to buyer mode, buy 2 tickets for the new event.
-4. Back in organizer mode: the dashboard sales went up; open the event → ผู้ซื้อ.
-5. หน้างาน → จำลองการสแกน: case 1 passes, case 2 ("ใช้ไปแล้ว") and case 3 ("QR เก่า") are refused with their reasons.
-6. Event → ตั้งค่า → ยกเลิกงาน: see the refund total, confirm, then check "ตั๋วของฉัน → คืนเงินแล้ว" as a buyer.
-7. การเงิน: the refunded amount and the payout schedule of the other events.
+Published organizer events appear on the buyer home page and use the same Stripe Checkout, webhook fulfillment, D1 inventory, and ticket flow as seeded events.
 
 The money and rule maths lives in `mockup/organizer-logic.js` (copied to `web/lib/org-logic.js` for the Next.js app) and is covered by `node --test tests/organizer/*.test.js`.
 
 ### Google sign-in
 
-`src/worker.js` makes "ดำเนินการต่อด้วย Google" a real Google login: Google always shows its account chooser, the Worker verifies the ID token, stores the user in D1 (`users`, `auth_identities`, `sessions`) and sets an HttpOnly session cookie. Until the two secrets below are set, the button keeps the demo flow.
+`src/worker.js` makes "ดำเนินการต่อด้วย Google" a real Google login: Google always shows its account chooser, the Worker verifies the ID token, stores the user in D1 (`users`, `auth_identities`, `sessions`) and sets an HttpOnly session cookie. The app does not provide a local fallback when Google is unavailable.
 
 1. Google Cloud Console > APIs & Services > Credentials > Create credentials > OAuth client ID, type **Web application** (set up the OAuth consent screen first if asked; while it is in Testing, add your team's Gmail addresses as test users).
    - Authorized JavaScript origins: `https://jongloei.<your-subdomain>.workers.dev`
@@ -192,9 +183,9 @@ After every Google login the Worker checks that the user has a ticket wallet. If
 The wallet is held by the platform through thirdweb (users never see a seed phrase); a later "move my tickets to my own wallet" feature can transfer them out.
 
 > **Current implementation vs. context v3.3:** this server wallet is what the code does today. Context v3.3 targets a thirdweb **embedded (in-app) wallet** instead, so the ticket owner's own key can sign the entry QR every 60 seconds. With a platform-held server wallet the user cannot sign the QR themselves, so this part still has to move to an embedded wallet.
-### Paid flow: Stripe (PromptPay) → 5 checks → mint
+### Paid flow: Stripe Checkout → 5 checks → mint
 
-The ticket checkout uses a Stripe-hosted Checkout Session in THB, so the guest can pay with PromptPay (enable it under Stripe Dashboard > Payment methods) or a card. The success URL is never treated as proof of payment.
+The ticket checkout uses a Stripe-hosted Checkout Session in THB. Eligible payment methods are configured in Stripe Sandbox; the success URL is never treated as proof of payment.
 
 1. **Seat hold.** `POST /api/checkout-session` creates a `pending` order valid for 10 minutes, only if the zone has enough seats that are neither sold (`event_zones.remaining`) nor held by other pending orders (one SQL statement, so two buyers cannot take the last seat). `remaining` itself is not touched; `/api/events` shows `remaining` minus active holds. Limit 4 tickets per account per event, counting orders still being paid.
 2. **Hold expiry.** A cron trigger runs every minute (`wrangler.jsonc`). It expires the Stripe session of each hold older than 10 minutes, so it can no longer be paid, and closes the order, which frees its seats. Cancelling on the Stripe page frees them right away (`POST /api/checkout-cancel`).
@@ -206,17 +197,17 @@ The ticket checkout uses a Stripe-hosted Checkout Session in THB, so the guest c
    5. Each Stripe event id is handled once (`webhook_events`), and only one caller can move the order from `pending` to `paid`, so it is minted once. That same step decrements `remaining` for the purchased zone (`0004_payment_inventory.sql`, guarded by `inventory_update_token`), so a repeated webhook never decrements twice.
 
    A payment that fails 3 or 4 becomes `needs_review` (for example paid after the hold ended), and nothing is minted.
-4. **Mint.** The paid order mints `quantity` tickets in one batched thirdweb write from the relayer to the buyer's wallet, using the event's `chain_event_id`. Token ids are read from the receipt's ERC-721 `Transfer` logs (Fuji RPC), and the order becomes `fulfilled`. A failed mint is retried up to 3 times by the cron. A send that may or may not have reached thirdweb goes to `needs_review` instead of being retried, so a ticket is never minted twice.
+4. **Mint.** The paid order mints `quantity` tickets in one batched thirdweb write from the relayer to the buyer's wallet, using the event's `chain_event_id`. Token ids are read from the receipt's ERC-721 `Transfer` logs (Fuji RPC), and the order becomes `fulfilled`. A failed mint is retried up to 3 times by the cron. A send that may or may not have reached thirdweb goes to `needs_review` instead of being retried, so a ticket is never minted twice. thirdweb can also keep a mint pending after it landed (its bundler failing receipt lookups, `RECEIPT_QUERY_FAILED`), so when thirdweb has not confirmed after 3 minutes, or reports `FAILED`, the cron looks for the mint in the contract's `TicketMinted` logs (buyer wallet + `chain_event_id`, token ids no ticket holds yet) and fulfils the order from there. Still pending and not on chain after 30 minutes → `needs_review`, never a second send. With `MINT_GUARD_ADDRESS` set, mints go through `JongloeiMintGuard` (`contracts/README.md`), which mints each `"<order id>:<index>"` key once, so a repeated send reverts on chain instead of issuing a second ticket.
 5. **My tickets.** `GET /api/tickets` lists the signed-in user's tickets. After returning from Stripe, the page polls `GET /api/checkout-status` until the ticket is minted.
 
 Setup:
 
-1. Apply the migrations to the **remote** database: `npx wrangler d1 migrations apply jongloei-db --remote`.
+1. Apply the migrations to the **remote** database: `npx wrangler d1 migrations apply jongloei-db --remote`. Migration `0009_local_events_stripe.sql` promotes the five organizer events that were previously mock-up-only into D1, preserving their `org-*` IDs so existing links can use Stripe Checkout.
 2. Add a restricted Stripe key as the secret `STRIPE_SECRET_KEY` (an `rk_` key with write access to Checkout Sessions).
 3. Add a Stripe webhook at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`, and store its signing secret as `STRIPE_WEBHOOK_SECRET`.
-4. `THIRDWEB_SECRET_KEY` must be set for minting. Optional: `FUJI_RPC_URL` overrides the public Fuji RPC.
+4. `THIRDWEB_SECRET_KEY` must be set for minting. Optional: `FUJI_RPC_URL` overrides the public Fuji RPC. `MINT_GUARD_ADDRESS` sends mints through the mint guard (`contracts/README.md`, "Mint guard").
 
-The checkout works only from the deployed Worker URL (or `npx wrangler dev`) with the real Google sign-in, not with `file://` or the demo login.
+The checkout works only from the deployed Worker URL (or `npx wrangler dev`) with the real Google sign-in, not with `file://` or a local demo login.
 
 ### Event catalog
 
@@ -230,13 +221,22 @@ npx wrangler d1 migrations apply jongloei-db --remote
 
 `src/organizer.js` is the real backend behind organizer mode. Every route checks the signed-in user's shop role on the server.
 
-The organizer welcome screen has a "ใช้ระบบจริงด้วยบัญชี Google" button (shown when Google sign-in is configured). It signs in with the buyer's Google session and runs the organizer screens on this API: open a shop, add managers and door staff, create, edit, publish and cancel events, edit zones, and list orders. The demo data stays in localStorage and is never mixed with the real shop, which is never written there. Live mode shows only what the API serves: there is no door check-in, finance, resale settings, promo codes or comp tickets yet, zone types are standing and seated only, and prices are whole baht from ฿20. An admin verifies a new shop with `POST /api/admin/hosts/verify` before it can publish.
+The organizer welcome screen signs in with Google and runs the organizer screens on this API: open a shop, add managers and door staff, create, edit, publish and cancel events, edit zones, and list orders. Live mode shows only what the API serves: there is no door check-in, finance, resale settings, promo codes or comp tickets yet, zone types are standing and seated only, and prices are whole baht from ฿20. A new shop can publish only after a JONGLOEI admin has verified it:
+
+1. When opening the shop, the owner attaches an ID card (individual) or company certificate: JPG, PNG, WebP or PDF, at most 1 MB. The server checks that the file's first bytes match its declared type.
+2. An admin opens "ตรวจร้าน" (from the organizer account card, or from the shop sign-up page for an admin without a shop). It lists shops by status. The admin opens the document, compares it with the shop's details, and verifies or rejects with a reason.
+3. A rejected owner sees the reason on the dashboard and can attach a new document, which puts the shop back in the queue. A verified shop cannot replace its document.
+
+The file is stored in D1 (`host_documents`, 0009) and only admins can read it. Before real users upload ID cards, move it to private storage and encrypt it (PDPA).
 
 | Route | Who | What |
 |---|---|---|
 | `GET /api/org/me` | signed in | your shop and role (`owner`, `manager`, `gate`) or none |
 | `POST /api/org/shop` | signed in, no shop yet | open a shop `{ name, type, contactLine, phone }`; you become its owner and your account role becomes `host` |
-| `POST /api/admin/hosts/verify` | admin | `{ userId, status: "verified" \| "rejected", note }` |
+| `PUT /api/org/shop/document` | owner | `{ name, mime, data }` (data is base64); replaces the document, and a rejected shop goes back to `pending` |
+| `GET /api/admin/hosts?status=` | admin | review queue: `pending` (default), `verified`, `rejected` or `all`, with owner e-mail and document details |
+| `GET /api/admin/hosts/:userId/document` | admin | the uploaded file |
+| `POST /api/admin/hosts/verify` | admin | `{ userId, status: "verified" \| "rejected", note }`; verifying needs a document (`no_document`) |
 | `GET`, `POST`, `DELETE /api/org/team` | owner | add `{ email, role: "manager" \| "gate" }`; members get that role when they sign in with that Google e-mail |
 | `GET /api/org/events`, `GET /api/org/events/:id` | any role | the shop's events with sold / held / available per zone |
 | `POST /api/org/events`, `PATCH /api/org/events/:id` | owner, manager | create a draft `{ name, venue, category, description, short, poster, startsAt, endsAt, zones: [{ name, price, capacity, color }] }` or edit it |
@@ -249,14 +249,14 @@ Rules that keep the paid flow consistent:
 - `remaining` still means "not sold yet". A new zone starts with `remaining = capacity`; a capacity change moves `remaining` by the same amount and cannot go below sold + held.
 - Orders and tickets refer to a zone by name, and minting reads the face price from the zone. So once a zone has an order its name is locked, and while it has live orders its price is locked. Zones are never deleted after the event goes on sale. The checks run again inside the UPDATE, so an order that arrives while saving makes the save fail as a whole (`changed_meanwhile`).
 - `chain_event_id` is the largest one so far + 1 (the four seeded events have 1 to 4). The contract's `mint(to, eventId)` accepts any id, so nothing has to be registered on chain.
-- Event ids start with `ev-`. The mock-up treats `org-` ids as its own demo events.
+- Event IDs are opaque D1 values. The frontend does not infer payment mode from an ID prefix; migrated `org-*` IDs are normal Stripe-backed events.
 - Names, venues and zone names cannot contain the characters <code>&lt; &gt; " ' &#96;</code>, because buyer screens put them into HTML. Posters and zone colours come from fixed lists.
 - A payment that arrives after its event was cancelled goes to `needs_review` and is not minted. **Refunds are not automatic yet:** cancelling returns the number and total of paid orders to refund by hand in Stripe.
 - Not built yet: comp tickets and promo codes (a zone price must be above 0), payouts. Door check-in is below.
 
-Apply `0006_organizer.sql` to the remote database before or right after deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Until it is applied the buyer event list and the payment webhook keep working, but the organizer routes return errors.
+Apply `0006_organizer.sql` to the remote database before or right after deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Until it is applied the buyer event list and the payment webhook keep working, but the organizer routes return errors. The same holds for `0009_host_documents.sql`: apply it before deploying the shop verification code.
 
-Tests: `node --test tests/worker/*.test.mjs` (validation), and `tests/worker/organizer-api.e2e.mjs` runs 46 checks against `wrangler dev` with a fresh local D1 (steps at the top of the file).
+Tests: `node --test tests/worker/*.test.mjs` (validation, and shop verification through the Worker in `host-verification.test.mjs`), and `tests/worker/organizer-api.e2e.mjs` runs 50 checks against `wrangler dev` with a fresh local D1 (steps at the top of the file).
 
 ### Entry QR and door check-in (A6)
 
@@ -290,7 +290,7 @@ Rules, per event (`events` columns from `0008_resale.sql`, production defaults):
 - Unlimited resales, one live listing per ticket, the 4-tickets-per-event limit applies to the buyer.
 - For a demo, set short times on one event by hand, for example `UPDATE events SET resale_delay_s = 60, transfer_cutoff_s = 30 WHERE id = '...'`.
 
-Flow: the buyer's pending `resale_orders` row is the hold (one per listing, unique index). The webhook routes sessions with `metadata.kind = resale` to `confirmResalePayment`: session fetched again from Stripe, amount and currency, reference, hold still open, event not cancelled and still before the cutoff, ticket still listed by the seller; then one batch moves the order to `paid` and the listing to `sold`. The relayer sends `operatorTransfer`; when thirdweb confirms it and the receipt has the matching ERC-721 `Transfer` log, the ticket moves to the buyer (`acquired_at` resets, `transfers + 1`), the order is `fulfilled` and a payout row is written. Failures follow the mint rules: 3 attempts, and a send that may have reached thirdweb goes to `needs_review` instead of being repeated. Resale orders live in their own table, so the seat hold, the `remaining` decrement (`0004`) and the mint sweep never see them.
+Flow: the buyer's pending `resale_orders` row is the hold (one per listing, unique index). The webhook routes sessions with `metadata.kind = resale` to `confirmResalePayment`: session fetched again from Stripe, amount and currency, reference, hold still open, event not cancelled and still before the cutoff, ticket still listed by the seller; then one batch moves the order to `paid` and the listing to `sold`. The relayer sends `operatorTransfer`; when thirdweb confirms it and the receipt has the matching ERC-721 `Transfer` log, the ticket moves to the buyer (`acquired_at` resets, `transfers + 1`), the order is `fulfilled` and a payout row is written. Failures follow the mint rules: 3 attempts, and a send that may have reached thirdweb goes to `needs_review` instead of being repeated. As with mints, a transfer thirdweb has not confirmed after 3 minutes (or reports `FAILED`) is settled from `ownerOf` on chain, and one still pending after 30 minutes with the ticket not at the buyer goes to `needs_review`. Door `markUsed` writes are settled from `used(tokenId)` the same way; one still not on chain 30 minutes after the scan is sent again (a duplicate only reverts) until its 3 attempts run out. Resale orders live in their own table, so the seat hold, the `remaining` decrement (`0004`) and the mint sweep never see them.
 
 **Money to sellers:** the buyer pays the listing price into the platform's Stripe account (no service fee for the buyer). The seller's share (`net` = price − 6 %) is recorded in `resale_payouts` with status `held` and `release_after` = event end (or start, if no end) + 24 h. **No code sends money out:** there is no seller payout account yet, so a person pays each `held` row after `release_after` and sets it to `paid_out` (`UPDATE resale_payouts SET status = 'paid_out', settled_at = <ms>, note = '<reference>' WHERE id = '...'`). If the event is cancelled, refund every payer in Stripe by hand (first-sale and resale orders) and set the payouts to `void`. Orders in `needs_review` are refunded by hand too.
 
