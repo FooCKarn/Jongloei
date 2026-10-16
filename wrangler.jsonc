@@ -1,7 +1,10 @@
 // Cloudflare Workers config: serves the Next.js front-end (static export in ./web/out)
 // and runs src/worker.js for Google sign-in (/auth/*) and the account API (/api/*).
-// Deploy from the Cloudflare dashboard (Workers Builds): build command
-// `cd web && npm ci && npm run build`, deploy command `npx wrangler deploy`.
+// Deploy from the Cloudflare dashboard (Workers Builds): deploy command `npx wrangler deploy`
+// (or `npx wrangler preview` for PR previews). The "build" block below runs before that
+// deploy/preview step regardless of the dashboard's own Build command setting — Workers
+// Builds was only configured with a deploy command, so without this, wrangler tried to
+// upload ./web/out before it existed ("assets.directory does not exist").
 // (The old HTML/CSS mock-up still lives in ./mockup for reference.)
 //
 // Secrets (Settings > Variables and Secrets, type "Secret"; never commit them):
@@ -14,6 +17,11 @@
   "name": "jongloei",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
+  // Wrangler runs this before deploy/dev/preview, independent of any dashboard build command.
+  "build": {
+    "command": "npm ci && npm run build",
+    "cwd": "./web"
+  },
   "assets": {
     "directory": "./web/out",
     "binding": "ASSETS",

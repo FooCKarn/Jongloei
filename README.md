@@ -143,7 +143,7 @@ The frontend is a ticketing app in Thai and English (switch in the top bar) with
 
 - Source: `web/` — screens in `web/components/screens/`, state and actions in `web/lib/`, the app shell in `web/components/AppFrame.tsx`.
 - Run locally: `cd web && npm install && npm run dev` (needs the Worker for `/api/*`; without it the home page falls back to sample events). `npm run build` writes the static site to `web/out`.
-- Hosting: `wrangler.jsonc` serves `./web/out` as static assets on Cloudflare Workers. In the Cloudflare dashboard, import this repo and set the build command to `cd web && npm ci && npm run build`, deploy command `npx wrangler deploy`.
+- Hosting: `wrangler.jsonc` serves `./web/out` as static assets on Cloudflare Workers. Its `build` block (`cd web && npm ci && npm run build`) runs automatically before `wrangler deploy`/`preview`, so the Cloudflare dashboard only needs a deploy command: `npx wrangler deploy` (Workers Builds uses `npx wrangler preview` for PR previews on its own).
 - The earlier hand-written HTML/CSS mock-up still lives in `mockup/` for reference; it is no longer what gets deployed.
 
 ### Organizer mode
