@@ -10,18 +10,18 @@ import { loadEvents, checkAuth, openSignup } from "@/lib/buyer";
 import { enterOrg, setMode, guardFor, orgTabsFor, orgHomeScreen, ROLE_LABEL, gateClose, callManager, camStop } from "@/lib/org";
 import { SPRITE } from "./sprite";
 
-const BUYER_TABS: [string, string, string][] = [["home", "i-home", "หน้าแรก"], ["tickets", "i-ticket", "ตั๋วของฉัน"], ["market", "i-swap", "ตลาด"], ["profile", "i-user", "โปรไฟล์"]];
+const BUYER_TABS: [string, string, string][] = [["home", "i-home", "หน้าแรก"], ["tickets", "i-ticket", "บัตรเข้าชมของฉัน"], ["market", "i-swap", "การจำหน่ายบัตร"], ["profile", "i-user", "โปรไฟล์ผู้ใช้งาน"]];
 const FULL_FLOW = ["checkout", "pay", "minting", "orgWizard", "orgOnboard", "orgWelcome"];
 const PURCHASE = ["checkout", "pay", "minting", "success", "paymentSuccess"];
-const TITLES: Record<string, string> = { home: "JongLoei", checkout: "ตรวจสอบคำสั่งซื้อ", pay: "จ่ายเงิน", minting: "กำลังออกตั๋ว", success: "ได้ตั๋วแล้ว", paymentSuccess: "สถานะการชำระเงิน",
-  tickets: "ตั๋วของฉัน", market: "ตลาดขายต่อ", profile: "โปรไฟล์", orgWelcome: "สำหรับผู้จัดงาน", orgOnboard: "สมัครเป็นผู้จัดงาน", orgTeam: "ทีมงาน", orgDash: "ภาพรวม",
-  orgEvents: "งานของฉัน", orgGatePick: "หน้างาน", orgFinance: "การเงิน" };
+const TITLES: Record<string, string> = { home: "JongLoei", checkout: "ตรวจสอบคำสั่งซื้อ", pay: "ชำระเงิน", minting: "กำลังออกบัตรเข้าชม", success: "ได้รับบัตรแล้ว", paymentSuccess: "สถานะการชำระเงิน",
+  tickets: "บัตรเข้าชมของฉัน", market: "ขายต่อ", profile: "โปรไฟล์ผู้ใช้งาน", orgWelcome: "สำหรับผู้จัดงาน", orgOnboard: "ลงทะเบียนผู้จัดงาน", orgTeam: "ทีมงาน", orgDash: "ภาพรวม",
+  orgEvents: "งานอีเวนต์ของฉัน", orgGatePick: "จุดปฏิบัติการหน้างาน", orgFinance: "การเงิน" };
 function titleOf(screen: string) {
-  if (screen === "event") return (evById(S.ev) || {}).name || "งาน";
-  if (screen === "ticket") return S.sel ? (evById(S.sel.ev) || {}).name || "ตั๋ว" : "ตั๋ว";
-  if (screen === "orgWizard") return S.org && S.org.draft && orgEv(S.org.draft.id) && orgEv(S.org.draft.id).status !== "draft" ? "แก้ไขงาน" : "สร้างงาน";
-  if (screen === "orgEvent") return (S.org && orgEv(S.org.oev) || {}).name || "งาน";
-  if (screen === "orgGate") return "หน้างาน · " + ((S.org && orgEv(S.org.oev) || {}).name || "");
+  if (screen === "event") return (evById(S.ev) || {}).name || "อีเวนต์";
+  if (screen === "ticket") return S.sel ? (evById(S.sel.ev) || {}).name || "บัตรเข้าชม" : "บัตรเข้าชม";
+  if (screen === "orgWizard") return S.org && S.org.draft && orgEv(S.org.draft.id) && orgEv(S.org.draft.id).status !== "draft" ? "แก้ไขข้อมูลอีเวนต์" : "สร้างอีเวนต์ใหม่";
+  if (screen === "orgEvent") return (S.org && orgEv(S.org.oev) || {}).name || "อีเวนต์";
+  if (screen === "orgGate") return "จุดปฏิบัติการหน้างาน · " + ((S.org && orgEv(S.org.oev) || {}).name || "");
   return TITLES[screen] || "JongLoei";
 }
 const theme = () => (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
@@ -82,14 +82,14 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   let appbar: React.ReactNode = null;
   if (org) {
     if (!sideOn) appbar = top || S.desk
-      ? <>{brand(() => go(orgHomeScreen()), "JONGLOEI ผู้จัดงาน")}<button className="chipbtn" onClick={() => setMode("buyer")}>โหมดผู้ซื้อ</button></>
+      ? <>{brand(() => go(orgHomeScreen()), "JONGLOEI ผู้จัดงาน")}<button className="chipbtn" onClick={() => setMode("buyer")}>มุมมองผู้ซื้อ</button></>
       : <><button className="ib" onClick={() => back(tabOf(screen))} aria-label="ย้อนกลับ"><svg><use href="#i-back" /></svg></button><div className="ttl">{titleOf(screen)}</div></>;
   } else if (S.desk) {
     appbar = <>{brand(() => go("home"), "JONGLOEI หน้าแรก")}
-      <nav className="dnav" aria-label="เมนูหลัก">{[["home", "หน้าแรก"], ["market", "ตลาด"], ["tickets", "ตั๋วของฉัน"]].map(([k, v]) => (
+      <nav className="dnav" aria-label="เมนูหลัก">{[["home", "หน้าแรก"], ["market", "การจำหน่ายบัตร"], ["tickets", "บัตรเข้าชมของฉัน"]].map(([k, v]) => (
         <button key={k} className={active === k ? "on" : ""} aria-current={active === k ? "page" : undefined} onClick={() => go(k)}>{v}</button>))}</nav>
       <label className="dsearch"><svg aria-hidden="true"><use href="#i-search" /></svg>
-        <input id="dq" type="search" autoComplete="off" value={S.q} placeholder="ค้นหางาน ศิลปิน สถานที่" aria-label="ค้นหางาน"
+        <input id="dq" type="search" autoComplete="off" value={S.q} placeholder="ค้นหาอีเวนต์ ศิลปิน หรือสถานที่" aria-label="ค้นหาอีเวนต์"
           onChange={e => { S.q = e.target.value; emit(); if (screen !== "home") go("home"); }} /></label>
       <button className="lnk" style={{ whiteSpace: "nowrap" }} onClick={enterOrg}>สำหรับผู้จัดงาน</button>
       {S.signedIn ? <button className="avatar" onClick={() => go("profile")} aria-label={"โปรไฟล์ " + S.user.name}>{initial()}</button>
@@ -110,10 +110,10 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
       <div className="devwrap"><div className={"device" + (sideOn ? " org-desk" : "")} id="device" data-theme-mode={theme()}>
         {sideOn && <aside className="side" id="side">
           <span className="side-logo"><svg aria-hidden="true"><use href="#logo-w" /></svg><span translate="no">JONGLOEI</span></span>
-          <div className="side-shop"><b>{S.org.shop.name}</b><span>{S.org.shop.verification === "verified" ? "ยืนยันร้านแล้ว" : "รอยืนยันตัวตน"}{S.org.role !== "owner" ? " · " + ROLE_LABEL[S.org.role] : ""}{S.org.live ? " · ระบบจริง" : ""}</span></div>
-          <nav className="side-nav" aria-label="เมนูผู้จัด">{sideTabs.map(([k, icon, v]) => (
+          <div className="side-shop"><b>{S.org.shop.name}</b><span>{S.org.shop.verification === "verified" ? "ผ่านการยืนยันร้านค้า" : "รอการตรวจสอบตัวตน"}{S.org.role !== "owner" ? " · " + ROLE_LABEL[S.org.role] : ""}</span></div>
+          <nav className="side-nav" aria-label="เมนูผู้จัดการอีเวนต์">{sideTabs.map(([k, icon, v]) => (
             <button key={k} aria-current={active === k ? "page" : undefined} onClick={() => { closeSheet(); go(k); }}><svg aria-hidden="true"><use href={"#" + icon} /></svg>{v}</button>))}</nav>
-          <button className="side-back" onClick={() => setMode("buyer")}><svg aria-hidden="true"><use href="#i-back" /></svg>กลับไปหน้าผู้ซื้อ</button>
+          <button className="side-back" onClick={() => setMode("buyer")}><svg aria-hidden="true"><use href="#i-back" /></svg>กลับสู่มุมมองผู้ซื้อ</button>
         </aside>}
         {!sideOn && <header className="appbar" id="appbar">{appbar}</header>}
         <main className="scroll" id="scroll">{redirect ? null : <div className="screen v2" key={path}>{children}</div>}</main>
@@ -121,14 +121,14 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
           {tabs.map(([k, icon, label]) => (
             <button key={k} className={active === k ? "on" : ""} aria-current={active === k ? "page" : undefined} onClick={() => { closeSheet(); go(k); }}><svg><use href={"#" + icon} /></svg>{label}</button>))}
         </nav>}
-        {r && <div className={"org-result " + (r.valid ? "ok" : "bad")} role="alertdialog" aria-live="assertive" aria-label={r.valid ? "ผ่าน" : "ไม่ผ่าน"}>
+        {r && <div className={"org-result " + (r.valid ? "ok" : "bad")} role="alertdialog" aria-live="assertive" aria-label={r.valid ? "ผ่านการตรวจสอบ" : "ไม่ผ่านการตรวจสอบ"}>
           <span className="ric"><svg width="72" height="72" aria-hidden="true"><use href={r.valid ? "#i-check" : "#i-x"} /></svg></span>
-          <b className="rtitle">{r.valid ? "ผ่าน" : "ไม่ผ่าน"}</b>
+          <b className="rtitle">{r.valid ? "ผ่านการตรวจสอบ" : "ไม่ผ่านการตรวจสอบ"}</b>
           {r.zone && <span className="rzone">{r.zone}</span>}
           <p className="rtext">{r.text}</p>
-          {r.valid ? <span style={{ fontSize: 14, opacity: 0.85 }}>หายไปเองใน 2 วินาที</span>
-            : <div className="racts"><button className="btn" style={{ background: "#fff", color: "var(--danger-solid)", minHeight: 64, fontSize: 18, borderRadius: 12 }} onClick={callManager}>เรียกผู้จัดการ</button>
-              <button className="btn" style={{ background: "transparent", color: "#fff", boxShadow: "inset 0 0 0 1.5px rgb(255 255 255 / .8)" }} onClick={gateClose} autoFocus>สแกนต่อ</button></div>}
+          {r.valid ? <span style={{ fontSize: 14, opacity: 0.85 }}>ซ่อนอัตโนมัติใน 2 วินาที</span>
+            : <div className="racts"><button className="btn" style={{ background: "#fff", color: "var(--danger-solid)", minHeight: 64, fontSize: 18, borderRadius: 12 }} onClick={callManager}>ติดต่อผู้จัดการ</button>
+              <button className="btn" style={{ background: "transparent", color: "#fff", boxShadow: "inset 0 0 0 1.5px rgb(255 255 255 / .8)" }} onClick={gateClose} autoFocus>สแกนรายการถัดไป</button></div>}
         </div>}
         <SheetHost />
         <ToastHost />

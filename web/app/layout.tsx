@@ -3,8 +3,8 @@ import AppFrame from "@/components/AppFrame";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "JONGLOEI ตั๋วงานอีเวนต์",
-  description: "ซื้อ ขายต่อ และเก็บตั๋วงานอีเวนต์ที่ปลอมไม่ได้ จ่ายด้วย PromptPay งานยกเลิกคืนเงินอัตโนมัติ",
+  title: "JONGLOEI บัตรเข้าร่วมงานอีเวนต์",
+  description: "ซื้อ ขายต่อ และจัดเก็บบัตรเข้าร่วมงานอีเวนต์อย่างปลอดภัยและไร้การปลอมแปลง สามารถชำระเงินผ่าน PromptPay ยินดีคืนเงินหากมีการยกเลิกงาน",
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#120D0E" };
 

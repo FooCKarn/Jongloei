@@ -19,7 +19,7 @@ export function toast(msg: string, kind?: "ok" | "err") {
   setTimeout(() => { if (ui.toast && ui.toast.id === id) { ui.toast = null; bump(); } }, 2600);
 }
 // a demo action that is not wired to an API yet: it still works locally and says so
-export const mockToast = (msg: string) => toast(msg + " (ข้อมูลจำลอง)", "ok");
+export const mockToast = (msg: string) => toast(msg + " (ข้อมูลจำลองระบบ)", "ok");
 
 export function sheet(render: () => ReactNode) {
   if (!ui.sheet && typeof document !== "undefined") ui.opener = document.activeElement as HTMLElement;

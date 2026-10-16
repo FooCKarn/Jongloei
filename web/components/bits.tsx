@@ -31,9 +31,9 @@ export function ZChip({ e, name }: { e: any; name: string }) {
   return <span className="zchip" style={{ "--zc": c } as any}><svg aria-hidden="true"><use href={"#z-" + (["table", "comp", "seated"].includes(kind) ? kind : "standing")} /></svg>{name}</span>;
 }
 export function TkPill({ t }: { t: any }) {
-  return t.minting ? <span className="pill warn">กำลังออกตั๋ว</span> : t.failed ? <span className="pill grey">รอทีมงานตรวจ</span>
-    : t.status === "refunded" ? <span className="pill grey">คืนเงินแล้ว</span> : t.status === "listed" ? <span className="pill info">ลงขาย {fmt(t.listPrice)}</span>
-    : t.status === "used" ? <span className="pill grey">เข้างานแล้ว</span> : <span className="pill ok">พร้อมใช้</span>;
+  return t.minting ? <span className="pill warn">กำลังออกบัตรเข้าชม</span> : t.failed ? <span className="pill grey">รอเจ้าหน้าที่ตรวจสอบ</span>
+    : t.status === "refunded" ? <span className="pill grey">ดำเนินการคืนเงินเรียบร้อย</span> : t.status === "listed" ? <span className="pill info">ลงขาย {fmt(t.listPrice)}</span>
+    : t.status === "used" ? <span className="pill grey">บันทึกเข้างานเรียบร้อย</span> : <span className="pill ok">พร้อมใช้</span>;
 }
 export function TitleRow({ title, fallback = "home" }: { title: string; fallback?: string }) {
   return <div className="titlerow"><button className="back" onClick={() => back(fallback)} aria-label="ย้อนกลับ"><svg><use href="#i-back" /></svg></button><h1>{title}</h1></div>;
@@ -57,11 +57,11 @@ export function NftCard({ t, full }: { t: any; full?: boolean }) {
   const e = evById(t.ev) || { name: "—", short: "", tag: "", bg: "", date: "", time: "", venue: "" };
   return (<div className="tcard"><Pst e={e}><div className="tags" style={{ display: "flex", gap: 6 }}><span className="tag">{e.tag}</span></div></Pst>
     <div className="stub"><h3>{e.name}</h3>
-      <dl className="kv2 num"><dt>วันที่</dt><dd>{e.date} · {e.time} น.</dd><dt>สถานที่</dt><dd>{e.venue}</dd><dt>โซน</dt><dd>{t.zone}</dd><dt>ราคาหน้าบัตร</dt><dd>{fmt(t.price)}</dd><dt>เลขตั๋ว</dt><dd className="mono">#{t.tid}</dd></dl>
-      {full && <details className="chain"><summary>ดูหลักฐานบนเชน <span className="pill ok">ยืนยันแล้ว</span><Icon id="i-down" className="ic" /></summary>
-        <dl className="kv2"><dt>เจ้าของ</dt><dd className="mono">{short(S.user.wallet)} (คุณ)</dd><dt>สัญญา</dt><dd className="mono">{short(CONTRACT)}</dd>
-          <dt>ธุรกรรม</dt><dd className="mono">{t.explorer ? <a href={t.explorer} target="_blank" rel="noopener">{t.tx}</a> : t.tx}</dd>
-          <dt>เครือข่าย</dt><dd>Avalanche Fuji (ทดสอบ)</dd><dt>ขายต่อหรือโอนมาแล้ว</dt><dd className="num">{t.transfers} ครั้ง</dd></dl></details>}
+      <dl className="kv2 num"><dt>วันที่จัดงาน</dt><dd>{e.date} · {e.time} น.</dd><dt>สถานที่จัดงาน</dt><dd>{e.venue}</dd><dt>โซนที่นั่ง</dt><dd>{t.zone}</dd><dt>ราคาหน้าบัตร</dt><dd>{fmt(t.price)}</dd><dt>หมายเลขบัตรเข้าชม</dt><dd className="mono">#{t.tid}</dd></dl>
+      {full && <details className="chain"><summary>ตรวจสอบหลักฐานบนบล็อกเชน <span className="pill ok">ยืนยันความถูกต้องแล้ว</span><Icon id="i-down" className="ic" /></summary>
+        <dl className="kv2"><dt>เจ้าของกรรมสิทธิ์</dt><dd className="mono">{short(S.user.wallet)} (คุณ)</dd><dt>สัญญาอัจฉริยะ</dt><dd className="mono">{short(CONTRACT)}</dd>
+          <dt>ประวัติธุรกรรม</dt><dd className="mono">{t.explorer ? <a href={t.explorer} target="_blank" rel="noopener">{t.tx}</a> : t.tx}</dd>
+          <dt>เครือข่ายบล็อกเชน</dt><dd>Avalanche Fuji (เครือข่ายทดสอบ)</dd><dt>ผ่านการขายต่อหรือโอนสิทธิ์แล้ว</dt><dd className="num">{t.transfers} ครั้ง</dd></dl></details>}
     </div></div>);
 }
 
@@ -77,8 +77,8 @@ export function LineSteps({ labels, cur, onPick }: { labels: string[]; cur: numb
 // page head: title + shop row (mobile) + primary action
 export function OrgHead({ title, action }: { title: string; action?: any }) {
   const sh = S.org.shop, ok = sh.verification === "verified";
-  return (<div className="ohead"><h1>{title}</h1><div className="oshop"><b>{sh.name}</b><span className={"pill " + (ok ? "ok" : "warn")}>{ok ? "ยืนยันร้านแล้ว" : "รอยืนยันตัวตน"}</span>
-    {S.org.role !== "owner" && <span className="pill grey">{ROLE_LABEL[S.org.role]}</span>}{S.org.live && <span className="pill ok">ระบบจริง</span>}</div>{action || null}</div>);
+  return (<div className="ohead"><h1>{title}</h1><div className="oshop"><b>{sh.name}</b><span className={"pill " + (ok ? "ok" : "warn")}>{ok ? "ผ่านการยืนยันร้านค้า" : "รอการตรวจสอบตัวตน"}</span>
+    {S.org.role !== "owner" && <span className="pill grey">{ROLE_LABEL[S.org.role]}</span>}</div>{action || null}</div>);
 }
 
 /* ---------- QR codes ---------- */
@@ -97,7 +97,7 @@ export function EntryQR({ t, onGone }: { t: any; onGone?: () => void }) {
         if (res.status === 409) { onGone && onGone(); return; }   // scanned at the door, or no longer usable
         if (!res.ok) throw new Error(d.error || "qr_failed");
         setCode(d.code); exp.current = Date.now() + (d.expiresAt - d.ts * 1000); failed.current = 0;
-      } catch (e) { console.error("Entry QR failed", e); if (++failed.current >= 3) setErr("สร้าง QR ไม่สำเร็จ ลองเปิดหน้านี้ใหม่"); }
+      } catch (e) { console.error("Entry QR failed", e); if (++failed.current >= 3) setErr("สร้าง QR Code ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"); }
       finally { busy.current = false; }
     };
     const tick = () => {
@@ -108,8 +108,8 @@ export function EntryQR({ t, onGone }: { t: any; onGone?: () => void }) {
     return () => { alive = false; clearInterval(iv); };
   }, [t.key, t.tid, t.real]);
   return (<>
-    {code ? <QRCodeSVG value={code} size={220} level="M" marginSize={2} role="img" aria-label="QR เข้างาน" style={{ width: 220, height: 220, maxWidth: "100%" }} />
-      : <div className="qrstate">{err || "กำลังสร้าง QR…"}</div>}
+    {code ? <QRCodeSVG value={code} size={220} level="M" marginSize={2} role="img" aria-label="QR Code สำหรับเข้างาน" style={{ width: 220, height: 220, maxWidth: "100%" }} />
+      : <div className="qrstate">{err || "กำลังสร้าง QR Code…"}</div>}
     {!err && <div className="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#ECE4E5" strokeWidth="4" />
       <circle cx="18" cy="18" r="15" fill="none" stroke="#A00018" strokeWidth="4" strokeDasharray="94.25" strokeDashoffset={(94.25 * (1 - left / 60)).toFixed(2)} strokeLinecap="round" /></svg>
       QR ใหม่ใน <b className="num">{left}</b> วินาที</div>}
@@ -162,7 +162,7 @@ export function DateTime({ id, value, onChange, min, invalid, describedBy, quick
           <Icon id="i-cal" /><span className={"v" + (value == null ? " ph" : "")}>{value != null ? dateText(value) : "เลือกวันที่"}</span><Icon id="i-down" />
         </button>
         {open === "date" && <div className="dt-pop l" role="dialog" aria-label={"เลือกวันที่ " + label}>
-          <div className="dt-head"><button type="button" className="dt-nav" aria-label="เดือนก่อน" onClick={() => shift(-1)}><Icon id="i-back" /></button>
+          <div className="dt-head"><button type="button" className="dt-nav" aria-label="เดือนก่อนหน้า" onClick={() => shift(-1)}><Icon id="i-back" /></button>
             <b aria-live="polite">{TH_MF[v.m]} {v.y + 543}</b><button type="button" className="dt-nav" aria-label="เดือนถัดไป" onClick={() => shift(1)}><Icon id="i-next" /></button></div>
           <div className="dt-cal wk" aria-hidden="true">{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map(x => <span key={x}>{x}</span>)}</div>
           <div className="dt-cal">{days.map(x => {
@@ -172,8 +172,8 @@ export function DateTime({ id, value, onChange, min, invalid, describedBy, quick
               aria-label={dateText(fromParts(x.y, x.m, x.d, 12, 0))} onClick={() => pickDay(x)}>{x.d}</button>;
           })}</div>
           <div className="dt-foot"><span className="hint" style={{ margin: 0 }}>วันนี้ {dateText(now)}</span>
-            <span>{value != null && <button type="button" className="dt-clear" onClick={() => { onChange(null); setOpen(""); }}>ล้าง</button>}
-              <button type="button" className="dt-chip" onClick={() => setOpen("")}>เสร็จ</button></span></div>
+            <span>{value != null && <button type="button" className="dt-clear" onClick={() => { onChange(null); setOpen(""); }}>ล้างข้อมูล</button>}
+              <button type="button" className="dt-chip" onClick={() => setOpen("")}>ยืนยัน</button></span></div>
         </div>}
       </div>
       <div className="dt-cell">
@@ -192,7 +192,7 @@ export function DateTime({ id, value, onChange, min, invalid, describedBy, quick
           <div className="dt-foot"><span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{(quick || ["18:00", "19:30", "21:00"]).map(q => {
             const [h, mi] = q.split(":").map(Number);
             return <button key={q} type="button" className="dt-chip num" onClick={() => { setTime(h, mi); setOpen(""); }}>{q}</button>; })}</span>
-            <button type="button" className="dt-chip on" onClick={() => setOpen("")}>เสร็จ</button></div>
+            <button type="button" className="dt-chip on" onClick={() => setOpen("")}>ยืนยัน</button></div>
         </div>}
       </div>
     </div>);

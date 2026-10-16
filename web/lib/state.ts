@@ -21,11 +21,11 @@ export const POSTERS = [
 export const FALLBACK_EVENTS = [
   { id: "neon", name: "BKK Neon Nights 2026", short: "NEON\nNIGHTS", tag: "คอนเสิร์ต", date: "ส. 21 พ.ย. 2569", time: "19:00", venue: "อิมแพ็ค อารีนา เมืองทองธานี", bg: POSTERS[0],
     zones: [{ z: "Standing A", p: 2500, left: 182, c: "var(--zone-1)" }, { z: "Seat B", p: 3800, left: 64, c: "var(--zone-2)" }, { z: "VIP Front", p: 5500, left: 9, c: "var(--zone-3)" }], sold: 86 },
-  { id: "jazz", name: "Siam River Jazz Festival", short: "RIVER\nJAZZ", tag: "เทศกาล", date: "ส. 5 ธ.ค. 2569", time: "16:00", venue: "ลานริมน้ำ เจริญกรุง", bg: POSTERS[1],
-    zones: [{ z: "บัตรวันเดียว", p: 1800, left: 420, c: "var(--zone-1)" }, { z: "บัตร 2 วัน", p: 3200, left: 150, c: "var(--zone-2)" }], sold: 58 },
+  { id: "jazz", name: "Siam River Jazz Festival", short: "RIVER\nJAZZ", tag: "เทศกาลดนตรี", date: "ส. 5 ธ.ค. 2569", time: "16:00", venue: "ลานริมน้ำ เจริญกรุง", bg: POSTERS[1],
+    zones: [{ z: "บัตรเข้าชมวันเดียว", p: 1800, left: 420, c: "var(--zone-1)" }, { z: "บัตรเข้าชม 2 วัน", p: 3200, left: 150, c: "var(--zone-2)" }], sold: 58 },
   { id: "fan", name: "Starlight Fan Meeting in Bangkok", short: "STAR\nLIGHT", tag: "แฟนมีตติ้ง", date: "อา. 13 ธ.ค. 2569", time: "17:30", venue: "ธันเดอร์โดม เมืองทองธานี", bg: POSTERS[2],
     zones: [{ z: "Zone C", p: 2900, left: 0, c: "var(--zone-1)" }, { z: "Zone B", p: 4200, left: 31, c: "var(--zone-2)" }, { z: "Hi-Touch A", p: 6900, left: 4, c: "var(--zone-3)" }], sold: 97 },
-  { id: "standup", name: "Late Night Stand-up Special", short: "LATE\nNIGHT", tag: "สแตนด์อัป", date: "ศ. 9 ม.ค. 2570", time: "20:00", venue: "สามย่านมิตรทาวน์ ฮอลล์", bg: POSTERS[3],
+  { id: "standup", name: "Late Night Stand-up Special", short: "LATE\nNIGHT", tag: "สแตนด์อัปคอมเมดี", date: "ศ. 9 ม.ค. 2570", time: "20:00", venue: "สามย่านมิตรทาวน์ ฮอลล์", bg: POSTERS[3],
     zones: [{ z: "Regular", p: 1500, left: 240, c: "var(--zone-1)" }, { z: "Front Row", p: 2600, left: 22, c: "var(--zone-2)" }], sold: 41 },
 ];
 
@@ -34,12 +34,12 @@ const BUYER_NAMES = ["ปิยะพงษ์ ศรีสุข", "ณัฐ�
   "อภิสิทธิ์ ศักดิ์ดี", "สุภัสสรา นาคสวัสดิ์", "ธีรเดช มีสุข", "ปาริชาติ ทองคำ", "จิรายุ วงศ์สวัสดิ์", "เบญจมาศ แสงทอง",
   "ศุภกร สมบูรณ์", "ณิชา ปัญญาดี", "พงศกร ศรีวงศ์", "กัญญาณัฐ บุญรอด", "วีรภัทร จันทร์หอม", "มนัสนันท์ ศรีอ่อน"];
 export const ORG_PARAMS = { resaleEnabled: true, capMultiplier: 1.25, resaleDelayH: 6, transferCutoffH: 1, disputeWindowH: 24, perUserLimit: 4 };
-const DEMO_SHOP = { id: "shop-demo", name: "Rooftop 88", kind: "bar", legal: "company", taxId: "0105559012345", contactLine: "@rooftop88",
+const DEMO_SHOP = { id: "shop-demo", name: "Midnight Society", kind: "bar", legal: "company", taxId: "0105559012345", contactLine: "@midnightsociety",
   phone: "0812345678", payoutPromptPay: "0105559012345", verification: "verified", docName: "หนังสือรับรองบริษัท.pdf",
-  team: [{ email: "owner@rooftop88.example", role: "owner" }, { email: "door.staff@example.com", role: "gate" }, { email: "manager@example.com", role: "manager" }] };
+  team: [{ email: "owner@midnightsociety.example", role: "owner" }, { email: "door.staff@example.com", role: "gate" }, { email: "manager@example.com", role: "manager" }] };
 // organizer accounts are separate from the buyer's Google login; the sample shop's three team members already have one
-export const DEMO_ACCOUNTS: Record<string, any> = { "owner@rooftop88.example": { name: "คุณมินต์ (เจ้าของ Rooftop 88)", shopId: "shop-demo" },
-  "manager@example.com": { name: "คุณเมย์ (ผู้จัดการ)", shopId: "shop-demo" }, "door.staff@example.com": { name: "พี่โด่ง (พนักงานหน้างาน)", shopId: "shop-demo" } };
+export const DEMO_ACCOUNTS: Record<string, any> = { "owner@midnightsociety.example": { name: "คุณมินต์ (เจ้าของ Midnight Society)", shopId: "shop-demo" },
+  "manager@example.com": { name: "คุณเมย์ (ผู้จัดการระบบ)", shopId: "shop-demo" }, "door.staff@example.com": { name: "พี่โด่ง (เจ้าหน้าที่ปฏิบัติการหน้างาน)", shopId: "shop-demo" } };
 const SEED_LISTING = { lid: 9001, ev: "org-fri", zone: "Standing", face: 1000, price: 1150, seller: "0x7C1e…44Ab", transfers: 0, tid: 5002, orgTicketId: "org-fri-std-2" };
 
 /* ---------- state ---------- */
@@ -120,19 +120,19 @@ export function orgSeed(now: number) {
     ({ id, name, kind, price: baht * 100, capacity, sold, held: 0, color, saleStartAt: null, saleEndAt: null, seatsPerUnit: null, ...extra });
   const ev = (o: any) => ({ shopId: "shop-demo", short: "", description: "", mapUrl: "", cancelReason: "", image: null, params: { ...ORG_PARAMS }, ...o });
   const events = [
-    ev({ id: "org-fri", name: "Friday Rooftop Session", short: "ROOFTOP\nFRIDAY", category: "ปาร์ตี้", venue: "Rooftop 88 ทองหล่อ", bg: POSTERS[2], status: "on_sale",
-      description: "ดีเจเซ็ตยาวบนดาดฟ้า วิวเมืองทั้งคืน แต่งตัวสบาย ๆ อายุ 20 ปีขึ้นไป", doorsAt: hr - HOUR / 2, startAt: hr + HOUR, endAt: hr + 5 * HOUR,
-      zones: [z("std", "Standing", "standing", 1000, 120, 64, "#E8485A", { held: 3 }), z("tbl", "โต๊ะ 4 ที่", "table", 4000, 10, 6, "#A00018", { seatsPerUnit: 4 }),
-        z("vip", "VIP Lounge", "seated", 2500, 20, 12, "#4A0010"), z("cmp", "บัตรเชิญ", "comp", 0, 10, 4, "#9A5B00")] }),
-    ev({ id: "org-latte", name: "Latte Art Workshop รอบเย็น", short: "LATTE\nART", category: "workshop", venue: "Rooftop 88 ชั้น 3", bg: POSTERS[5], status: "on_sale",
-      description: "เรียนเทนมลาเต้อาร์ตกับบาริสต้าแชมป์ประเทศ ได้ลงมือจริงคนละเครื่อง", doorsAt: hr + 12 * DAY - HOUR / 2, startAt: hr + 12 * DAY, endAt: hr + 12 * DAY + 3 * HOUR,
-      zones: [z("seat", "ที่นั่ง workshop", "seated", 1500, 12, 9, "#E8485A")] }),
-    ev({ id: "org-halloween", name: "Halloween Rooftop Party", short: "HALLO\nWEEN", category: "ปาร์ตี้", venue: "Rooftop 88 ทองหล่อ", bg: POSTERS[3], status: "draft",
+    ev({ id: "org-fri", name: "Friday Rooftop Session", short: "ROOFTOP\nFRIDAY", category: "ปาร์ตี้สังสรรค์", venue: "Midnight Society ทองหล่อ", bg: POSTERS[2], status: "on_sale",
+      description: "เพลิดเพลินกับดีเจเซ็ตยาวบนดาดฟ้า พร้อมวิวเมืองยามค่ำคืน แต่งกายสบายๆ สำหรับผู้มีอายุ 20 ปีขึ้นไป", doorsAt: hr - HOUR / 2, startAt: hr + HOUR, endAt: hr + 5 * HOUR,
+      zones: [z("std", "Standing", "standing", 1000, 120, 64, "#E8485A", { held: 3 }), z("tbl", "โต๊ะ 4 ที่นั่ง", "table", 4000, 10, 6, "#A00018", { seatsPerUnit: 4 }),
+        z("vip", "VIP Lounge", "seated", 2500, 20, 12, "#4A0010"), z("cmp", "บัตรเชิญพิเศษ", "comp", 0, 10, 4, "#9A5B00")] }),
+    ev({ id: "org-latte", name: "Latte Art Workshop รอบเย็น", short: "LATTE\nART", category: "workshop", venue: "Midnight Society ชั้น 3", bg: POSTERS[5], status: "on_sale",
+      description: "เรียนรู้เทคนิคการเทนม Latte Art กับบาริสต้าแชมป์ระดับประเทศ พร้อมลงมือปฏิบัติจริงด้วยเครื่องชงส่วนตัวคนละเครื่อง", doorsAt: hr + 12 * DAY - HOUR / 2, startAt: hr + 12 * DAY, endAt: hr + 12 * DAY + 3 * HOUR,
+      zones: [z("seat", "ที่นั่ง Workshop", "seated", 1500, 12, 9, "#E8485A")] }),
+    ev({ id: "org-halloween", name: "Halloween Rooftop Party", short: "HALLO\nWEEN", category: "ปาร์ตี้สังสรรค์", venue: "Midnight Society ทองหล่อ", bg: POSTERS[3], status: "draft",
       doorsAt: hr + 16 * DAY - HOUR, startAt: hr + 16 * DAY, endAt: hr + 16 * DAY + 6 * HOUR,
       zones: [z("early", "Early Bird", "standing", 600, 50, 0, "#E8485A", { saleEndAt: hr + 9 * DAY }), z("std", "Standing", "standing", 800, 150, 0, "#A00018")] }),
-    ev({ id: "org-jazz", name: "Jazz Night Vol.3", short: "JAZZ\nNIGHT", category: "คอนเสิร์ต", venue: "Rooftop 88 ทองหล่อ", bg: POSTERS[4], status: "ended",
+    ev({ id: "org-jazz", name: "Jazz Night Vol.3", short: "JAZZ\nNIGHT", category: "คอนเสิร์ต", venue: "Midnight Society ทองหล่อ", bg: POSTERS[4], status: "ended",
       doorsAt: hr - 3 * DAY - HOUR, startAt: hr - 3 * DAY, endAt: hr - 3 * DAY + 4 * HOUR, zones: [z("seat", "Seat", "seated", 1200, 60, 52, "#E8485A")] }),
-    ev({ id: "org-acoustic", name: "Acoustic Sunday", short: "ACOUSTIC\nSUNDAY", category: "คอนเสิร์ต", venue: "ลานหญ้า Rooftop 88", bg: POSTERS[1], status: "cancelled", cancelReason: "สภาพอากาศ",
+    ev({ id: "org-acoustic", name: "Acoustic Sunday", short: "ACOUSTIC\nSUNDAY", category: "คอนเสิร์ต", venue: "ลานหญ้า Midnight Society", bg: POSTERS[1], status: "cancelled", cancelReason: "สภาพอากาศ",
       doorsAt: hr + 2 * DAY - HOUR, startAt: hr + 2 * DAY, endAt: hr + 2 * DAY + 3 * HOUR, zones: [z("std", "Standing", "standing", 900, 40, 18, "#E8485A")] }),
   ];
   const tickets: any[] = [], ledger: any[] = [], checkinLog: any[] = [];
