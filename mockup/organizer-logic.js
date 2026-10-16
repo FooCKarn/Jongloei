@@ -25,7 +25,7 @@ function toSatang(baht) {
 function fmtBaht(satang) {
   const neg = satang < 0, a = Math.abs(Math.round(satang));
   const whole = Math.floor(a / 100).toLocaleString('en-US'), frac = a % 100;
-  return (neg ? '-' : '') + '฿' + whole + (frac ? '.' + String(frac).padStart(2, '0') : '');
+  return (neg ? '-' : '') + whole + (frac ? '.' + String(frac).padStart(2, '0') : '') + '฿';
 }
 
 const serviceFee = face => FEE_FIXED + pctHalfUp(face, FEE_PCT);
@@ -74,9 +74,9 @@ function validateZone(z) {
   if (!name) errors.name = 'ใส่ชื่อโซน';
   else if (name.length > 40) errors.name = 'ชื่อโซนยาวได้ไม่เกิน 40 ตัวอักษร';
   if (z.kind === 'comp') {
-    if (z.price !== 0) errors.price = 'บัตรเชิญต้องเป็นราคา ฿0';
+    if (z.price !== 0) errors.price = 'บัตรเชิญต้องเป็นราคา 0฿';
   } else if (!isInt(z.price) || z.price < 100) {
-    errors.price = 'ราคาต้องอย่างน้อย ฿1 และมีทศนิยมไม่เกิน 2 ตำแหน่ง';
+    errors.price = 'ราคาต้องอย่างน้อย 1฿ และมีทศนิยมไม่เกิน 2 ตำแหน่ง';
   }
   if (!isInt(z.capacity) || z.capacity < 1) errors.capacity = 'จำนวนต้องเป็นจำนวนเต็มอย่างน้อย 1';
   if (z.kind === 'table' && (!isInt(z.seatsPerUnit) || z.seatsPerUnit < 2 || z.seatsPerUnit > 20)) {
