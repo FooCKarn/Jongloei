@@ -31,7 +31,7 @@ function setup({ age, quantity = 1 }) {
 }
 
 // thirdweb answers `status` for the queued write; the RPC has `minted` [tokenId, eventId, to?] logs.
-function mockNetwork({ status, minted = [] }) {
+function mockNetwork({ status, minted = [], thirdwebDown = false, rpcError = null }) {
   const sent = { writes: 0, getLogs: [] };
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === 'string' ? input : input.url);
@@ -41,11 +41,13 @@ function mockNetwork({ status, minted = [] }) {
       return reply({ result: { transactionIds: ['tw-tx-2'] } });
     }
     if (url.host === 'api.thirdweb.com' && url.pathname.startsWith('/v1/transactions/')) {
+      if (thirdwebDown) throw new DOMException('The operation timed out.', 'TimeoutError');
       return reply({ result: { status, errorMessage: status === 'FAILED' ? 'RECEIPT_QUERY_FAILED' : null } });
     }
     if (url.host === 'api.avax-test.network') {
       const { method, params } = JSON.parse(init.body);
       if (method === 'eth_blockNumber') return reply({ result: '0x38c75c0' });
+      if (rpcError) return reply({ jsonrpc: '2.0', id: 1, error: { code: -32000, message: rpcError } });
       if (method === 'eth_getLogs') {
         const [f] = params;
         sent.getLogs.push(f);
@@ -138,4 +140,22 @@ test('a token another ticket already holds is not taken twice', async () => {
   await cron(env);
   assert.equal(order(DB).status, 'fulfilled');
   assert.deepEqual(tickets(DB).map(t => t.token_id), [9, 11]);
+});
+
+test('thirdweb status lookup timing out still lets the chain check fulfil the order', async () => {
+  const { DB, env } = setup({ age: 5 * MIN });
+  mockNetwork({ status: 'SUBMITTED', thirdwebDown: true, minted: [[9, 4]] });
+  await cron(env);
+  assert.equal(order(DB).status, 'fulfilled');
+});
+
+test('an RPC error on the chain check is kept on the order and nothing else changes', async () => {
+  const { DB, env } = setup({ age: 5 * MIN });
+  const sent = mockNetwork({ status: 'SUBMITTED', rpcError: 'requested too many blocks' });
+  await cron(env);
+  const row = DB.raw.prepare('SELECT status, mint_tx_id, mint_error FROM payment_orders WHERE id = ?').get('po1');
+  assert.equal(row.status, 'paid');
+  assert.equal(row.mint_tx_id, 'tw-tx-1');
+  assert.match(row.mint_error, /chain check: .*too many blocks/);
+  assert.equal(sent.writes, 0);
 });

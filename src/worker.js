@@ -569,7 +569,11 @@ async function settleMint(env, orderId, polls = 1) {
   ).bind(orderId).first();
   if (!order?.mint_tx_id || order.mint_tx_id === 'sending') return;
   const results = [];
-  for (const id of order.mint_tx_id.split(',')) results.push(await waitForTransaction(env.THIRDWEB_SECRET_KEY, id, polls));
+  for (const id of order.mint_tx_id.split(',')) {
+    // A thirdweb outage (timeouts included) must not stop the chain check below.
+    results.push(await waitForTransaction(env.THIRDWEB_SECRET_KEY, id, polls)
+      .catch(err => ({ status: 'UNKNOWN', hash: null, error: String(err && err.message || err) })));
+  }
   const failed = results.find(r => r.status === 'FAILED');
   const confirmed = !failed && results.every(r => r.status === 'CONFIRMED' && r.hash);
   // updated_at is when mint_tx_id was recorded; nothing else touches a paid order until it settles.
@@ -590,7 +594,14 @@ async function settleMint(env, orderId, polls = 1) {
     }
   } else {
     if (!tickets.length) return;
-    tokens = await unclaimedMintsOnChain(env, tickets[0].owner_wallet, order.chain_event_id, age);
+    try {
+      tokens = await unclaimedMintsOnChain(env, tickets[0].owner_wallet, order.chain_event_id, age);
+    } catch (err) {
+      // Kept on the order so a stuck mint shows why in D1; retried on the next pass.
+      await env.DB.prepare('UPDATE payment_orders SET mint_error = ? WHERE id = ? AND status = \'paid\'')
+        .bind(('chain check: ' + (err && err.message || err)).slice(0, 500), orderId).run();
+      return;
+    }
     if (tokens.length >= tickets.length) {
       console.error('mint found on chain while thirdweb says', results.map(r => r.status).join(','), orderId);
     } else if (failed) {
@@ -638,10 +649,13 @@ async function unclaimedMintsOnChain(env, wallet, chainEventId, ageMs) {
       address: TICKET_CONTRACT,
       fromBlock: '0x' + from.toString(16),
       toBlock: '0x' + Math.min(from + LOG_SPAN - 1, latest).toString(16),
-      topics: [TICKET_MINTED_TOPIC, null, pad(wallet), pad(chainEventId)],
+      topics: [TICKET_MINTED_TOPIC],
     }]) || []);
   }
-  const found = logs.map(l => ({ tokenId: Number(BigInt(l.topics[1])), hash: l.transactionHash }));
+  // Filtered here rather than with null topic wildcards, which not every RPC accepts.
+  const found = logs.filter(l => l.topics?.length === 4
+      && String(l.topics[2]).toLowerCase() === pad(wallet) && BigInt(l.topics[3]) === BigInt(chainEventId))
+    .map(l => ({ tokenId: Number(BigInt(l.topics[1])), hash: l.transactionHash }));
   if (!found.length) return [];
   const taken = new Set(((await env.DB.prepare(
     `SELECT token_id FROM tickets WHERE token_id IN (${found.map(() => '?').join(',')})`,
