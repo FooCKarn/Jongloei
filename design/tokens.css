@@ -51,7 +51,7 @@
 
   /* ---------- colour: fixed in both themes ---------- */
   --scan-ok: #22BB33;        /* = --ok-solid */
-  --scan-bad: #B42318;
+  --scan-bad: #DC2626;       /* = --danger-solid */
   --on-scan: #FFFFFF;
   --on-scan-tint: rgb(255 255 255 / .16);
   --on-scan-outline: rgb(255 255 255 / .6);

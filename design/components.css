@@ -38,18 +38,24 @@
 .c-button--ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
 .c-button--ghost:hover { background: var(--surface-2); color: var(--ink); }
 
-.c-button--danger { background: var(--danger); color: var(--on-red); }
-.c-button--danger:hover { background: var(--danger); color: var(--on-red); filter: brightness(.92); }
+.c-button--danger { background: var(--danger-solid); color: var(--on-solid); }
+.c-button--danger:hover { background: var(--danger-solid); color: var(--on-solid); filter: brightness(.92); }
+/* Danger outline: "ทิ้งการแก้ไข", "ลบออกจากทีม" next to a safer primary. */
+.c-button--danger-outline { background: transparent; border-color: var(--danger-solid); color: var(--danger-solid); }
+.c-button--plain { background: transparent; color: var(--ink); }   /* "อยู่ต่อ", "ยกเลิก" in sheets */
+.c-button--plain:hover { background: var(--surface-2); }
 
 .c-button--lg { min-height: var(--tap-lg); padding: 0 var(--space-6); font-size: var(--fs-body-lg); }
 .c-button--xl { min-height: var(--tap-xl); padding: 0 var(--space-8); font-size: var(--fs-price); }
 .c-button--block { display: flex; width: 100%; }
 
+/* Disabled: solid grey with white text; the reason always sits next to the button. */
 .c-button:disabled,
 .c-button[aria-disabled="true"] {
-  background: var(--line);
+  background: var(--neutral-solid);
   border-color: transparent;
-  color: var(--muted);
+  color: var(--on-solid);
+  cursor: not-allowed;
 }
 .c-button[data-state="loading"] { cursor: progress; }
 .c-button__spinner {
@@ -140,6 +146,10 @@
 .c-chip svg { width: var(--icon-sm); height: var(--icon-sm); }
 .c-chip[aria-pressed="true"],
 .c-chip[data-state="selected"] { background: var(--red); border-color: var(--red); color: var(--on-red); }
+.c-chip:disabled { border-color: var(--line); background: var(--surface-2); color: var(--muted); }
+.c-chip[aria-checked="true"] { background: var(--red); border-color: var(--red); color: var(--on-red); }   /* radio chips */
+.c-chip[aria-checked="true"]:disabled { background: var(--neutral-solid); border-color: var(--neutral-solid); color: var(--on-solid); }   /* locked choice */
+.c-chip--sm { min-height: 32px; padding: 0 12px; font-size: var(--fs-sm); }   /* zone type in the zone editor */
 .c-chip__count {
   min-width: 20px; height: 20px;
   padding: 0 6px;
@@ -186,12 +196,12 @@
   flex: none;
   min-height: var(--tap);
   margin-bottom: -1px;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   color: var(--muted);
   font-size: var(--fs-table);
   font-weight: var(--fw-semibold);
 }
-.c-tabs__tab[aria-selected="true"] { border-bottom-color: var(--red); color: var(--ink); }
+.c-tabs__tab[aria-selected="true"] { border-bottom-color: var(--red); color: var(--red); }
 
 /* ---------- Field ---------- */
 .c-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -211,7 +221,7 @@ textarea.c-field__control { padding-block: var(--space-3); line-height: 1.5; res
 select.c-field__control { appearance: none; padding-right: 40px; background-image: none; }
 .c-field__control::placeholder { color: var(--muted); }
 .c-field__control:focus { outline: none; border-color: var(--red); }
-.c-field__control[aria-invalid="true"] { border-color: var(--danger); }
+.c-field__control[aria-invalid="true"] { border: 2px solid var(--danger-solid); }
 .c-field__control[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px var(--danger-soft); }
 .c-field__control:disabled { background: var(--surface-2); color: var(--muted); }
 .c-field__control--mono { font-family: var(--font-mono); text-transform: uppercase; }
@@ -230,7 +240,7 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   display: flex; gap: 6px; align-items: flex-start;
   font-size: var(--fs-xs); line-height: var(--lh-xs);
 }
-.c-field__error { color: var(--danger); }
+.c-field__error { color: var(--danger-solid); font-weight: var(--fw-semibold); }
 .c-field__ok { color: var(--ok); }
 .c-field__error:empty { display: none; }
 .c-field__error svg, .c-field__ok svg { width: 14px; height: 14px; margin-top: 1px; }
@@ -267,7 +277,7 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   transition: transform var(--dur-press) var(--ease-out);
 }
 .c-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.c-toggle input:checked + .c-toggle__switch { background: var(--red); }
+.c-toggle input:checked + .c-toggle__switch { background: var(--ok-solid); }   /* on = green, off = grey line */
 .c-toggle input:checked + .c-toggle__switch::after { transform: translateX(18px); }
 .c-toggle input:focus-visible + .c-toggle__switch { outline: 2px solid var(--red); outline-offset: 2px; }
 
@@ -425,23 +435,26 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   gap: var(--space-2);
   pointer-events: none;
 }
+/* Solid fill, white text, leading icon. Success and info clear after 4 s; error stays until closed or retried. */
 .c-toast {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: var(--space-3) var(--space-2) var(--space-3) 14px;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 10px 10px 10px var(--space-4);
   border-radius: var(--radius-lg);
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--ok-solid);
+  color: var(--on-solid);
   box-shadow: var(--shadow-overlay);
-  font-size: var(--fs-table);
+  font-size: var(--fs-body);
   pointer-events: auto;
   animation: c-toast-in var(--dur-toast) var(--ease-out);
 }
-.c-toast > svg { width: 18px; height: 18px; }
-.c-toast--error > svg { color: var(--danger); }
-.c-toast__text { flex: 1; }
-.c-toast__action { min-height: 32px; padding: 0 10px; border-radius: var(--radius-md); font-weight: var(--fw-semibold); text-decoration: underline; text-underline-offset: 3px; }
+.c-toast > svg { flex: none; width: var(--icon); height: var(--icon); }
+.c-toast--info { background: var(--info-solid); }
+.c-toast--error { background: var(--danger-solid); }
+.c-toast__text { flex: 1; font-weight: var(--fw-medium); }
+.c-toast__action { min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); background: var(--on-scan-tint); color: inherit; font-size: var(--fs-table); font-weight: var(--fw-semibold); }
 .c-toast[data-state="leaving"] { animation: c-toast-out var(--dur-toast) var(--ease-out) forwards; }
 @keyframes c-toast-in  { from { opacity: 0; transform: translateY(8px); } }
 @keyframes c-toast-out { to   { opacity: 0; transform: translateY(8px); } }
@@ -474,7 +487,14 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
 }
 .c-scrim[data-state="leaving"] .c-sheet { animation: c-sheet-out var(--dur-sheet) var(--ease-out) forwards; }
 .c-sheet__grab { width: 40px; height: 4px; align-self: center; border-radius: var(--radius-full); background: var(--line); }
+.c-sheet__head { display: flex; align-items: center; gap: var(--space-2); }
+.c-sheet__head .c-sheet__title { flex: 1; }
+.c-sheet__head .c-icon-button { margin-right: calc(var(--space-2) * -1); }   /* close (×), .c-icon-button--plain */
 .c-sheet__title { font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.c-sheet__lead { font-size: var(--fs-body); line-height: 1.55; color: var(--muted); }
+/* Step counter in two-step sheets ("ขั้นที่ 1 จาก 2"); danger flows colour it red. */
+.c-sheet__step { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--red); font-variant-numeric: tabular-nums; }
+.c-sheet--danger .c-sheet__step { color: var(--danger-solid); }
 .c-sheet__actions { display: flex; flex-direction: column; gap: var(--space-2); }
 @keyframes c-fade-in  { from { opacity: 0; } }
 @keyframes c-fade-out { to   { opacity: 0; } }
@@ -491,21 +511,106 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   text-align: center;
 }
 .c-empty > svg { width: 40px; height: 40px; color: var(--muted); }
+/* Icon in a circle, no illustration; one primary action at most. */
+.c-empty__icon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--surface-2); color: var(--muted); }
+.c-empty__icon svg { width: 26px; height: 26px; }
+.c-empty__icon--danger { background: var(--danger-solid); color: var(--on-solid); }   /* "โหลดข้อมูลไม่สำเร็จ" */
+.c-empty__code { font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: 48px; line-height: 1; color: var(--red); }   /* 404 */
 .c-empty__title { font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-h3); }
 .c-empty__body { max-width: 36ch; font-size: var(--fs-table); color: var(--muted); }
 .c-empty .c-button { margin-top: var(--space-2); }
 
-/* ---------- Skeleton ---------- */
+/* ---------- Skeleton (same shape as the real content; a light sweep every 1.2 s) ---------- */
 .c-skeleton {
   display: block;
   height: 14px;
-  border-radius: var(--radius-sm);
-  background: var(--line);
-  animation: c-pulse 1.4s ease-in-out infinite;
+  border-radius: var(--radius-md);
+  background: var(--surface-2) linear-gradient(90deg, transparent, color-mix(in oklab, var(--on-solid) 6%, transparent), transparent) no-repeat;
+  background-size: 240px 100%;
+  animation: c-sweep 1.2s linear infinite;
 }
-.c-skeleton--soft { background: var(--surface-2); }
-.c-skeleton--media { height: auto; aspect-ratio: 4 / 3; border-radius: 0; background: var(--surface-2); }
-@keyframes c-pulse { 50% { opacity: .55; } }
+.c-skeleton--soft { background-color: var(--surface-2); }
+.c-skeleton--media { height: auto; aspect-ratio: 16 / 10; border-radius: 0; }
+.c-skeleton--circle { border-radius: var(--radius-full); }
+@keyframes c-sweep { from { background-position: -240px 0; } to { background-position: 240px 0; } }
+@media (prefers-reduced-motion: reduce) { .c-skeleton { animation: none; } }
+
+/* ---------- ResultHero (big round icon + title: ticket issued, shop verified, event published, send pending) ----------
+   Markup: <div class="c-result"><span class="c-result__icon"><svg><path class="c-result__draw" d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+           <h2 class="c-result__title">…</h2><p class="c-result__body">…</p><div class="c-result__actions">…</div></div> */
+.c-result { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; }
+.c-result__icon {
+  width: 72px; height: 72px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--ok-solid);
+  color: var(--on-solid);
+  animation: c-pop 450ms cubic-bezier(.2, .8, .2, 1) both;
+}
+.c-result__icon svg { width: 38px; height: 38px; }
+.c-result__draw { stroke-dasharray: 30; stroke-dashoffset: 30; animation: c-draw 400ms 300ms ease-out forwards; }
+.c-result--pending .c-result__icon { background: var(--warn-solid); animation: none; }   /* "ส่งเอกสารแล้ว รอตรวจสอบ" */
+.c-result__title { font-size: var(--fs-h1); line-height: var(--lh-h1); }
+.c-result__body { max-width: 40ch; font-size: var(--fs-body); color: var(--muted); }
+.c-result__actions { width: 100%; display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); }
+@media (min-width: 900px) { .c-result__actions { flex-direction: row; } .c-result__actions > * { flex: 1; } }
+@keyframes c-pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes c-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .c-result__icon, .c-result__draw { animation: none; stroke-dashoffset: 0; } }
+
+/* ---------- LineStepper (wizard: numbered circles on a line; done = ✓, current = ring) ----------
+   Markup: <ol class="c-stepper" style="--fill-ratio: .333"><li class="c-stepper__step" data-state="done"><span class="c-stepper__dot">✓</span>ข้อมูลงาน</li>…
+   --fill-ratio = (current − 1) / (steps − 1). Steps can be buttons on the event wizard (jump back), plain items on sign-up.
+   The ring around the current dot is cut out with --bg, so the stepper sits on the page ground. */
+.c-stepper {
+  --dot: 28px;
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+.c-stepper::before,
+.c-stepper::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--dot) / 2 - 1.5px);
+  left: 12.5%;
+  height: 3px;
+  border-radius: var(--radius-full);
+}
+.c-stepper::before { right: 12.5%; background: var(--line); }
+.c-stepper::after { width: calc(75% * var(--fill-ratio, 0)); background: var(--red); }
+.c-stepper__step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  line-height: 1.3;
+  text-align: center;
+  color: var(--muted);
+}
+.c-stepper__dot {
+  width: var(--dot); height: var(--dot);
+  display: grid; place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--line);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.c-stepper__step[data-state="done"],
+.c-stepper__step[aria-current="step"] { color: var(--ink); }
+.c-stepper__step[data-state="done"] .c-stepper__dot { background: var(--red); color: var(--on-red); box-shadow: none; }
+.c-stepper__step[aria-current="step"] .c-stepper__dot { background: var(--red); color: var(--on-red); box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px var(--red); }
+@media (min-width: 900px) { .c-stepper { --dot: 32px; } .c-stepper__step { font-size: var(--fs-table); } }
 
 /* ---------- Poster (red gradient + diagonal stripes, white text; used when there is no photo, and on ticket stubs) ---------- */
 .c-poster {
@@ -1255,10 +1360,130 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
 .c-org-sidebar__link svg { width: var(--icon); height: var(--icon); }
 .c-org-sidebar__back { margin-top: auto; box-shadow: inset 0 0 0 1px var(--side-outline); opacity: 1; }
 
-/* ---------- OrgAppBar (mobile: shop name + verification) ---------- */
-/* Markup: <header class="c-app-bar c-org-app-bar"> */
-.c-org-app-bar__shop { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
-.c-org-app-bar__shop-name { font-family: var(--font-display); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ---------- OrgAppBar (mobile: logo left, "โหมดผู้ซื้อ" right; nothing else) ----------
+   Markup: <header class="c-app-bar c-org-app-bar"><a class="c-logo">…</a><a class="c-org-app-bar__mode">โหมดผู้ซื้อ</a></header>
+   Shop name and verification moved into the page head below (.c-org-head). */
+.c-org-app-bar { justify-content: space-between; }
+.c-org-app-bar__mode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--red);
+  color: var(--red);
+  font-size: var(--fs-table);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+/* ---------- OrgPageHead (title + shop row + primary action) ----------
+   Mobile: title centred, then shop name left and status pill right, then the action full width.
+   Desk: title left, shop row hidden (the sidebar shows the shop), action on the right. */
+.c-org-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.c-org-head__title { flex-basis: 100%; text-align: center; font-size: var(--fs-h1); line-height: var(--lh-h1); }
+.c-org-head__shop { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.c-org-head__shop-name { font-family: var(--font-display); font-weight: var(--fw-semibold); }
+.c-org-head .c-button { width: 100%; }
+@media (min-width: 900px) {
+  .c-org-head__title { flex-basis: auto; text-align: left; }
+  .c-org-head__shop { display: none; }
+  .c-org-head .c-button { width: auto; margin-left: auto; }
+}
+
+/* ---------- OrgWelcome (O1): striped red hero, numbered benefit list, fee box ---------- */
+.c-org-hero {
+  padding: var(--space-10) var(--gutter-page);
+  background: var(--poster-stripes), var(--poster-intro);
+  color: var(--poster-fg);
+}
+.c-org-hero__inner { max-width: var(--container-buyer); margin-inline: auto; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
+.c-org-hero__title { font-size: var(--fs-hero); line-height: var(--lh-hero); max-width: 18ch; color: inherit; }
+.c-org-hero__lead { max-width: 52ch; font-size: var(--fs-body-lg); opacity: .9; }
+.c-org-hero__actions { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; margin-top: var(--space-3); }
+.c-org-hero__primary { background: var(--poster-fg); color: var(--brand); }                     /* white button on red */
+.c-org-hero__secondary { box-shadow: inset 0 0 0 1.5px var(--on-scan-outline); color: var(--poster-fg); }
+@media (min-width: 900px) { .c-org-hero { padding-block: 72px; } .c-org-hero__actions { flex-direction: row; width: auto; } }
+
+/* Benefits: a numbered text list, never a 3-icon grid. */
+.c-benefits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+.c-benefits__item { display: grid; grid-template-columns: 28px 1fr; gap: var(--space-3); }
+.c-benefits__num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--red); color: var(--on-red); font-size: var(--fs-table); font-weight: var(--fw-semibold); }
+.c-benefits__title { font-weight: var(--fw-semibold); font-size: var(--fs-body-lg); }
+.c-benefits__body { font-size: var(--fs-table); line-height: 1.5; color: var(--muted); }
+
+/* Fee box: ticket / fee / you get, stacked rows, baht after the number. */
+.c-fee { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); background: var(--surface); }
+.c-fee__rows { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: var(--space-1) var(--space-4); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.c-fee__rows dd { margin: 0; text-align: right; }
+.c-fee__total { padding-top: 6px; border-top: 1px solid var(--line); font-weight: var(--fw-semibold); }
+.c-fee__total + dd { padding-top: 6px; border-top: 1px solid var(--line); font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-price); }
+
+/* ---------- ChoiceCard (big radio: บุคคลธรรมดา / นิติบุคคล) ---------- */
+.c-choices { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+@media (min-width: 600px) { .c-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.c-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  text-align: left;
+}
+.c-choice__title { font-size: var(--fs-body); font-weight: var(--fw-semibold); }
+.c-choice__sub { font-size: var(--fs-sm); opacity: .85; }
+.c-choice[aria-checked="true"] { background: var(--red); color: var(--on-red); box-shadow: none; }
+
+/* ---------- Dropzone + FileRow (ID document upload) ---------- */
+.c-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 140px;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1.5px var(--red);
+  color: var(--ink);
+}
+.c-dropzone > svg { width: 32px; height: 32px; color: var(--red); }
+.c-dropzone__label { font-weight: var(--fw-semibold); color: var(--red); }
+.c-dropzone[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--danger-solid); }
+.c-file { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 14px; border-radius: var(--radius-md); background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.c-file__icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--red); color: var(--on-red); }
+.c-file__name { font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-file__size { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------- Wizard layout (form 7 + sticky buyer preview 5 on desk; preview below on mobile) ---------- */
+.c-wizard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+@media (min-width: 900px) {
+  .c-wizard { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .c-wizard__preview { position: sticky; top: var(--space-6); }
+}
+.c-wizard__form { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.c-wizard__preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.c-wizard__eyebrow { font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: .06em; color: var(--muted); }
+/* Footer: back + next on mobile (full width, sticky); right-aligned on desk. Pair with .c-summary-bar on the zone step. */
+.c-wizard__foot {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--gutter-page) calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+@media (min-width: 900px) { .c-wizard__foot { display: flex; justify-content: flex-end; padding-bottom: var(--space-3); } }
 
 /* ---------- ModeSwitch (buyer ↔ organizer) ---------- */
 .c-mode-switch {
@@ -1354,31 +1579,37 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
 .c-org-event-card__name { font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-h3); line-height: var(--lh-h3); }
 .c-org-event-card__info .c-pill { align-self: flex-start; }
 
-/* ---------- WizardStepper (horizontal, 4 steps) ---------- */
-.c-wizard-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: var(--space-2); }
-.c-wizard-steps__item { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-xs); color: var(--muted); }
-.c-wizard-steps__item::before { content: ""; height: 4px; border-radius: var(--radius-full); background: var(--line); }
-.c-wizard-steps__item[data-state="done"]::before { background: var(--red); }
-.c-wizard-steps__item[aria-current="step"] { color: var(--ink); font-weight: var(--fw-semibold); }
-.c-wizard-steps__item[aria-current="step"]::before { background: var(--red); }
+/* ---------- WizardStepper: replaced by .c-stepper (line + numbered circles) in the shared section ---------- */
 
-/* ---------- ZoneEditorRow ---------- */
+/* ---------- ZoneEditorRow ----------
+   Head: zone icon in the zone colour (.c-zone-icon) · "โซน 1" · "ขายแล้ว 42 ใบ" pill when locked · up / down / delete.
+   Fields: name, type (.c-chip--sm radio chips), price, quantity, seats per table, colour (.c-swatches), sale open / close. */
 .c-zone-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
   border: 1px solid var(--line-soft);
-  border-left-width: 1px;
   border-radius: var(--radius-lg);
   background: var(--surface);
 }
-.c-zone-editor__head { display: flex; align-items: center; gap: var(--space-2); }
-.c-zone-editor__head .c-zone-dot { width: var(--icon); height: var(--icon); }
-.c-zone-editor__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.c-zone-editor__head { display: flex; align-items: center; gap: 10px; }
+.c-zone-editor__title { flex: 1; font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-h3); }
+.c-zone-editor__fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
 .c-zone-editor__fields > .c-field--wide { grid-column: 1 / -1; }
-.c-zone-editor__tools { display: flex; gap: var(--space-1); margin-left: auto; }
-@media (min-width: 900px) { .c-zone-editor__fields { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.c-zone-editor__tools { display: flex; gap: var(--space-1); }
+.c-zone-editor__tools .c-icon-button { width: 40px; height: 40px; border-color: transparent; background: transparent; }
+.c-zone-editor__tools .c-icon-button:disabled { color: var(--line); }
+.c-zone-editor__delete { color: var(--danger-solid); }
+@media (min-width: 900px) { .c-zone-editor__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Colour swatches (5 zone colours, one per zone, no repeats) */
+.c-swatches { display: flex; gap: var(--space-2); }
+.c-swatch { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--zone); }
+.c-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+
+/* Buyer preview in the wizard: the EventCard as the buyer sees it, plus a zone list (icon · name · price). */
+.c-zone-list--preview { padding: 14px var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); background: var(--surface); }
 
 /* ---------- SummaryBar (sticky bottom in the wizard) ---------- */
 .c-summary-bar {
@@ -1446,23 +1677,61 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   .c-table--cards td:first-child::before { content: none; }
 }
 
-/* ---------- DangerZone ---------- */
+/* ---------- EventHead (Manage page: poster thumb · name + status pill · date · venue · actions by status) ---------- */
+.c-event-head { display: flex; flex-direction: column; gap: var(--space-4); }
+.c-event-head__thumb { width: 72px; height: 72px; flex: none; }
+.c-event-head__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.c-event-head__name { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.c-event-head__meta { font-size: var(--fs-table); color: var(--muted); font-variant-numeric: tabular-nums; }
+.c-event-head__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.c-event-head__actions .c-button { flex: 1; }
+@media (min-width: 900px) {
+  .c-event-head { flex-direction: row; align-items: center; }
+  .c-event-head__thumb { width: 88px; height: 88px; }
+  .c-event-head__actions .c-button { flex: none; }
+}
+
+/* ---------- HopPath (resale tab: who paid what, hop by hop) ----------
+   Markup: <ol class="c-hop-path"><li>ปวีณา <b>500฿</b> <span class="c-hop-path__n">ทอด 0</span></li><li>…</li></ol> */
+.c-hop-path { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-table); font-variant-numeric: tabular-nums; }
+.c-hop-path li { display: inline-flex; align-items: center; gap: 6px; }
+.c-hop-path li + li::before { content: "→"; color: var(--muted); }
+.c-hop-path__n { font-size: var(--fs-xs); color: var(--muted); }
+
+/* ---------- PromoList (discount codes, invites) ---------- */
+.c-code-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.c-code-list__row { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--space-3); padding: 10px 0; border-bottom: 1px solid var(--line); }
+.c-code-list__row:last-child { border-bottom: 0; }
+.c-code-list__code { font-family: var(--font-mono); font-weight: var(--fw-semibold); }
+.c-code-list__row .c-pill { justify-self: end; }
+.c-code-list__meta { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.c-announcement { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg); font-size: var(--fs-table); line-height: 1.5; }
+
+/* ---------- DangerZone (cancel button bottom-right) ---------- */
 .c-danger-zone {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-6);
-  border: 1.5px solid var(--danger);
+  padding: var(--space-5);
+  border: 0;
   border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--danger-solid);
 }
-.c-danger-zone__title { font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-h3); color: var(--danger); }
+.c-danger-zone__title { font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-h3); color: var(--danger-solid); }
 .c-danger-zone .c-button { align-self: flex-end; }
 
-/* ---------- RefundProgress ---------- */
+/* ---------- CancelImpact (O7 step 1: who gets money back, how much; the shop gets nothing) ---------- */
+.c-impact { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: var(--space-2) var(--space-4); padding: var(--space-4); border-radius: var(--radius-md); background: var(--bg); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.c-impact dt { color: var(--muted); }
+.c-impact dd { margin: 0; text-align: right; font-weight: var(--fw-semibold); }
+.c-impact__total { font-family: var(--font-display); font-size: var(--fs-price); color: var(--danger-solid); }
+
+/* ---------- RefundProgress (O7 step 3: per-buyer rows, รอ → คืนแล้ว) ---------- */
 .c-refunds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); font-size: var(--fs-table); font-variant-numeric: tabular-nums; }
 .c-refunds__row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; border-bottom: 1px solid var(--line); }
 .c-refunds__name { flex: 1; min-width: 0; }
+.c-refunds__row .c-pill { min-width: 60px; justify-content: center; }   /* รอ (neutral) / คืนแล้ว (ok) */
 
 /* ---------- Gate: counter, camera ---------- */
 .c-gate { display: flex; flex-direction: column; gap: var(--space-4); min-height: 100dvh; padding: var(--space-5) var(--gutter-page) calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); }
@@ -1492,6 +1761,50 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   box-shadow: inset 0 0 0 3px var(--camera-frame);
 }
 .c-camera__hint { position: absolute; bottom: 14px; font-size: var(--fs-sm); color: var(--camera-frame); }
+/* Red scan line sweeping the frame; stops (centred) with reduced motion. */
+.c-camera__line {
+  position: absolute;
+  left: 14%; right: 14%;
+  height: 2px;
+  background: var(--red);
+  box-shadow: 0 0 12px var(--red);
+  animation: c-scan-line 2.4s ease-in-out infinite;
+}
+@keyframes c-scan-line { 0%, 100% { top: 14%; } 50% { top: 82%; } }
+@media (prefers-reduced-motion: reduce) { .c-camera__line { animation: none; top: 50%; } }
+
+/* ---------- GatePick (O8: one row per event on sale today or soon) ---------- */
+.c-gate-pick {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) var(--icon);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--ink);
+  text-align: left;
+}
+.c-gate-pick .c-poster { width: 72px; height: 72px; }
+.c-gate-pick__count { font-size: var(--fs-table); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+
+/* ---------- CheckinCard (search by name: zone chip, ticket id, check-in button or "เข้าแล้ว 20:14"; confirm opens inline) ---------- */
+.c-checkin-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.c-checkin-card[data-state="confirming"] { box-shadow: inset 0 0 0 2px var(--red); }
+.c-checkin-card__used { text-align: right; font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.c-checkin-card__used b { display: block; font-size: var(--fs-body); color: var(--ink); }
+.c-checkin-card__confirm { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.c-checkin-card__confirm > div { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-2); }
 
 /* ---------- ScanResult (full screen, fixed colours, icon + text) ---------- */
 .c-scan-result {
@@ -1524,12 +1837,38 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
 .c-checkin-log__row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; min-height: var(--row-min); border-bottom: 1px solid var(--line); }
 .c-checkin-log__time { color: var(--muted); }
 
-/* ---------- RoleTable ---------- */
+/* ---------- RoleTable (yes = green circle with ✓, no = grey circle with –) ---------- */
 .c-role-table td, .c-role-table th { text-align: center; }
 .c-role-table td:first-child, .c-role-table th:first-child { text-align: left; }
-.c-role-table svg { width: 18px; height: 18px; margin-inline: auto; }
-.c-role-table .is-yes { color: var(--ok); }
-.c-role-table .is-no { color: var(--muted); }
+.c-role-table .is-yes, .c-role-table .is-no { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: var(--radius-full); color: var(--on-solid); }
+.c-role-table .is-yes { background: var(--ok-solid); }
+.c-role-table .is-no { background: var(--line); }
+.c-role-table svg { width: 14px; height: 14px; }
+
+/* ---------- MemberRow (team: avatar in the role colour · email · role pill · remove) ---------- */
+.c-member { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+.c-member__avatar { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--role, var(--neutral-solid)); color: var(--on-solid); font-weight: var(--fw-semibold); }
+.c-member__email { font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; }
+.c-member__pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.c-member__remove { color: var(--danger-solid); }
+/* Role colours: owner → --red-solid, manager → --info-solid, gate staff → --neutral-solid (set --role inline). */
+
+/* ---------- CopyField (invite link, event link after publishing) ---------- */
+.c-copy-field { display: flex; align-items: center; gap: var(--space-2); padding: 4px 4px 4px 14px; border-radius: var(--radius-md); background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.c-copy-field__value { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--fs-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-copy-field .c-icon-button { width: 40px; height: 40px; border-color: transparent; background: transparent; }
+
+/* ---------- PayoutAccount (finance: PromptPay •••• 5678 + verification pill) ---------- */
+.c-account { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); background: var(--surface); }
+.c-account__icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--info-solid); color: var(--on-solid); }
+.c-account__info { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
+.c-account__number { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--muted); }
+.c-account__note { flex-basis: 100%; font-size: var(--fs-sm); color: var(--muted); }
+
+/* Finance report: expanded per-ticket rows sit in a sunken box under the event row. */
+.c-report-detail { margin: 0 var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--bg); font-size: var(--fs-sm); }
+/* Status mapping: รองานจบ → neutral · รอช่วงตรวจสอบ 24 ชม. → warn · จ่ายแล้ว → ok · ยกเลิก ไม่มีการจ่าย → danger.
+   Manager role sees .c-empty with .c-empty__icon (lock) instead of the page. */
 
 /* ---------- PayoutTimeline (horizontal) ---------- */
 .c-payout { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: var(--space-2); font-size: var(--fs-sm); }
@@ -1557,10 +1896,21 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
 .c-print table { margin-top: var(--space-4); }
 .c-print th, .c-print td { padding: 6px var(--space-2); border-bottom: 1px solid var(--line); text-align: left; }
 .c-print .is-num { text-align: right; }
+.c-print__note { font-weight: var(--fw-semibold); }
+/* Two blocks side by side: seller (shop, legal form, masked tax id) and event (name, date, venue, status). */
+.c-print__parties { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-6); }
+.c-print__kv { margin: 0; display: grid; grid-template-columns: 110px 1fr; gap: var(--space-1) var(--space-3); }
+.c-print__kv dt { color: var(--muted); }
+.c-print__kv dd { margin: 0; }
+.c-print tfoot td { border-top: 1.5px solid var(--ink); border-bottom: 0; font-weight: var(--fw-semibold); }   /* totals row */
+.c-print thead th { border-bottom: 1.5px solid var(--ink); }
+.c-print__amount { font-family: var(--font-display); font-weight: var(--fw-semibold); font-size: var(--fs-price); }   /* amount paid to the shop */
+.c-print__foot { display: flex; justify-content: space-between; gap: var(--space-6); margin-top: var(--space-8); padding-top: var(--space-4); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--muted); }
 @media print {
   .c-print { padding: 0; max-width: none; background: none; color: black; }
   .c-print__head { border-bottom-color: black; }
-  .c-print__note { color: black; }
+  .c-print__note, .c-print__kv dt, .c-print__foot { color: black; }
+  .c-print thead th, .c-print tfoot td { border-color: black; }
 }
 
 /* =====================================================================
@@ -1582,7 +1932,7 @@ select.c-field__control { appearance: none; padding-right: 40px; background-imag
   .c-sheet__actions { flex-direction: row-reverse; }
   .c-sheet__actions .c-button { flex: 1; }
 
-  .c-toast-region { left: auto; right: var(--space-6); bottom: var(--space-6); width: var(--toast-w); }
+  .c-toast-region { left: auto; right: var(--space-6); bottom: auto; top: calc(var(--nav-h) + var(--space-4)); width: var(--toast-w); }   /* top-right under the nav */
 
   .c-poster--feature .c-poster__title { font-size: 52px; }
 
