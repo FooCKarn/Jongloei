@@ -541,6 +541,36 @@ async function advanceTransfer(env, orderId, deps) {
   }
 }
 
+async function recoverTimedOutTransfer(env, orderId, deps) {
+  const order = await env.DB.prepare(
+    `SELECT o.id, o.ticket_id, o.buyer_wallet, o.transfer_tx_id, t.owner_wallet, t.token_id
+     FROM resale_orders o JOIN tickets t ON t.id = o.ticket_id
+     WHERE o.id = ? AND o.status = 'needs_review'
+       AND o.transfer_tx_id = 'sending'
+       AND o.review_reason LIKE 'transfer request timed out%'`,
+  ).bind(orderId).first();
+  if (!order) return;
+  let owner;
+  try {
+    owner = (await readChain(env, order.token_id)).owner;
+  } catch (err) {
+    console.error('timed-out resale transfer chain check failed', orderId, err && err.message || err);
+    return;
+  }
+  const buyer = String(order.buyer_wallet).toLowerCase();
+  const seller = String(order.owner_wallet).toLowerCase();
+  if (owner === seller) {
+    await env.DB.prepare(
+      `UPDATE resale_orders
+       SET status = 'paid', transfer_tx_id = NULL, transfer_error = NULL, review_reason = NULL, updated_at = ?
+       WHERE id = ? AND status = 'needs_review' AND transfer_tx_id = 'sending'`,
+    ).bind(Date.now(), orderId).run();
+    await advanceTransfer(env, orderId, deps);
+  } else if (owner !== buyer) {
+    console.error('timed-out resale transfer has unexpected chain owner', orderId, owner);
+  }
+}
+
 /* ---------- cron ---------- */
 
 export async function resaleSweep(env, ctx, deps) {
@@ -573,6 +603,15 @@ export async function resaleSweep(env, ctx, deps) {
     ]);
   }
   // 3. Paid orders: send or settle operatorTransfer.
+  const recover = await env.DB.prepare(
+    `SELECT id FROM resale_orders
+     WHERE status = 'needs_review' AND transfer_tx_id = 'sending'
+       AND review_reason LIKE 'transfer request timed out%'
+     ORDER BY updated_at LIMIT 10`,
+  ).all();
+  for (const o of recover.results || []) {
+    try { await recoverTimedOutTransfer(env, o.id, deps); } catch (err) { console.error('resale transfer recovery failed', o.id, err && err.stack || err); }
+  }
   const paid = await env.DB.prepare(
     `SELECT id FROM resale_orders WHERE status = 'paid' ORDER BY paid_at LIMIT 10`,
   ).all();
