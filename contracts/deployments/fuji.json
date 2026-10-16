@@ -10,5 +10,13 @@
   "deployedWith": "Remix, solc 0.8.26, optimizer 200, evm cancun",
   "deployedAt": "2026-10-15",
   "explorer": "https://testnet.snowtrace.io/address/0xef36fcbdED316dEd4367636a6c85d73bFD5e2735",
-  "relayerSigner": "0xDb5C1E726f8777694DF438c96dcCB57055f6B260 (EOA signer; also holds both roles from the constructor, unused)"
+  "relayerSigner": "0xDb5C1E726f8777694DF438c96dcCB57055f6B260 (EOA signer; also holds both roles from the constructor, unused)",
+  "mintGuard": {
+    "address": "0xa0608d9cE606e66BeAEC5a75690CEA5a9B4EE873",
+    "deployTx": "0x96f5dd576fe44977e0c2208adbec2c747999311cc6012d612b07de8bfe111aea",
+    "deployedAt": "2026-10-16",
+    "admin": "0x27493a3765a709Dd6782135aB6d7Cb34aCD17585",
+    "relayer": "0x8f79c4dE47287b129E2B7279Ae34c779D1eFA952",
+    "status": "deployed; MINTER_ROLE on the ticket not granted yet, so MINT_GUARD_ADDRESS is not set (contracts/README.md, Mint guard steps 2-4)"
+  }
 }

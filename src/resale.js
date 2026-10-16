@@ -23,9 +23,15 @@
 // pays held rows by hand and marks them paid_out. Refunds (event cancelled, needs_review) are by
 // hand in Stripe, like first sales.
 
+import { readChain } from './checkin.js';
+
 const ONE_TICKET_LIMIT = 4; // same per-account, per-event limit as first sales
 const MAX_TRANSFER_ATTEMPTS = 3;
 const DISPUTE_WINDOW_MS = 24 * 3600000;
+// Same as the first-sale mint: thirdweb can keep a write pending after it landed, so after a few
+// minutes the ticket's owner is read on chain, and after 30 minutes the order goes to review.
+const TRANSFER_CHAIN_CHECK_AFTER_MS = 3 * 60000;
+const TRANSFER_REVIEW_AFTER_MS = 30 * 60000;
 const LISTING_STATUSES_LIVE = `('active', 'sold')`;
 
 /* ---------- rules (pure, tested in tests/worker/resale.test.mjs) ---------- */
@@ -459,21 +465,45 @@ async function settleTransfer(env, orderId, deps, polls = 1) {
      WHERE o.id = ? AND o.status = 'paid'`,
   ).bind(orderId).first();
   if (!order?.transfer_tx_id || order.transfer_tx_id === 'sending') return;
-  const tx = await deps.waitForTransaction(env.THIRDWEB_SECRET_KEY, order.transfer_tx_id, polls);
-  if (tx.status === 'FAILED') {
-    const last = order.transfer_attempts >= MAX_TRANSFER_ATTEMPTS;
-    await env.DB.prepare(
-      `UPDATE resale_orders SET transfer_tx_id = NULL, transfer_error = ?, status = ?, review_reason = ?, updated_at = ?
-       WHERE id = ? AND transfer_tx_id = ?`,
-    ).bind(String(tx.error || 'transfer failed').slice(0, 500), last ? 'needs_review' : 'paid',
-      last ? `operatorTransfer failed ${MAX_TRANSFER_ATTEMPTS} times` : null, Date.now(), orderId, order.transfer_tx_id).run();
-    return;
-  }
-  if (tx.status !== 'CONFIRMED' || !tx.hash) return; // still on its way
-  const logs = await deps.receiptLogs(env, tx.hash);
-  if (!transferLogFound(logs, deps.TICKET_CONTRACT, deps.ERC721_TRANSFER_TOPIC, order.seller_wallet, order.buyer_wallet, order.token_id)) {
-    console.error('transfer receipt has no matching Transfer log', orderId, tx.hash);
-    return; // RPC may lag behind thirdweb; the next pass checks again
+  const tx = await deps.waitForTransaction(env.THIRDWEB_SECRET_KEY, order.transfer_tx_id, polls)
+    .catch(err => ({ status: 'UNKNOWN', hash: null, error: String(err && err.message || err) }));
+  const confirmed = tx.status === 'CONFIRMED' && tx.hash;
+  // updated_at is when transfer_tx_id was recorded; nothing else touches a paid order until it settles.
+  const age = Date.now() - order.updated_at;
+  if (confirmed) {
+    const logs = await deps.receiptLogs(env, tx.hash);
+    if (!transferLogFound(logs, deps.TICKET_CONTRACT, deps.ERC721_TRANSFER_TOPIC, order.seller_wallet, order.buyer_wallet, order.token_id)) {
+      console.error('transfer receipt has no matching Transfer log', orderId, tx.hash);
+      return; // RPC may lag behind thirdweb; the next pass checks again
+    }
+  } else {
+    if (tx.status !== 'FAILED' && age < TRANSFER_CHAIN_CHECK_AFTER_MS) return; // still on its way
+    // Failed or stuck at thirdweb: the chain decides. Sending again after a transfer that did land
+    // would leave the order unable to settle, so only a ticket still with the seller is retried.
+    let owner;
+    try {
+      owner = (await readChain(env, order.token_id)).owner;
+    } catch (err) {
+      await env.DB.prepare(`UPDATE resale_orders SET transfer_error = ? WHERE id = ? AND status = 'paid'`)
+        .bind(('chain check: ' + (err && err.message || err)).slice(0, 500), orderId).run();
+      return;
+    }
+    if (owner !== String(order.buyer_wallet).toLowerCase()) {
+      if (tx.status === 'FAILED') {
+        const last = order.transfer_attempts >= MAX_TRANSFER_ATTEMPTS;
+        await env.DB.prepare(
+          `UPDATE resale_orders SET transfer_tx_id = NULL, transfer_error = ?, status = ?, review_reason = ?, updated_at = ?
+           WHERE id = ? AND transfer_tx_id = ?`,
+        ).bind(String(tx.error || 'transfer failed').slice(0, 500), last ? 'needs_review' : 'paid',
+          last ? `operatorTransfer failed ${MAX_TRANSFER_ATTEMPTS} times` : null, Date.now(), orderId, order.transfer_tx_id).run();
+      } else if (age >= TRANSFER_REVIEW_AFTER_MS) {
+        await env.DB.prepare(`UPDATE resale_orders SET status = 'needs_review', review_reason = ?, updated_at = ? WHERE id = ? AND status = 'paid'`)
+          .bind(`transfer not confirmed by thirdweb after 30 min (${tx.status}) and the ticket is not with the buyer on chain; check the relayer before retrying`,
+            Date.now(), orderId).run();
+      }
+      return;
+    }
+    console.error('transfer found on chain while thirdweb says', tx.status, orderId);
   }
   const now = Date.now();
   const commission = commissionSatang(order.amount, order.resale_commission_bps);
@@ -487,7 +517,7 @@ async function settleTransfer(env, orderId, deps, polls = 1) {
       .bind(now, order.listing_id),
     env.DB.prepare(
       `UPDATE resale_orders SET status = 'fulfilled', transfer_tx_hash = ?, fulfilled_at = ?, updated_at = ? WHERE id = ? AND status = 'paid'`,
-    ).bind(tx.hash, now, now, orderId),
+    ).bind(tx.hash || 'confirmed-on-chain', now, now, orderId),
     env.DB.prepare(
       `INSERT INTO resale_payouts (id, order_id, listing_id, ticket_id, seller_id, event_id, gross, commission, net, release_after)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (order_id) DO NOTHING`,
