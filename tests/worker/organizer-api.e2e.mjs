@@ -42,6 +42,10 @@ ok(zs.remaining === 10 && zs.capacity === 10 && r.event.date.includes('25'), 're
 
 r = await call('u-owner', 'POST', `/api/org/events/${id}/publish`, {}); ok(r.s === 403 && r.error === 'shop_not_verified', 'unverified cannot publish', r);
 r = await call('u-owner', 'POST', '/api/admin/hosts/verify', { userId: 'u-owner', status: 'verified' }); ok(r.s === 403, 'non-admin cannot verify', r);
+r = await call('u-admin', 'POST', '/api/admin/hosts/verify', { userId: 'u-owner', status: 'verified' }); ok(r.s === 409 && r.error === 'no_document', 'no document -> cannot verify', r);
+r = await call('u-owner', 'PUT', '/api/org/shop/document', { name: 'id.pdf', mime: 'application/pdf', data: Buffer.from('%PDF-1.4 demo').toString('base64') }); ok(r.s === 200 && r.shop.document.name === 'id.pdf', 'document uploaded', r);
+r = await fetch(B + '/api/admin/hosts/u-owner/document', { headers: { cookie: 'jl_session=tok-u-admin' } }); ok(r.status === 200 && (await r.text()) === '%PDF-1.4 demo', 'admin reads the document back', r.status);
+r = await call('u-admin', 'GET', '/api/admin/hosts'); ok(r.s === 200 && r.hosts.some(h => h.id === 'u-owner' && h.document.size === 13), 'shop in the review queue', r);
 r = await call('u-admin', 'POST', '/api/admin/hosts/verify', { userId: 'u-owner', status: 'verified' }); ok(r.s === 200, 'admin verifies', r);
 
 // team

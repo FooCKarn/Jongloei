@@ -1048,6 +1048,7 @@ function guardMode(){
   const cur=S.stack[S.stack.length-1],isOrg=cur.startsWith('org');
   const reset=(s,tab)=>{S.stack=[s];S.tab=tab||s};
   if(S.mode!=='org'){if(isOrg)reset('home');return}
+  if(cur==='orgAdmin'){if(orgIsAdmin())return;reset(S.org.account?'orgDash':'orgWelcome','orgDash')}
   // organizer sign-in is its own state: no account -> log-in screen, account without a shop -> onboarding
   if(!S.org.account){if(cur!=='orgWelcome')reset('orgWelcome','orgDash');return}
   if(!S.org.shop){if(cur!=='orgOnboard')reset('orgOnboard','orgDash');return}
@@ -1360,7 +1361,7 @@ function orgAppbar(title){
     const tabs=orgTabsFor(S.org.role).concat(S.org.role==='owner'?[['orgTeam','i-user','ทีมงาน']]:[]);
     side.hidden=false;
     side.innerHTML=`<span class="side-logo"><svg aria-hidden="true"><use href="#logo-w"/></svg><span translate="no">JONGLOEI</span></span>
-      <div class="side-shop"><b>${esc(shop.name)}</b><span>${shop.verification==='verified'?'ยืนยันร้านแล้ว':'รอยืนยันตัวตน'}${S.org.role!=='owner'?' · '+ROLE_LABEL[S.org.role]:''}${S.org.live?' · ระบบจริง':''}</span></div>
+      <div class="side-shop"><b>${esc(shop.name)}</b><span>${verifyLabel(shop)}${S.org.role!=='owner'?' · '+ROLE_LABEL[S.org.role]:''}${S.org.live?' · ระบบจริง':''}</span></div>
       <nav class="side-nav" aria-label="เมนูผู้จัด">${tabs.map(([k,icon,v])=>`<button data-tab="${k}" ${S.tab===k?'aria-current="page"':''}><svg aria-hidden="true"><use href="#${icon}"/></svg>${v}</button>`).join('')}</nav>
       <button class="side-back" data-o="buyermode"><svg aria-hidden="true"><use href="#i-back"/></svg>กลับไปหน้าผู้ซื้อ</button>`;
   }else{side.hidden=true;side.innerHTML=''}
@@ -1373,8 +1374,8 @@ function orgAppbar(title){
 }
 // page head: title + shop row (mobile) + primary action
 function orgHead(title,action){
-  const sh=S.org.shop,ok=sh.verification==='verified';
-  return `<div class="ohead"><h1>${title}</h1><div class="oshop"><b>${esc(sh.name)}</b><span class="pill ${ok?'ok':'warn'}">${ok?'ยืนยันร้านแล้ว':'รอยืนยันตัวตน'}</span>${S.org.live?'<span class="pill ok">ระบบจริง</span>':''}</div>${action||''}</div>`;
+  const sh=S.org.shop;
+  return `<div class="ohead"><h1>${title}</h1><div class="oshop"><b>${esc(sh.name)}</b>${verifyPill(sh)}${S.org.live?'<span class="pill ok">ระบบจริง</span>':''}</div>${action||''}</div>`;
 }
 // line stepper: numbered circles on a line; act makes steps clickable (event wizard)
 function lineSteps(labels,cur,act){
@@ -1408,7 +1409,7 @@ function orgDashV2(sh,today,net,nextPay,held,todo,days){
   S.full=true;const B=OL.fmtBaht,mgr=S.org.role!=='owner',lock='เฉพาะเจ้าของร้าน';
   const stat=(k,label,v,sub,locked)=>`<div class="stat${locked?' locked':''}"><span>${label}</span><b class="num" data-stat="${k}">${v}</b><small>${sub}</small></div>`;
   return `<div class="wrap org">${orgHead('ภาพรวม','<button class="btn" data-o="newEvent"><svg width="18" height="18"><use href="#i-plus"/></svg>สร้างงานใหม่</button>')}
-  ${sh.verification==='verified'?'':'<div class="alert warn" role="status"><svg><use href="#i-alert"/></svg><div><b>ร้านรอยืนยันตัวตน</b><br>สร้างร่างงานได้ตามปกติ ปุ่มเผยแพร่จะใช้ได้หลังทีมงานยืนยันร้านแล้ว</div></div>'}
+  ${verifyBlock(sh)}
   <div class="stats">${stat('today','ตั๋วที่ขายวันนี้',today.count+' ใบ',B(today.amount))}
     ${stat('net','รายรับสุทธิรวม',mgr?'—':B(net),mgr?lock:'หลังหักค่าบริการ',mgr)}
     ${stat('next','เงินที่จะได้รับครั้งถัดไป',mgr?'—':nextPay?B(evSum(nextPay.e).net):'—',mgr?lock:nextPay?OL.thaiDate(nextPay.at)+' · หลังงานจบ 24 ชม.':'ยังไม่มีงานรอจ่าย',mgr)}
@@ -1457,6 +1458,43 @@ const SHOP_KINDS=[['bar','บาร์ / ร้านอาหาร'],['worksho
 const ROLE_LABEL={owner:'เจ้าของ',manager:'ผู้จัดการ',gate:'พนักงานหน้างาน'};
 const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* shop verification: the owner attaches an ID card or company certificate, a JONGLOEI admin opens it
+   on the "ตรวจร้าน" screen and verifies or rejects the shop. Demo mode keeps the file in memory only. */
+const DOC_TYPES=['image/jpeg','image/png','image/webp','application/pdf'],DOC_MAX=1024*1024,DOC_ACCEPT=DOC_TYPES.join(',');
+const demoDocs=new Map();   // demo shop id -> object URL of the attached file (gone after a reload, never in localStorage)
+let obDocFile=null;
+const docProblem=f=>!f?'แนบเอกสารยืนยันตัวตนก่อนส่ง':!DOC_TYPES.includes(f.type)?'รับเฉพาะรูป JPG, PNG, WebP หรือไฟล์ PDF':f.size>DOC_MAX?'ไฟล์ใหญ่เกิน 1 MB ลองย่อรูปหรือสแกนใหม่':'';
+const docBody=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({name:f.name,mime:f.type,data:String(r.result).split(',')[1]||''});r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
+const VERIFY={verified:['ยืนยันร้านแล้ว','ok'],pending:['รอตรวจเอกสาร','warn'],rejected:['เอกสารไม่ผ่าน','danger']};
+const verifyLabel=sh=>sh.verification==='pending'&&!sh.docName?'รอแนบเอกสาร':(VERIFY[sh.verification]||VERIFY.pending)[0];
+const verifyPill=sh=>`<span class="pill ${(VERIFY[sh.verification]||VERIFY.pending)[1]}">${verifyLabel(sh)}</span>`;
+// status for the shop's own team, with a file field when the owner still has to send (or resend) a document
+function verifyBlock(sh){
+  if(sh.verification==='verified')return '';
+  const rej=sh.verification==='rejected',has=!!sh.docName,owner=S.org.role==='owner';
+  const title=rej?'ทีมงานไม่อนุมัติเอกสาร':has?'ส่งเอกสารแล้ว รอทีมงาน JONGLOEI ตรวจ':'ยังไม่ได้แนบเอกสารยืนยันตัวตน';
+  const body=rej?`${sh.verificationNote?'เหตุผล: '+esc(sh.verificationNote)+'<br>':''}แนบเอกสารใหม่แล้วร้านจะกลับเข้าคิวตรวจ`
+    :has?`ไฟล์ ${esc(sh.docName)} · สร้างร่างงานได้ตามปกติ ปุ่มเผยแพร่จะใช้ได้หลังร้านผ่านการยืนยัน`
+    :'แนบบัตรประชาชนหรือหนังสือรับรองบริษัท ทีมงานจะตรวจก่อนเปิดให้เผยแพร่งาน';
+  const field=owner&&(rej||!has)?`<div class="card"><div class="field"><label for="shop-doc">${rej?'แนบเอกสารใหม่':'แนบเอกสารยืนยันตัวตน'}</label>
+      <input id="shop-doc" type="file" accept="${DOC_ACCEPT}" aria-describedby="shop-doc-hint shop-doc-err"><span class="hint" id="shop-doc-hint">รูปหรือ PDF ไม่เกิน 1 MB</span><span class="hint err" id="shop-doc-err" role="alert"></span></div></div>`:'';
+  const demo=!S.org.live&&has&&!rej?'<button class="btn plain" style="width:auto;align-self:flex-start;padding:9px 14px;font-size:14px" data-o="adminOpen">เดโม: เปิดหน้าตรวจร้านของทีมงาน</button>':'';
+  return `<div class="alert ${rej?'danger':'warn'}" role="status"><svg><use href="#i-alert"/></svg><div><b>${title}</b><br>${body}</div></div>${field}${demo}`;
+}
+// demo shops live twice (S.org.shops and the signed-in S.org.shop); change both
+function demoShopSet(id,patch){for(const sh of [...S.org.shops,S.org.shop])if(sh&&sh.id===id)Object.assign(sh,patch);save()}
+async function shopDocChosen(f){
+  const sh=S.org.shop,p=docProblem(f),err=document.getElementById('shop-doc-err');
+  if(p){if(err)err.textContent=p;return}
+  if(S.org.live){
+    await live(async()=>{const r=await orgApi('PUT','/api/org/shop/document',await docBody(f));Object.assign(sh,verifyFields(r.shop));render();toast('ส่งเอกสารแล้ว รอทีมงานตรวจ')},
+      e=>{if(err)err.textContent=orgErrText(e)});
+    return;
+  }
+  const old=demoDocs.get(sh.id);if(old)URL.revokeObjectURL(old);demoDocs.set(sh.id,URL.createObjectURL(f));
+  demoShopSet(sh.id,{docName:f.name,docMime:f.type,docAt:Date.now(),verification:'pending',verificationNote:''});render();toast('ส่งเอกสารแล้ว รอทีมงานตรวจ');
+}
+
 // onboarding: each step reads its own inputs into S.org.onboard.data, then validates
 const OB_STEPS=[null,
   {read:()=>({name:val('ob-name'),kind:val('ob-kind'),line:val('ob-line'),phone:val('ob-phone').replace(/\D/g,'')}),
@@ -1465,7 +1503,7 @@ const OB_STEPS=[null,
    check:d=>(!/^\d{13}$/.test(d.taxId)?{tax:'เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก'}:{})},
   {read:()=>({pp:val('ob-pp').replace(/\D/g,'')}),
    check:d=>(!/^(0\d{9}|\d{13})$/.test(d.pp)?{pp:'ใส่เบอร์มือถือ 10 หลัก หรือเลขบัตร/เลขนิติบุคคล 13 หลัก'}:{})},
-  {read:()=>({}),check:d=>(!d.docName?{doc:'แนบเอกสารยืนยันตัวตนก่อนส่ง'}:{})},
+  {read:()=>({}),check:()=>{const p=docProblem(obDocFile);return p?{doc:p}:{}}},
 ];
 function obCollect(){const ob=S.org.onboard,st=OB_STEPS[ob.step];Object.assign(ob.data,st.read());ob.err=st.check(ob.data);return !Object.keys(ob.err).length}
 function submitShop(){
@@ -1473,12 +1511,11 @@ function submitShop(){
   const id='shop-'+Date.now();
   const email=S.org.account.email;
   const shop={id,name:d.name,kind:d.kind,legal:d.legal,taxId:d.taxId,contactLine:d.line,phone:d.phone,payoutPromptPay:d.pp,
-    docName:d.docName,verification:'pending',team:[{email,role:'owner'}]};
+    docName:obDocFile.name,docMime:obDocFile.type,docAt:Date.now(),verification:'pending',verificationNote:'',team:[{email,role:'owner'}]};
+  demoDocs.set(id,URL.createObjectURL(obDocFile));obDocFile=null;
   S.org.shops.push(shop);S.org.accounts[email].shopId=id;S.org.shop=shop;
   S.org.role='owner';S.org.onboard={step:1,data:{},err:{}};
-  S.stack=['orgDash'];S.tab='orgDash';render();
-  setTimeout(()=>{const sh=S.org.shops.find(x=>x.id===id);if(!sh||sh.verification!=='pending')return;sh.verification='verified';save();
-    if(S.mode==='org'&&S.org.shop&&S.org.shop.id===id){if(['orgDash','orgEvents'].includes(S.stack[S.stack.length-1]))render();toast('ยืนยันร้านเรียบร้อย เผยแพร่งานได้แล้ว')}},3000);
+  S.stack=['orgDash'];S.tab='orgDash';save();render();toast('ส่งเอกสารแล้ว ทีมงาน JONGLOEI จะตรวจก่อนเปิดให้เผยแพร่งาน');
 }
 
 /* organizer accounts: a separate (simulated) Google identity per organizer, independent of the buyer's login.
@@ -1512,7 +1549,7 @@ function orgChooser(mode){
     <button class="btn plain" data-act="close">ปิด</button>`);
 }
 const useShop=email=>orgLoginAs(email);
-const orgAccountCard=()=>`<div class="card row between" id="org-account"><div style="min-width:0"><b>${esc(S.org.account.name)}</b><div class="small muted">${esc(S.org.account.email)} · ${ROLE_LABEL[S.org.role]}</div></div><button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="orgLogout">ออกจากระบบผู้จัดงาน</button></div>`;
+const orgAccountCard=()=>(orgIsAdmin()?`<div class="card row between"><div><b>ทีมงาน JONGLOEI</b><div class="small muted">${S.org.live?'บัญชีนี้เป็น admin':'เดโม: ลองตรวจร้านในฐานะทีมงาน'}</div></div><button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="adminOpen">ตรวจร้าน</button></div>`:'')+`<div class="card row between" id="org-account"><div style="min-width:0"><b>${esc(S.org.account.name)}</b><div class="small muted">${esc(S.org.account.email)} · ${ROLE_LABEL[S.org.role]}</div></div><button class="btn plain" style="width:auto;padding:9px 14px;font-size:14px" data-o="orgLogout">ออกจากระบบผู้จัดงาน</button></div>`;
 
 const ORG_ACTIONS={
   buyermode(){setMode('buyer')},
@@ -1521,6 +1558,16 @@ const ORG_ACTIONS={
     const it=(o,icon,label)=>`<button class="btn plain" style="justify-content:flex-start;gap:14px" data-o="${o}" data-id="${id}"><svg width="20" height="20"><use href="#${icon}"/></svg>${label}</button>`;
     sheet(`<h2 style="font-size:20px">${esc(e.name)}</h2><div role="menu" style="display:flex;flex-direction:column;gap:8px">${it('openEvent','i-chart','เปิดจัดการงาน')}${['draft','on_sale','paused','sold_out'].includes(e.status)?it('editEvent','i-ticket','แก้ไขงาน'):''}${it('evDuplicate','i-copy','ทำซ้ำเป็นงานใหม่')}${['on_sale','sold_out'].includes(e.status)?it('gate','i-qr','ไปหน้างาน'):''}</div><button class="btn plain" data-act="close">ปิด</button>`)},
   useDemoShop(){useShop('owner@rooftop88.example')},
+  adminOpen(){S.org.adminHosts=undefined;go('orgAdmin')},
+  adminFilter(el){S.org.adminFilter=el.dataset.v;S.org.adminHosts=undefined;render()},
+  adminApprove(el){const sh=S.org.shops.find(x=>x.id===el.dataset.id);if(!sh)return;
+    demoShopSet(sh.id,{verification:'verified',verificationNote:'',verifiedAt:Date.now()});render();toast('ยืนยันร้าน '+sh.name+' แล้ว ร้านเผยแพร่งานได้ทันที')},
+  adminReject(el){const sh=adminHost(el.dataset.id);if(!sh)return;
+    sheet(`<h2 style="font-size:20px">ไม่อนุมัติ ${esc(sh.name)}</h2>
+      ${fld('rej-note','เหตุผลที่ร้านจะเห็น',{tag:'textarea',hint:'เช่น รูปไม่ชัด ชื่อในเอกสารไม่ตรงกับชื่อผู้ขาย',attrs:'maxlength="300"'})}
+      <button class="btn" data-o="adminRejectGo" data-id="${esc(sh.id)}">ไม่อนุมัติ</button><button class="btn plain" data-act="close">ยกเลิก</button>`)},
+  adminRejectGo(el){const note=val('rej-note');if(UNSAFE_RE.test(note)){const e=document.getElementById('rej-note-err');if(e)e.textContent=FIELD_ERR.unsafe_characters;return}
+    demoShopSet(el.dataset.id,{verification:'rejected',verificationNote:note});closeSheet();render();toast('ส่งผลไม่อนุมัติให้ร้านแล้ว')},
   demoManager(){useShop('manager@example.com')},
   demoGate(){useShop('door.staff@example.com')},
   orgSignup(){orgChooser('signup')},
@@ -1567,7 +1614,9 @@ const ORG_ACTIONS={
 };
 function orgAct(name,el,ev){const f=(S.org&&S.org.live&&LIVE_ACTIONS[name])||ORG_ACTIONS[name];if(f)f(el,ev)}
 $('#device').addEventListener('change',e=>{
-  if(e.target.id==='ob-doc'){const f=e.target.files&&e.target.files[0];S.org.onboard.data.docName=f?f.name:'';S.org.onboard.err={};render()}
+  if(e.target.id==='ob-doc'){const f=e.target.files&&e.target.files[0],ob=S.org.onboard,p=f?docProblem(f):'';
+    Object.assign(ob.data,OB_STEPS[ob.step].read());obDocFile=p?null:f||null;ob.data.docName=obDocFile?f.name:'';ob.err=p?{doc:p}:{};render()}
+  if(e.target.id==='shop-doc'){const f=e.target.files&&e.target.files[0];if(f)shopDocChosen(f)}
 });
 
 function orgOnboardStep(ob){
@@ -1576,7 +1625,8 @@ function orgOnboardStep(ob){
     ${fld('ob-name','ชื่อร้านหรือชื่อผู้จัด',{value:d.name||'',err:e.name,attrs:'autocomplete="organization"'})}
     ${fld('ob-kind','ประเภท',{value:d.kind||'bar',options:SHOP_KINDS})}
     ${fld('ob-line','LINE OA (ไม่บังคับ)',{value:d.line||'',hint:'เช่น @rooftop88 ผู้ซื้อจะเห็นในหน้างาน'})}
-    ${fld('ob-phone','เบอร์โทรติดต่อ',{value:d.phone||'',type:'tel',err:e.phone,attrs:'inputmode="tel" autocomplete="tel"'})}`;
+    ${fld('ob-phone','เบอร์โทรติดต่อ',{value:d.phone||'',type:'tel',err:e.phone,attrs:'inputmode="tel" autocomplete="tel"'})}
+    ${S.org.live?`<h2 style="font-size:18px">ยืนยันตัวตน</h2>${docField(d,e)}`:''}`;
   if(ob.step===2)return `<h2 style="font-size:18px">ผู้ขาย</h2>
     ${fld('ob-legal','ขายในนาม',{value:d.legal||'individual',options:[['individual','บุคคลธรรมดา'],['company','นิติบุคคล (บริษัท / หจก.)']]})}
     ${fld('ob-tax','เลขประจำตัวผู้เสียภาษี',{value:d.taxId||'',err:e.tax,hint:'บุคคลธรรมดาใช้เลขบัตรประชาชน 13 หลัก',attrs:'inputmode="numeric" maxlength="17"'})}`;
@@ -1587,9 +1637,12 @@ function orgOnboardStep(ob){
       <span class="pill warn" style="align-self:flex-start">จำลอง: ยังไม่ตรวจบัญชีจริง</span></div>`;
   return `<h2 style="font-size:18px">ยืนยันตัวตน</h2>
     <p class="small muted" style="margin:0">แนบรูปบัตรประชาชน (บุคคลธรรมดา) หรือหนังสือรับรองบริษัท (นิติบุคคล) เพื่อป้องกันร้านปลอม ผู้ซื้อจะเห็นเครื่องหมาย "ยืนยันแล้ว" ที่หน้างานของคุณ</p>
-    <div class="field"><label for="ob-doc">เอกสาร</label><input id="ob-doc" type="file" accept="image/*,.pdf" aria-describedby="ob-doc-err">
-      ${d.docName?`<span class="hint">เลือกแล้ว: ${esc(d.docName)}</span>`:''}<span class="hint err" id="ob-doc-err" role="alert">${esc(e.doc||'')}</span></div>
-    <span class="pill warn" style="align-self:flex-start">จำลอง: ไฟล์ไม่ถูกอัปโหลด ระบบอนุมัติให้ใน 3 วินาที</span>`;
+    ${docField(d,e)}
+    <span class="pill warn" style="align-self:flex-start">เดโม: ไฟล์อยู่ในเบราว์เซอร์นี้เท่านั้น ทีมงานตรวจที่หน้า "ตรวจร้าน"</span>`;
+}
+function docField(d,e){
+  return `<div class="field"><label for="ob-doc">บัตรประชาชน (บุคคลธรรมดา) หรือหนังสือรับรองบริษัท</label><input id="ob-doc" type="file" accept="${DOC_ACCEPT}" aria-describedby="ob-doc-hint ob-doc-err">
+      <span class="hint" id="ob-doc-hint">${d.docName&&obDocFile?'เลือกแล้ว: '+esc(d.docName):'รูปหรือ PDF ไม่เกิน 1 MB ทีมงาน JONGLOEI เท่านั้นที่เปิดดูได้'}</span><span class="hint err" id="ob-doc-err" role="alert">${esc(e.doc||'')}</span></div>`;
 }
 
 /* ---------- organizer: create / edit event wizard ---------- */
@@ -2324,7 +2377,54 @@ $('#device').addEventListener('input',e=>{
   if(w&&ev)w.innerHTML=buyersTable(ev);
 });
 
+/* ---------- JONGLOEI admin: shop review queue ----------
+   Live: /api/admin/hosts (admins only, checked on the server). Demo: every demo shop, anyone can try it. */
+const orgIsAdmin=()=>S.org&&(S.org.live?!!S.org.admin:true);
+function adminHosts(){
+  const o=S.org,f=o.adminFilter||'pending';
+  if(!o.live)return o.shops.filter(sh=>f==='all'||sh.verification===f).map(sh=>({...sh,ownerEmail:(sh.team.find(m=>m.role==='owner')||{}).email||''}));
+  if(o.adminHosts===undefined){
+    o.adminHosts=null;
+    orgApi('GET','/api/admin/hosts?status='+f).then(d=>{o.adminHosts=d.hosts.map(h=>({...fromServerShop(h,h.ownerEmail,'owner'),ownerEmail:h.ownerEmail,createdAt:h.createdAt}))},
+      err=>{o.adminHosts={error:orgErrText(err)}}).finally(()=>{if(S.org===o&&S.stack[S.stack.length-1]==='orgAdmin')render()});
+  }
+  return o.adminHosts;
+}
+const adminHost=id=>{const l=S.org.live?S.org.adminHosts:adminHosts();return Array.isArray(l)?l.find(h=>h.id===id):null};
+function adminDocLink(h){
+  if(!h.docName)return '<span class="muted">ยังไม่แนบเอกสาร</span>';
+  const url=S.org.live?'/api/admin/hosts/'+encodeURIComponent(h.id)+'/document':demoDocs.get(h.id);
+  if(!url)return `${esc(h.docName)} <span class="muted">(ไฟล์ตัวอย่าง เดโมไม่เก็บไฟล์ไว้หลังโหลดหน้าใหม่)</span>`;
+  return `<a href="${esc(url)}" target="_blank" rel="noopener">เปิด ${esc(h.docName)}</a>`;
+}
+function adminCard(h){
+  const pend=h.verification==='pending';
+  return `<article class="card" data-host="${esc(h.id)}" style="display:flex;flex-direction:column;gap:10px">
+    <div class="row between" style="align-items:flex-start"><div style="min-width:0"><b>${esc(h.name)}</b><div class="small muted">${esc(h.ownerEmail||'')}</div></div>${verifyPill(h)}</div>
+    <dl class="kv" style="margin:0"><dt>ประเภท</dt><dd>${esc((SHOP_KINDS.find(k=>k[0]===h.kind)||[,h.kind||'—'])[1])}</dd>
+      <dt>เบอร์โทร</dt><dd class="num">${esc(h.phone||'—')}</dd>
+      ${h.legal?`<dt>ขายในนาม</dt><dd>${h.legal==='company'?'นิติบุคคล':'บุคคลธรรมดา'}</dd>`:''}
+      ${h.taxId?`<dt>เลขผู้เสียภาษี</dt><dd class="num">${esc(h.taxId)}</dd>`:''}
+      <dt>เอกสาร</dt><dd>${adminDocLink(h)}</dd>
+      ${h.verificationNote?`<dt>เหตุผล</dt><dd>${esc(h.verificationNote)}</dd>`:''}</dl>
+    ${pend?`<div class="row"><button class="btn plain" data-o="adminReject" data-id="${esc(h.id)}">ไม่อนุมัติ</button>
+      <button class="btn" data-o="adminApprove" data-id="${esc(h.id)}" ${h.docName?'':'disabled aria-describedby="nodoc-'+esc(h.id)+'"'}>ยืนยันร้าน</button></div>
+      ${h.docName?'':`<span class="small muted" id="nodoc-${esc(h.id)}">ยืนยันได้หลังร้านแนบเอกสาร</span>`}`:''}
+  </article>`;
+}
+
 const ORG_VIEWS={
+orgAdmin(){
+  appbar('ตรวจร้าน');S.full=true;
+  const f=S.org.adminFilter||'pending',list=adminHosts();
+  const seg=[['pending','รอตรวจ'],['verified','ยืนยันแล้ว'],['rejected','ไม่ผ่าน'],['all','ทั้งหมด']];
+  return `<div class="wrap narrow-w">${titleRow('ตรวจร้าน')}
+    <p class="small muted" style="margin:0">ทีมงาน JONGLOEI เปิดเอกสารของร้าน เทียบชื่อกับข้อมูลที่ร้านกรอก แล้วยืนยันหรือไม่อนุมัติ ร้านที่ยืนยันแล้วเท่านั้นที่เผยแพร่งานได้${S.org.live?'':' (เดโม: ใครก็ลองหน้านี้ได้ ระบบจริงเปิดให้เฉพาะ admin)'}</p>
+    <div class="seg four" role="group" aria-label="สถานะ">${seg.map(([v,l])=>`<button data-o="adminFilter" data-v="${v}" class="${f===v?'on':''}" aria-pressed="${f===v}">${l}</button>`).join('')}</div>
+    ${list===null?'<div class="empty">กำลังโหลด…</div>':list&&list.error?`<div class="empty">${esc(list.error)}</div>`
+      :list.length?`<div id="admin-hosts" style="display:flex;flex-direction:column;gap:12px">${list.map(adminCard).join('')}</div>`:'<div class="empty">ไม่มีร้านในรายการนี้</div>'}
+  </div>`;
+},
 orgWelcome(){
   appbar('สำหรับผู้จัดงาน');S.full=true;
   return `<section class="ohero"><div class="in"><h1>ขายตั๋วโดยไม่ต้องตรวจสลิป ไม่ต้องตามเงินคืนเอง</h1>
@@ -2344,7 +2444,7 @@ orgWelcome(){
         <dl class="fee num"><dt>ตั๋ว</dt><dd>1,000฿</dd><dt>ค่าบริการ</dt><dd>35฿</dd><dt class="t">คุณได้รับต่อใบ</dt><dd>965฿</dd></dl>
         <p class="small muted" style="margin:0">ไม่มีค่าแรกเข้า ไม่มีรายเดือน รับเงิน 24 ชม. หลังงานจบ</p></aside>
       <div class="pcard"><b class="small">ลองด้วยบัญชีตัวอย่าง (เดโม)</b>
-        <button class="btn plain" data-o="useDemoShop">เจ้าของร้าน Rooftop 88</button><button class="btn plain" data-o="demoManager">ผู้จัดการ</button><button class="btn plain" data-o="demoGate">พนักงานหน้างาน</button></div>
+        <button class="btn plain" data-o="useDemoShop">เจ้าของร้าน Rooftop 88</button><button class="btn plain" data-o="demoManager">ผู้จัดการ</button><button class="btn plain" data-o="demoGate">พนักงานหน้างาน</button><button class="btn plain" data-o="adminOpen">ทีมงาน JONGLOEI (ตรวจร้าน)</button></div>
     </div>
   </div></div>`;
 },
@@ -2358,6 +2458,7 @@ orgOnboard(){
     ${orgOnboardStep(ob)}
     <div class="row"><button class="btn plain" data-o="obBack">${ob.step===1?'ยกเลิก':'ย้อนกลับ'}</button>
       ${ob.step<4?`<button class="btn" data-o="obNext">${S.org.live?'เปิดร้าน':'ถัดไป'}</button>`:`<button class="btn" data-o="obSubmit">ส่งยืนยันตัวตน</button>`}</div>
+    ${S.org.live&&S.org.admin?'<button class="btn plain" data-o="adminOpen">ทีมงาน JONGLOEI: ตรวจร้าน</button>':''}
   </div>`;
 },
 orgTeam(){
@@ -2390,7 +2491,7 @@ orgDash(){
   const nextPay=counted.map(e=>({e,at:OL.payoutAt(e)})).filter(x=>x.at&&x.at>now).sort((a,b)=>a.at-b.at)[0];
   const stat=(k,label,v,sub)=>`<div class="card org-stat"><span class="small muted">${label}</span><b class="num" ${k?`data-stat="${k}"`:''}>${v}</b>${sub?`<span class="small muted">${sub}</span>`:''}</div>`;
   const todo=[];
-  if(sh.verification!=='verified')todo.push(`<li><b>รอยืนยันร้าน</b><span class="small muted"> · เผยแพร่งานได้หลังยืนยันเสร็จ</span></li>`);
+  if(sh.verification!=='verified')todo.push(`<li><b>${verifyLabel(sh)}</b><span class="small muted"> · เผยแพร่งานได้หลังทีมงานยืนยันร้าน</span></li>`);
   for(const e of evs.filter(x=>x.status==='draft'))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · ร่างที่ยังไม่เผยแพร่</span> <button class="linkbtn" data-o="editEvent" data-id="${e.id}">แก้ไข</button></li>`);
   for(const e of evs.filter(x=>x.status==='on_sale'&&x.startAt-now<DAY&&x.endAt>now))todo.push(`<li><b>${esc(e.name)}</b><span class="small muted"> · เริ่ม${e.startAt<=now?'แล้ว':'ภายใน 24 ชม.'}</span> <button class="linkbtn" data-o="gate" data-id="${e.id}">เปิดหน้างาน</button></li>`);
   for(const e of evs.filter(x=>x.status==='on_sale')){const s=evSum(e);const paid=e.zones.filter(z=>z.kind!=='comp');
@@ -2542,10 +2643,10 @@ async function orgApi(method,path,body){
   if(!res.ok){const err=new Error((data&&data.error)||'http_'+res.status);err.status=res.status;err.data=data;throw err}
   return data;
 }
-const ORG_ERR={authentication_required:'กรุณาเข้าสู่ระบบใหม่',forbidden:'บทบาทของคุณทำรายการนี้ไม่ได้',shop_not_verified:'เผยแพร่ได้หลังทีมงานยืนยันร้าน',
+const ORG_ERR={no_document:'ร้านนี้ยังไม่ได้แนบเอกสาร',already_verified:'ร้านนี้ยืนยันแล้ว ไม่ต้องส่งเอกสารใหม่',shop_not_found:'ไม่พบร้านนี้',authentication_required:'กรุณาเข้าสู่ระบบใหม่',forbidden:'บทบาทของคุณทำรายการนี้ไม่ได้',shop_not_verified:'เผยแพร่ได้หลังทีมงานยืนยันร้าน',
   not_a_draft:'งานนี้เผยแพร่ไปแล้ว',event_closed:'งานนี้ปิดหรือถูกยกเลิกแล้ว แก้ไขไม่ได้',changed_meanwhile:'มีผู้ซื้อตั๋วระหว่างบันทึก โหลดข้อมูลใหม่แล้วลองอีกครั้ง',
   already_in_shop:'บัญชีนี้อยู่ในร้านอื่นแล้ว',already_cancelled:'งานนี้ถูกยกเลิกไปแล้ว',event_not_found:'ไม่พบงานนี้',no_shop:'บัญชีนี้ยังไม่มีร้าน',member_not_found:'ไม่พบสมาชิกนี้'};
-const FIELD_ERR={unsafe_characters:'ห้ามใช้อักขระ < > " \' `',required:'ต้องกรอก',too_long:'ยาวเกินไป',in_past:'ต้องเป็นเวลาในอนาคต',before_start:'ต้องหลังเวลาเริ่ม',
+const FIELD_ERR={too_large:'ไฟล์ใหญ่เกิน 1 MB',type_mismatch:'ชนิดไฟล์ไม่ตรงกับเนื้อไฟล์',unsafe_characters:'ห้ามใช้อักขระ < > " \' `',required:'ต้องกรอก',too_long:'ยาวเกินไป',in_past:'ต้องเป็นเวลาในอนาคต',before_start:'ต้องหลังเวลาเริ่ม',
   duplicate:'ชื่อซ้ำกับโซนอื่น',duplicate_name:'ชื่อซ้ำกับโซนเดิม',locked_by_orders:'มีผู้ซื้อแล้ว เปลี่ยนไม่ได้',invalid:'ค่าไม่ถูกต้อง',too_many:'เกินจำนวนที่รับได้',
   mismatch:'ไม่ตรง',unknown_zone:'ไม่พบโซนนี้',not_editable:'แก้โซนนี้ไม่ได้'};
 const FIELD_NAME={name:'ชื่อ',venue:'สถานที่',category:'หมวด',description:'รายละเอียด',short:'ชื่อบนโปสเตอร์',poster:'โปสเตอร์',startsAt:'วันเวลาเริ่ม',endsAt:'วันเวลาจบ',
@@ -2559,9 +2660,9 @@ function orgErrText(err){
   return ORG_ERR[d.error]||'ทำรายการไม่สำเร็จ ('+d.error+')';
 }
 const teamFrom=(team,me)=>team.map(m=>({email:m.email||me,role:m.role}));
+const verifyFields=s=>({verification:s.verification,verificationNote:s.verificationNote||'',docName:s.document?s.document.name:'',docMime:s.document?s.document.mime:'',docAt:s.document?s.document.uploadedAt:null});
 function fromServerShop(s,email,role){
-  return {id:s.id,name:s.name,kind:s.type||'other',contactLine:s.contactLine||'',phone:s.phone||'',verification:s.verification,
-    verificationNote:s.verificationNote||'',team:[{email,role}]};
+  return {id:s.id,name:s.name,kind:s.type||'other',contactLine:s.contactLine||'',phone:s.phone||'',...verifyFields(s),team:[{email,role}]};
 }
 // server event -> the shape the organizer screens use (money in satang, zones keep their server id)
 function fromServerEvent(e,shopId){
@@ -2594,7 +2695,7 @@ function liveWizErrors(d){
 }
 function liveOrgState(me){
   const shop=me.shop?fromServerShop(me.shop,me.user.email,me.role):null;
-  return {live:true,account:{email:me.user.email,name:me.user.name||me.user.email},accounts:{},shops:shop?[shop]:[],shop,role:me.role,authMode:'login',
+  return {live:true,admin:!!me.admin,account:{email:me.user.email,name:me.user.name||me.user.email},accounts:{},shops:shop?[shop]:[],shop,role:me.role,authMode:'login',
     events:[],tickets:[],buyers:{},ledger:[],checkinLog:[],promos:[],announcements:[],orders:{},
     oev:null,etab:'overview',evFilter:'all',draft:null,wizStep:1,wizErr:{},onboard:{step:1,data:{kind:'bar',legal:'individual'},err:{}},
     bq:'',bzone:'all',bstatus:'all',showEmails:false};
@@ -2666,14 +2767,29 @@ const notLive=()=>toast('ส่วนนี้ยังไม่เปิดใ�
 // actions that differ in live mode; everything else falls back to ORG_ACTIONS (see orgAct)
 const LIVE_ACTIONS={
   async obNext(){
-    if(!obCollect()){render();return}
-    const o=S.org,d=o.onboard.data;
+    const formOk=obCollect(),docErr=docProblem(obDocFile);
+    if(docErr)S.org.onboard.err.doc=docErr;
+    if(!formOk||docErr){render();return}
+    const o=S.org,d=o.onboard.data,file=obDocFile;
     await live(async()=>{
       const r=await orgApi('POST','/api/org/shop',{name:d.name,type:d.kind,contactLine:d.line||'',phone:d.phone});
-      o.shop=fromServerShop(r.shop,o.account.email,r.role);o.shops=[o.shop];o.role=r.role;
-      S.stack=['orgDash'];S.tab='orgDash';save();render();toast('เปิดร้านแล้ว ทีมงาน JONGLOEI จะยืนยันร้านก่อนเผยแพร่งานได้');
+      o.shop=fromServerShop(r.shop,o.account.email,r.role);o.shops=[o.shop];o.role=r.role;obDocFile=null;
+      // the shop exists now; a failed upload can be retried from the dashboard
+      let msg='เปิดร้านแล้ว ทีมงาน JONGLOEI จะตรวจเอกสารก่อนเปิดให้เผยแพร่งาน';
+      try{Object.assign(o.shop,verifyFields((await orgApi('PUT','/api/org/shop/document',await docBody(file))).shop))}
+      catch(err){console.error('document upload failed',err);msg='เปิดร้านแล้ว แต่ส่งเอกสารไม่สำเร็จ แนบใหม่ได้ที่หน้าภาพรวม'}
+      S.stack=['orgDash'];S.tab='orgDash';save();render();toast(msg);
     },err=>{S.org.onboard.err={name:orgErrText(err)};render()});
   },
+  async adminApprove(el){
+    await live(async()=>{await orgApi('POST','/api/admin/hosts/verify',{userId:el.dataset.id,status:'verified'});
+      const sh=adminHost(el.dataset.id);toast('ยืนยันร้าน '+(sh?sh.name:'')+' แล้ว');if(S.org.shop&&S.org.shop.id===el.dataset.id)S.org.shop.verification='verified';
+      S.org.adminHosts=undefined;render()})},
+  async adminRejectGo(el){
+    const note=val('rej-note'),errEl=document.getElementById('rej-note-err');
+    if(UNSAFE_RE.test(note)){if(errEl)errEl.textContent=FIELD_ERR.unsafe_characters;return}
+    await live(async()=>{await orgApi('POST','/api/admin/hosts/verify',{userId:el.dataset.id,status:'rejected',note});
+      closeSheet();S.org.adminHosts=undefined;render();toast('ส่งผลไม่อนุมัติให้ร้านแล้ว')},e=>{if(errEl)errEl.textContent=orgErrText(e)})},
   obSubmit(){return LIVE_ACTIONS.obNext()},
   obBack(){LIVE_ACTIONS.orgLogout()},
   orgLogout(){orgLiveStop();orgLogout()},

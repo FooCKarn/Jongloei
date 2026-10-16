@@ -228,13 +228,24 @@ npx wrangler d1 migrations apply jongloei-db --remote
 
 `src/organizer.js` is the real backend behind organizer mode. Every route checks the signed-in user's shop role on the server.
 
-The organizer welcome screen has a "ใช้ระบบจริงด้วยบัญชี Google" button (shown when Google sign-in is configured). It signs in with the buyer's Google session and runs the organizer screens on this API: open a shop, add managers and door staff, create, edit, publish and cancel events, edit zones, and list orders. The demo data stays in localStorage and is never mixed with the real shop, which is never written there. Live mode shows only what the API serves: there is no door check-in, finance, resale settings, promo codes or comp tickets yet, zone types are standing and seated only, and prices are whole baht from ฿20. An admin verifies a new shop with `POST /api/admin/hosts/verify` before it can publish.
+The organizer welcome screen has a "ใช้ระบบจริงด้วยบัญชี Google" button (shown when Google sign-in is configured). It signs in with the buyer's Google session and runs the organizer screens on this API: open a shop, add managers and door staff, create, edit, publish and cancel events, edit zones, and list orders. The demo data stays in localStorage and is never mixed with the real shop, which is never written there. Live mode shows only what the API serves: there is no door check-in, finance, resale settings, promo codes or comp tickets yet, zone types are standing and seated only, and prices are whole baht from ฿20. A new shop can publish only after a JONGLOEI admin has verified it:
+
+1. When opening the shop, the owner attaches an ID card (individual) or company certificate: JPG, PNG, WebP or PDF, at most 1 MB. The server checks that the file's first bytes match its declared type.
+2. An admin opens "ตรวจร้าน" (from the organizer account card, or from the shop sign-up page for an admin without a shop). It lists shops by status. The admin opens the document, compares it with the shop's details, and verifies or rejects with a reason.
+3. A rejected owner sees the reason on the dashboard and can attach a new document, which puts the shop back in the queue. A verified shop cannot replace its document.
+
+In the demo (localStorage), anyone can open "ตรวจร้าน" from the welcome screen or the dashboard. The attached file stays in browser memory only, and nothing is approved automatically.
+
+Demo scope: the file is stored in D1 (`host_documents`, 0009) and only admins can read it. Before real users upload ID cards, move it to private storage and encrypt it (PDPA).
 
 | Route | Who | What |
 |---|---|---|
 | `GET /api/org/me` | signed in | your shop and role (`owner`, `manager`, `gate`) or none |
 | `POST /api/org/shop` | signed in, no shop yet | open a shop `{ name, type, contactLine, phone }`; you become its owner and your account role becomes `host` |
-| `POST /api/admin/hosts/verify` | admin | `{ userId, status: "verified" \| "rejected", note }` |
+| `PUT /api/org/shop/document` | owner | `{ name, mime, data }` (data is base64); replaces the document, and a rejected shop goes back to `pending` |
+| `GET /api/admin/hosts?status=` | admin | review queue: `pending` (default), `verified`, `rejected` or `all`, with owner e-mail and document details |
+| `GET /api/admin/hosts/:userId/document` | admin | the uploaded file |
+| `POST /api/admin/hosts/verify` | admin | `{ userId, status: "verified" \| "rejected", note }`; verifying needs a document (`no_document`) |
 | `GET`, `POST`, `DELETE /api/org/team` | owner | add `{ email, role: "manager" \| "gate" }`; members get that role when they sign in with that Google e-mail |
 | `GET /api/org/events`, `GET /api/org/events/:id` | any role | the shop's events with sold / held / available per zone |
 | `POST /api/org/events`, `PATCH /api/org/events/:id` | owner, manager | create a draft `{ name, venue, category, description, short, poster, startsAt, endsAt, zones: [{ name, price, capacity, color }] }` or edit it |
@@ -252,9 +263,9 @@ Rules that keep the paid flow consistent:
 - A payment that arrives after its event was cancelled goes to `needs_review` and is not minted. **Refunds are not automatic yet:** cancelling returns the number and total of paid orders to refund by hand in Stripe.
 - Not built yet: comp tickets and promo codes (a zone price must be above 0), payouts. Door check-in is below.
 
-Apply `0006_organizer.sql` to the remote database before or right after deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Until it is applied the buyer event list and the payment webhook keep working, but the organizer routes return errors.
+Apply `0006_organizer.sql` to the remote database before or right after deploying (`npx wrangler d1 migrations apply jongloei-db --remote`). Until it is applied the buyer event list and the payment webhook keep working, but the organizer routes return errors. The same holds for `0009_host_documents.sql`: apply it before deploying the shop verification code.
 
-Tests: `node --test tests/worker/*.test.mjs` (validation), and `tests/worker/organizer-api.e2e.mjs` runs 46 checks against `wrangler dev` with a fresh local D1 (steps at the top of the file).
+Tests: `node --test tests/worker/*.test.mjs` (validation, and shop verification through the Worker in `host-verification.test.mjs`), and `tests/worker/organizer-api.e2e.mjs` runs 50 checks against `wrangler dev` with a fresh local D1 (steps at the top of the file).
 
 ### Entry QR and door check-in (A6)
 
