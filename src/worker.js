@@ -25,6 +25,7 @@
 
 import { handleOrganizer } from './organizer.js';
 import { handleCheckin, advanceMarkUsed } from './checkin.js';
+import { keccak256, toHex } from './evm.js';
 import {
   handleResale, confirmResalePayment, releaseResaleBySession, resaleCheckoutStatus, cancelResaleCheckout, resaleSweep,
 } from './resale.js';
@@ -537,11 +538,7 @@ async function mintOrder(env, orderId) {
 
   let transactionIds;
   try {
-    const calls = Array.from({ length: order.quantity }, () => ({
-      contractAddress: TICKET_CONTRACT,
-      method: 'function mint(address to, uint256 eventId) returns (uint256)',
-      params: [wallet, String(order.chain_event_id)],
-    }));
+    const calls = Array.from({ length: order.quantity }, (_, i) => mintCall(env, wallet, order.chain_event_id, `${orderId}:${i}`));
     transactionIds = await writeTicketContract(env.THIRDWEB_SECRET_KEY, calls);
   } catch (err) {
     // A timeout may still have queued the write; retrying could mint twice, so a person checks.
@@ -992,11 +989,9 @@ async function testMint(request, env) {
 
   const body = await request.json().catch(() => ({}));
   const eventId = Number.isSafeInteger(body.eventId) && body.eventId >= 0 ? body.eventId : 0;
-  const [transactionId] = await writeTicketContract(env.THIRDWEB_SECRET_KEY, [{
-    contractAddress: TICKET_CONTRACT,
-    method: 'function mint(address to, uint256 eventId) returns (uint256)',
-    params: [user.wallet, String(eventId)],
-  }]);
+  const [transactionId] = await writeTicketContract(env.THIRDWEB_SECRET_KEY, [
+    mintCall(env, user.wallet, eventId, `test-mint:${crypto.randomUUID()}`),
+  ]);
   const tx = await waitForTransaction(env.THIRDWEB_SECRET_KEY, transactionId);
   await logEvent(env.DB, user.id, 'test_mint', { transactionId, status: tx.status, hash: tx.hash, eventId }, request.headers.get('cf-connecting-ip')).run();
   return json({
@@ -1005,6 +1000,25 @@ async function testMint(request, env) {
     explorer: tx.hash ? `${FUJI_EXPLORER}/tx/${tx.hash}` : null,
     wallet: `${FUJI_EXPLORER}/address/${user.wallet}`,
   }, tx.status === 'FAILED' ? 502 : 200);
+}
+
+// One ticket mint. With MINT_GUARD_ADDRESS set (contracts/src/JongloeiMintGuard.sol) it goes
+// through the guard, which mints each ticket key at most once, so a re-sent write reverts on
+// chain instead of issuing a second ticket. Keys are "<order id>:<index>", the same on every
+// attempt. Without it, the relayer mints on the ticket contract directly (before the rollout).
+function mintCall(env, to, eventId, ticketKey) {
+  if (!env.MINT_GUARD_ADDRESS) {
+    return {
+      contractAddress: TICKET_CONTRACT,
+      method: 'function mint(address to, uint256 eventId) returns (uint256)',
+      params: [to, String(eventId)],
+    };
+  }
+  return {
+    contractAddress: env.MINT_GUARD_ADDRESS,
+    method: 'function mintOnce(address to, uint256 eventId, bytes32 ticketKey) returns (uint256)',
+    params: [to, String(eventId), toHex(keccak256(ticketKey))],
+  };
 }
 
 // Queues contract calls from the relayer as one batch; thirdweb signs, pays gas and returns

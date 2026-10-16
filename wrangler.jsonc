@@ -29,6 +29,8 @@
   ],
   // Every minute: release seat holds older than 10 minutes and finish minting paid orders.
   "triggers": { "crons": ["* * * * *"] },
+  // Workers Logs: console output from requests and the cron, in the dashboard under Observability.
+  "observability": { "enabled": true },
   // Needed by `npx wrangler preview`, which Workers Builds runs for non-main branches.
   "previews": {}
 }
