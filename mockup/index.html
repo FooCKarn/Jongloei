@@ -959,8 +959,8 @@ function setMode(mode){
   S.mode=mode;S.tab=mode==='org'?'orgDash':'home';S.stack=[S.tab];render();
   if(leavingLiveOrg)loadEvents().then(render).catch(err=>console.error('Buyer event refresh failed',err));
 }
-// the organizer area has its own account, so it never asks for the buyer's Google sign-in
-function enterOrg(){if(S.orgLiveWanted&&S.signedIn&&!S.orgLive&&!(S.org&&S.org.live))orgLiveStart();else setMode('org')}
+// Organizer mode always uses the authenticated Worker session.
+function enterOrg(){orgLiveStart()}
 const myEvents=()=>S.org.events.filter(e=>(e.shopId||'shop-demo')===S.org.shop.id);
 const myEventIds=()=>new Set(myEvents().map(e=>e.id));
 function resumeAfter(n){if(n==='orgmode')setMode('org');else if(n==='orglive')orgLiveStart();else go(n)}
@@ -3258,7 +3258,7 @@ async function handleCheckoutReturn(){
 }
 
 /* boot: signed-out home, matching step 1 of the flow */
-load();ensureOrg();if(S.mode==='org'){S.tab='orgDash';S.stack=['orgDash']}
+load();if(S.mode==='org'){S.mode='buyer';S.tab='home';S.stack=['home']}
 applyMode();render();(async()=>{await loadEvents();render();checkAuth()})();
 })();
 </script>
