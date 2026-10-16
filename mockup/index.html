@@ -3185,11 +3185,17 @@ async function loadMyTickets(){
     const response=await fetch('/api/tickets',{credentials:'same-origin'});
     const data=await readJsonResponse(response,'/api/tickets');
     if(!response.ok||!Array.isArray(data.tickets))return;
+    const before=JSON.stringify([S.tickets,S.realListings]);
     S.tickets=data.tickets.map(realTicket);
     await loadResale();
-    if(S.tickets.some(t=>t.minting))setTimeout(loadMyTickets,5000);
+    // Redraw only when something changed, so a ticket still minting does not make the page flash every poll.
+    if(JSON.stringify([S.tickets,S.realListings])!==before)render();
+    clearTimeout(mintTimer);
+    if(!S.tickets.some(t=>t.minting))mintPolls=0;
+    else if(++mintPolls<=120)mintTimer=setTimeout(loadMyTickets,5000);
   }catch(err){console.error('Ticket API failed',err)}
 }
+let mintPolls=0,mintTimer=0;
 
 /* Resale listings are always loaded from the Worker. */
 function marketListings(){return S.realListings||[]}
@@ -3199,7 +3205,6 @@ async function loadResale(){
     S.realListings=market.listings.map(l=>({lid:l.id,ev:l.eventId,zone:l.zone,face:l.facePrice,price:l.price,seller:l.seller,transfers:l.transfers,tid:l.tokenId,held:l.held,mine:l.mine,real:true}));
     for(const l of mine.listings){const t=S.tickets.find(x=>x.key===l.ticketId);if(t){t.listPrice=l.price;t.listingId=l.id;t.listingSold=l.status==='sold'}}
   }catch(err){console.error('Resale API failed',err)}
-  render();
 }
 const RESALE_ERRORS={holding_period:'ลงขายได้หลังได้ตั๋วครบ 6 ชั่วโมง',transfer_closed:'ปิดการขายต่อแล้ว (1 ชั่วโมงก่อนงานเริ่ม)',invalid_price:'ราคาเกินเพดาน 125% ของราคาหน้าบัตร',
   already_listed:'ตั๋วใบนี้ลงขายอยู่แล้ว',ticket_not_listable:'ตั๋วใบนี้ลงขายไม่ได้',event_not_open:'งานนี้ปิดหรือถูกยกเลิกแล้ว',event_time_unknown:'งานนี้ยังไม่มีเวลาเริ่มที่ชัดเจน',
